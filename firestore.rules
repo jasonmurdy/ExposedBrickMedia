@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.email == 'jasonmurdy@gmail.com' || request.auth.token.email == 'sherwin.131986@gmail.com');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 2. Validation Blueprints
+    function isValidPortfolioItem(data) {
+      return data.keys().hasAll(['title', 'category', 'img', 'order', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.category is string && data.category.size() <= 100
+        && data.img is string && data.img.size() <= 1000
+        && (data.get('description', null) == null || (data.description is string && data.description.size() <= 2000))
+        && (data.get('gallery', null) == null || (data.gallery is list))
+        && data.order is number
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll(['title', 'description', 'order', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() <= 100
+        && data.description is string && data.description.size() <= 2000
+        && (data.get('price', null) == null || (data.price is string && data.price.size() <= 100))
+        && data.order is number
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isValidInquiry(data) {
+      return data.keys().hasAll(['propertyAddress', 'realtorName', 'email', 'serviceType', 'createdAt'])
+        && data.propertyAddress is string && data.propertyAddress.size() <= 500
+        && data.realtorName is string && data.realtorName.size() <= 200
+        && data.email is string && data.email.size() <= 200
+        && data.serviceType is string && data.serviceType.size() <= 100
+        && data.createdAt == request.time;
+    }
+
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll(['brandName', 'updatedAt'])
+        && data.brandName is string && data.brandName.size() <= 100
+        && (data.get('logoText', null) == null || (data.logoText is string))
+        && (data.get('heroTitlePart1', null) == null || (data.heroTitlePart1 is string))
+        && (data.get('heroTitlePart2', null) == null || (data.heroTitlePart2 is string))
+        && (data.get('heroTitleAccent', null) == null || (data.heroTitleAccent is string && data.heroTitleAccent.size() <= 100))
+        && (data.get('tagline', null) == null || (data.tagline is string))
+        && (data.get('logoLight', null) == null || (data.logoLight is string && data.logoLight.size() <= 2000))
+        && (data.get('logoDark', null) == null || (data.logoDark is string && data.logoDark.size() <= 2000))
+        && (data.get('heroImage', null) == null || (data.heroImage is string && data.heroImage.size() <= 2000))
+        && (data.get('heroAlignment', null) == null || (data.heroAlignment is string))
+        && (data.get('homeSectionsOrder', null) == null || (data.homeSectionsOrder is list))
+        && (data.get('navigationItems', null) == null || (data.navigationItems is list))
+        && (data.get('socialLinks', null) == null || (data.socialLinks is list))
+        && (data.get('contactInfo', null) == null || (data.contactInfo is map))
+        && (data.get('servicesTitle', null) == null || (data.servicesTitle is string))
+        && (data.get('servicesSubtitle', null) == null || (data.servicesSubtitle is string))
+        && (data.get('footerQuote', null) == null || (data.footerQuote is string))
+        && (data.get('inquiryTitle', null) == null || (data.inquiryTitle is string))
+        && (data.get('accentColor', null) == null || (data.accentColor is string))
+        && (data.get('fontTitle', null) == null || (data.fontTitle is string))
+        && (data.get('fontBody', null) == null || (data.fontBody is string))
+        && (data.get('layout', null) == null || (data.layout is map))
+        && data.updatedAt == request.time;
+    }
+
+    function isValidPage(data) {
+      return data.keys().hasAll(['title', 'slug', 'content', 'showInNav', 'order', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.slug is string && data.slug.size() <= 100
+        && (data.get('description', null) == null || (data.description is string && data.description.size() <= 2000))
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    // 3. Collection Rules
+    match /portfolio_items/{itemId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidPortfolioItem(incoming()) && isValidId(itemId);
+      allow update: if isAdmin() 
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'updatedAt'])
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidService(incoming()) && isValidId(serviceId);
+      allow update: if isAdmin()
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'price', 'order', 'updatedAt'])
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /inquiries/{inquiryId} {
+      allow create: if isValidInquiry(incoming()) && isValidId(inquiryId);
+      allow read, delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidSiteSettings(incoming());
+    }
+
+    match /pages/{pageId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidPage(incoming());
+      allow update: if isAdmin() 
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'slug', 'content', 'showInNav', 'order', 'description', 'updatedAt'])
+        );
+      allow delete: if isAdmin();
+    }
+  }
+}

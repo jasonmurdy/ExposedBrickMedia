@@ -1,0 +1,69 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { Puck } from "@measured/puck";
+import "@measured/puck/dist/index.css";
+import { config, BASELINE_LAYOUT } from "../lib/puck.config";
+import { useSiteContent } from "../lib/SiteContentContext";
+import { db } from "../lib/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useState } from "react";
+import { Save, X, Loader2, RotateCcw } from "lucide-react";
+
+export const PuckEditor = ({ onClose }: { onClose: () => void }) => {
+  const { settings } = useSiteContent();
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Initialize with current layout or the baseline structure
+  const initialData = settings.layout && settings.layout.content && settings.layout.content.length > 0 
+    ? settings.layout 
+    : BASELINE_LAYOUT;
+
+  const handleSave = async (data: any) => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'settings', 'site'), {
+        layout: data,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.error("Failed to save layout:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-bg-primary flex flex-col">
+      <div className="bg-charcoal p-4 flex justify-between items-center border-b border-border-subtle">
+        <h2 className="text-brick-copper font-display text-xl italic">Visual Layout Engine</h2>
+        <div className="flex gap-4">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 text-off-white/60 hover:text-white transition-colors uppercase text-[10px] tracking-widest"
+          >
+            Exit Editor
+          </button>
+        </div>
+      </div>
+      <div className="flex-grow overflow-hidden relative puck-container">
+        <Puck
+          config={config}
+          data={initialData}
+          onPublish={handleSave}
+          headerPath="EB Editor"
+        />
+      </div>
+      
+      {/* Save Status Overlay */}
+      {isSaving && (
+        <div className="absolute bottom-8 right-8 bg-brick-copper text-charcoal px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[300]">
+          <Loader2 size={16} className="animate-spin" />
+          <span className="text-[10px] uppercase font-bold tracking-widest">Persisting Layout...</span>
+        </div>
+      )}
+    </div>
+  );
+};

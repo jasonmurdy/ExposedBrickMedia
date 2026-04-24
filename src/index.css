@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Prata&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Open+Sans:wght@300;400;600&display=swap');
+
+@theme {
+  --font-display: var(--font-display-custom, "Prata", serif);
+  --font-body: var(--font-body-custom, "Montserrat", sans-serif);
+  
+  --color-charcoal: #1C1C1C;
+  --color-off-white: #F5F5F5;
+  --color-sand: #CBBB8D;
+  --color-brick-copper: var(--color-accent, #A47149);
+
+  /* Semantic Theme Variables */
+  --color-bg-primary: var(--bg-primary);
+  --color-text-primary: var(--text-primary);
+  --color-border-subtle: var(--border-subtle);
+  --color-glass-bg: var(--glass-bg);
+}
+
+:root {
+  --bg-primary: #1C1C1C;
+  --text-primary: #F5F5F5;
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --color-accent: #A47149;
+}
+
+.light {
+  --bg-primary: #F5F5F5;
+  --text-primary: #1C1C1C;
+  --border-subtle: rgba(0, 0, 0, 0.1);
+  --glass-bg: rgba(0, 0, 0, 0.03);
+}
+
+@layer base {
+  body {
+    @apply bg-bg-primary text-text-primary font-body antialiased transition-colors duration-500;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+}
+
+.font-serif {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Hide scrollbar for the main layout containers if needed, but allow scroll within content */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

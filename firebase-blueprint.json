@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "PortfolioItem": {
+      "title": "Portfolio Item",
+      "description": "An architectural project showcased in the portfolio grid.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "img": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "img", "order", "createdAt", "updatedAt"]
+    },
+    "Service": {
+      "title": "Service Tier",
+      "description": "A service offering provided by The Exposed Brick.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "order", "createdAt", "updatedAt"]
+    },
+    "Inquiry": {
+      "title": "Project Inquiry",
+      "description": "A message from a potential client.",
+      "type": "object",
+      "properties": {
+        "propertyAddress": { "type": "string" },
+        "realtorName": { "type": "string" },
+        "serviceType": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["propertyAddress", "realtorName", "serviceType", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "Site Settings",
+      "description": "Global configuration and branding for the application.",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string" },
+        "logoText": { "type": "string" },
+        "logoLight": { "type": "string" },
+        "logoDark": { "type": "string" },
+        "tagline": { "type": "string" },
+        "heroTitlePart1": { "type": "string" },
+        "heroTitlePart2": { "type": "string" },
+        "heroTitleAccent": { "type": "string" },
+        "heroImage": { "type": "string" },
+        "heroAlignment": { "type": "string", "enum": ["left", "center"] },
+        "accentColor": { "type": "string" },
+        "footerQuote": { "type": "string" },
+        "inquiryTitle": { "type": "string" },
+        "servicesTitle": { "type": "string" },
+        "servicesSubtitle": { "type": "string" },
+        "homeSectionsOrder": { "type": "array", "items": { "type": "string" } },
+        "navigationItems": { "type": "array", "items": { "type": "object" } },
+        "socialLinks": { "type": "array", "items": { "type": "object" } },
+        "contactInfo": { "type": "object" },
+        "fontTitle": { "type": "string" },
+        "fontBody": { "type": "string" },
+        "layout": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "CustomPage": {
+      "title": "Custom Page",
+      "description": "A dynamically created page on the website.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "content": { "type": "string" },
+        "showInNav": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "portfolio_items": {
+      "schema": "PortfolioItem",
+      "description": "Collection of portfolio projects."
+    },
+    "services": {
+      "schema": "Service",
+      "description": "Collection of service offerings."
+    },
+    "inquiries": {
+      "schema": "Inquiry",
+      "description": "Collection of project inquiries."
+    },
+    "settings": {
+      "schema": "SiteSettings",
+      "description": "Global site configuration (usually one document 'main')."
+    },
+    "pages": {
+      "schema": "CustomPage",
+      "description": "User-generated custom pages."
+    }
+  }
+}
