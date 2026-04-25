@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Config } from "@measured/puck";
+import { Config, DropZone } from "@measured/puck";
 import { HeroVisual, BrandHeader } from "../components/Hero";
 import { Portfolio, Services } from "../components/PortfolioSections";
 import { BookingForm, FooterContent } from "../components/BookingAndFooter";
+import { TestimonialCarousel } from "../components/TestimonialCarousel";
+import { PropertyHighlight, TourEmbed } from "../components/PropertyFeatures";
+import { LogoCloud, InstagramFeed } from "../components/SocialNodes";
 
 export type PuckConfig = {
   Section: {
@@ -16,7 +19,7 @@ export type PuckConfig = {
     children?: React.ReactNode;
   };
   Columns: {
-    distribution: "1/1" | "2/1" | "1/2";
+    leftColumnWidth: number;
     gap: number;
     left?: React.ReactNode;
     right?: React.ReactNode;
@@ -60,6 +63,39 @@ export type PuckConfig = {
   Spacer: {
     size: number;
   };
+  Testimonials: {
+    maxItems: number;
+  };
+  MediaEmbed: {
+    url: string;
+    mediaType: "image" | "video";
+    widthPercentage: number;
+    aspectRatio: "16/9" | "4/3" | "1/1" | "9/16";
+  };
+  PropertyHighlight: {
+    mediaUrl: string;
+    mediaType: "image" | "video";
+    daysOnMarket: number;
+    salePrice: string;
+    listPrice: string;
+    packageUsed: string;
+  };
+  TourEmbed: {
+    url: string;
+    height: number;
+  };
+  LogoCloud: {
+    logos: { url: string; alt: string }[];
+  };
+  InstagramFeed: {
+    username: string;
+  };
+  HTMLEmbed: {
+    html: string;
+    height?: number;
+    title?: string;
+    wrapInIframe?: boolean;
+  };
 };
 
 export const config: Config<PuckConfig> = {
@@ -91,7 +127,7 @@ export const config: Config<PuckConfig> = {
         paddingBottom: 80,
         background: "primary",
       },
-      render: ({ paddingTop, paddingBottom, background, children }) => {
+      render: ({ paddingTop, paddingBottom, background }) => {
         const bgClass = {
           primary: "bg-bg-primary",
           secondary: "bg-bg-secondary",
@@ -99,7 +135,7 @@ export const config: Config<PuckConfig> = {
         }[background];
         return (
           <section className={`${bgClass} px-8 md:px-16`} style={{ paddingTop: `${paddingTop}px`, paddingBottom: `${paddingBottom}px` }}>
-            <div className="max-w-7xl mx-auto">{children}</div>
+            <div className="max-w-7xl mx-auto"><DropZone zone="children" /></div>
           </section>
         );
       },
@@ -108,30 +144,22 @@ export const config: Config<PuckConfig> = {
       fields: {
         left: { type: "slot" },
         right: { type: "slot" },
-        distribution: {
-          type: "select",
-          options: [
-            { label: "50/50", value: "1/1" },
-            { label: "66/33", value: "2/1" },
-            { label: "33/66", value: "1/2" },
-          ],
+        leftColumnWidth: {
+          type: "number",
+          min: 10,
+          max: 90,
         },
         gap: { type: "number" },
       },
       defaultProps: {
-        distribution: "1/1",
+        leftColumnWidth: 50,
         gap: 32,
       },
-      render: ({ distribution, gap, left, right }) => {
-        const gridClass = {
-          "1/1": "grid-cols-1 md:grid-cols-2",
-          "2/1": "grid-cols-1 md:grid-cols-[2fr_1fr]",
-          "1/2": "grid-cols-1 md:grid-cols-[1fr_2fr]",
-        }[distribution];
+      render: ({ leftColumnWidth, gap }) => {
         return (
-          <div className={`grid ${gridClass}`} style={{ gap: `${gap}px` }}>
-            <div>{left}</div>
-            <div>{right}</div>
+          <div className="flex flex-col md:grid" style={{ gap: `${gap}px`, gridTemplateColumns: `${leftColumnWidth}% ${100 - leftColumnWidth}%` }}>
+            <div className="w-full"><DropZone zone="left" /></div>
+            <div className="w-full"><DropZone zone="right" /></div>
           </div>
         );
       },
@@ -293,6 +321,154 @@ export const config: Config<PuckConfig> = {
       },
       render: ({ size }) => <div style={{ height: `${size}px` }} />,
     },
+    Testimonials: {
+      fields: {
+        maxItems: { type: "number" },
+      },
+      defaultProps: { maxItems: 5 },
+      render: ({ maxItems }) => <TestimonialCarousel maxItems={maxItems} />,
+    },
+    PropertyHighlight: {
+      fields: {
+        mediaUrl: { type: "text" },
+        mediaType: { 
+          type: "select", 
+          options: [{label: "Image", value: "image"}, {label: "Video", value: "video"}] 
+        },
+        daysOnMarket: { type: "number" },
+        salePrice: { type: "text" },
+        listPrice: { type: "text" },
+        packageUsed: { type: "text" },
+      },
+      defaultProps: {
+        mediaUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
+        mediaType: "image",
+        daysOnMarket: 14,
+        salePrice: "$1,250,000",
+        listPrice: "$1,150,000",
+        packageUsed: "Cinematic Plus",
+      },
+      render: ({ mediaUrl, mediaType, daysOnMarket, salePrice, listPrice, packageUsed }) => (
+        <PropertyHighlight 
+          mediaUrl={mediaUrl} 
+          mediaType={mediaType} 
+          daysOnMarket={daysOnMarket} 
+          salePrice={salePrice} 
+          listPrice={listPrice} 
+          packageUsed={packageUsed} 
+        />
+      ),
+    },
+    TourEmbed: {
+      fields: {
+        url: { type: "text" },
+        height: { type: "number" },
+      },
+      defaultProps: { url: "", height: 600 },
+      render: ({ url, height }) => <TourEmbed url={url} height={height} />,
+    },
+    LogoCloud: {
+      fields: {
+        logos: {
+          type: "array",
+          arrayFields: {
+            url: { type: "text" },
+            alt: { type: "text" },
+          },
+        },
+      },
+      defaultProps: {
+        logos: [
+          { url: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Compass_logo.svg", alt: "Compass" },
+          { url: "https://upload.wikimedia.org/wikipedia/commons/e/ee/Sotheby%27s_International_Realty_logo.svg", alt: "Sotheby's" },
+          { url: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Coldwell_Banker_logo.svg", alt: "Coldwell Banker" },
+        ]
+      },
+      render: ({ logos }) => <LogoCloud logos={logos} />,
+    },
+    InstagramFeed: {
+      fields: {
+        username: { type: "text" },
+      },
+      defaultProps: { username: "exposedbrickmedia" },
+      render: ({ username }) => <InstagramFeed username={username} />,
+    },
+    MediaEmbed: {
+      fields: {
+        url: { type: "text" },
+        mediaType: { 
+          type: "select", 
+          options: [{label: "Image", value: "image"}, {label: "Video", value: "video"}] 
+        },
+        widthPercentage: { type: "number", min: 10, max: 100 },
+        aspectRatio: {
+          type: "select",
+          options: [
+            { label: "16:9", value: "16/9" },
+            { label: "4:3", value: "4/3" },
+            { label: "1:1", value: "1/1" },
+            { label: "9:16", value: "9/16" },
+          ]
+        }
+      },
+      defaultProps: {
+        url: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
+        mediaType: "image",
+        widthPercentage: 100,
+        aspectRatio: "16/9"
+      },
+      render: ({ url, mediaType, widthPercentage, aspectRatio }) => {
+        return (
+          <div className="w-full flex justify-center my-8">
+            <div style={{ width: `${widthPercentage}%`, aspectRatio: aspectRatio }} className="overflow-hidden bg-white/5 relative group border border-white/10">
+              {mediaType === 'video' ? (
+                <video src={url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+              ) : (
+                <img src={url} className="w-full h-full object-cover" alt="" />
+              )}
+            </div>
+          </div>
+        )
+      }
+    },
+    HTMLEmbed: {
+      fields: {
+        html: { type: "textarea" },
+        height: { type: "number" },
+        title: { type: "text" },
+        wrapInIframe: { 
+          type: "radio",
+          options: [
+            { label: "Inline", value: false },
+            { label: "Iframe (Isolated)", value: true }
+          ]
+        },
+      },
+      defaultProps: {
+        html: "<div style=\"padding: 20px; background: #eee; text-align: center;\">Custom HTML content</div>",
+        wrapInIframe: false,
+        title: "HTML Embed"
+      },
+      render: ({ html, height, title, wrapInIframe }) => {
+        if (wrapInIframe) {
+          return (
+            <iframe
+              srcDoc={html}
+              title={title}
+              style={{ width: '100%', height: height ? `${height}px` : 'auto', border: 'none' }}
+              sandbox="allow-scripts allow-top-navigation allow-same-origin"
+            />
+          );
+        }
+        return (
+          <div 
+            className="w-full overflow-hidden" 
+            style={height ? { height: `${height}px`, overflowY: 'auto' } : {}}
+            dangerouslySetInnerHTML={{ __html: html }} 
+          />
+        );
+      }
+    },
   },
 };
 
@@ -359,7 +535,7 @@ export const BASELINE_LAYOUT = {
             type: "Columns",
             props: {
               id: "columns-1",
-              distribution: "1/1",
+              leftColumnWidth: 50,
               left: [
                 {
                   type: "Contact",

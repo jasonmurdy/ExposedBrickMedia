@@ -12,22 +12,57 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useState } from "react";
 import { Save, X, Loader2, RotateCcw } from "lucide-react";
 
-export const PuckEditor = ({ onClose }: { onClose: () => void }) => {
-  const { settings } = useSiteContent();
+export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () => void }) => {
+  const { settings, pages } = useSiteContent();
   const [isSaving, setIsSaving] = useState(false);
 
+  // Define cleanObject before usage or as a helper
+  const cleanObject = (obj: any): any => {
+    try {
+      return JSON.parse(JSON.stringify(obj));
+    } catch (err) {
+      console.warn("Circular structure detected, pruning.");
+      const cache = new WeakSet();
+      const prune = (val: any): any => {
+        if (val === null || typeof val !== 'object') return val;
+        if (cache.has(val)) return undefined;
+        cache.add(val);
+        if (Array.isArray(val)) return val.map(prune);
+        const cleaned: any = {};
+        for (const [k, v] of Object.entries(val)) {
+          cleaned[k] = prune(v);
+        }
+        return cleaned;
+      };
+      return prune(obj);
+    }
+  };
+
+  const page = pageId ? pages.find(p => p.id === pageId) : null;
+
   // Initialize with current layout or the baseline structure
-  const initialData = settings.layout && settings.layout.content && settings.layout.content.length > 0 
-    ? settings.layout 
-    : BASELINE_LAYOUT;
+  const initialData = cleanObject(page?.layout && page.layout.content && page.layout.content.length > 0
+    ? page.layout
+    : (!pageId && settings.layout && settings.layout.content && settings.layout.content.length > 0)
+      ? settings.layout 
+      : BASELINE_LAYOUT);
 
   const handleSave = async (data: any) => {
     setIsSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'site'), {
-        layout: data,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+      const sanitizedData = cleanObject(data);
+      
+      if (pageId) {
+        await setDoc(doc(db, 'pages', pageId), {
+          layout: sanitizedData,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } else {
+        await setDoc(doc(db, 'settings', 'site'), {
+          layout: sanitizedData,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
     } catch (err) {
       console.error("Failed to save layout:", err);
     } finally {

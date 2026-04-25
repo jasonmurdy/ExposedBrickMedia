@@ -56,18 +56,15 @@ const SortablePortfolioItem = ({
 
   const isGallery = variant === 'gallery';
   const width = isFeatured && !isGallery ? 1000 : 600;
-  const optimizedUrl = `${item.img.split('?')[0]}?auto=format&fit=crop&q=80&w=${width}`;
+  const isUnsplash = item.img && item.img.includes('unsplash.com');
+  const optimizedUrl = isUnsplash
+    ? `${item.img.split('?')[0]}?auto=format&fit=crop&q=80&w=${width}`
+    : item.img;
 
-  return (
-    <div 
-      ref={setNodeRef} 
-      style={style}
-      className={`relative overflow-hidden group bg-stone-900 border border-border-subtle hover:border-brick-copper/30 transition-all duration-500 rounded-sm ${
-        !isGallery && isFeatured ? 'sm:col-span-2 sm:row-span-2' : ''
-      } ${!isGallery && index === 3 ? 'sm:col-span-2' : ''} ${isGallery ? 'aspect-[4/5]' : 'aspect-square md:aspect-auto'}`}
-    >
+  const content = (
+    <>
       <motion.img 
-        whileHover={!isEditMode ? { scale: 1.05 } : {}}
+        whileHover={!isEditMode && !item.url ? { scale: 1.05 } : {}}
         transition={{ duration: 1.2, ease: [0.215, 0.61, 0.355, 1] }}
         src={optimizedUrl} 
         alt={item.title}
@@ -96,6 +93,39 @@ const SortablePortfolioItem = ({
         </div>
       )}
 
+      {/* Grid Hover State */}
+      {!isGallery && !isEditMode && (
+        <div className="absolute inset-0 bg-brick-copper/10 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-8 text-center pointer-events-none">
+           <span className="text-[10px] uppercase tracking-[0.4em] font-medium text-white mb-3 shadow-xl">
+             {item.url ? 'View Project' : 'View Journal'}
+           </span>
+           <h3 className="text-sm font-display italic text-white mb-2">{item.title}</h3>
+           {item.description && (
+             <p className="text-[9px] text-white/80 font-mono tracking-tighter leading-tight max-w-[200px] line-clamp-3">
+               {item.description}
+             </p>
+           )}
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style}
+      className={`relative overflow-hidden group bg-stone-900 border border-border-subtle hover:border-brick-copper/30 transition-all duration-500 rounded-sm ${
+        !isGallery && isFeatured ? 'sm:col-span-2 sm:row-span-2' : ''
+      } ${!isGallery && index === 3 ? 'sm:col-span-2' : ''} ${isGallery ? 'aspect-[4/5]' : 'aspect-square md:aspect-auto'}`}
+    >
+      {item.url && !isEditMode ? (
+        <a href={item.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+          {content}
+        </a>
+      ) : (
+        content
+      )}
+
       {/* Admin Controls */}
       {isEditMode && (
         <div className="absolute inset-0 bg-charcoal/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -110,19 +140,6 @@ const SortablePortfolioItem = ({
               <Trash2 size={20} />
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Grid Hover State */}
-      {!isGallery && !isEditMode && (
-        <div className="absolute inset-0 bg-brick-copper/10 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-8 text-center pointer-events-none">
-           <span className="text-[10px] uppercase tracking-[0.4em] font-medium text-white mb-3 shadow-xl">View Journal</span>
-           <h3 className="text-sm font-display italic text-white mb-2">{item.title}</h3>
-           {item.description && (
-             <p className="text-[9px] text-white/80 font-mono tracking-tighter leading-tight max-w-[200px] line-clamp-3">
-               {item.description}
-             </p>
-           )}
         </div>
       )}
     </div>
@@ -189,12 +206,20 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
       category: 'Detail',
       img: 'https://images.unsplash.com/photo-1600607687940-c52fb036999c',
       description: 'Short project story...',
+      url: '',
       order: items.length,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
     // Automatically start editing
-    const itemData = { id: newDoc.id, title: 'New Project', category: 'Detail', description: 'Short project story...', img: 'https://images.unsplash.com/photo-1600607687940-c52fb036999c' };
+    const itemData = { 
+      id: newDoc.id, 
+      title: 'New Project', 
+      category: 'Detail', 
+      description: 'Short project story...', 
+      img: 'https://images.unsplash.com/photo-1600607687940-c52fb036999c',
+      url: '' 
+    };
     setEditingItem(itemData);
     setEditFields({ ...itemData });
   };
@@ -286,14 +311,26 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
 
                 <div className="space-y-6">
                   <div className="space-y-4">
-                    <div>
-                      <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Identification</label>
-                      <input 
-                        className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
-                        placeholder="Project Title"
-                        value={editFields.title}
-                        onChange={e => setEditFields({...editFields, title: e.target.value})}
-                      />
+      {/* Identification & URL */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Identification</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
+                          placeholder="Project Title"
+                          value={editFields.title}
+                          onChange={e => setEditFields({...editFields, title: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">External Link (Optional)</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
+                          placeholder="https://example.com/listing"
+                          value={editFields.url || ''}
+                          onChange={e => setEditFields({...editFields, url: e.target.value})}
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Taxonomy</label>

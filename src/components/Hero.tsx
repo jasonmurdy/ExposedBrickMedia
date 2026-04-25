@@ -100,14 +100,14 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.215, 0.61, 0.355, 1] }}
-          className="mb-8 pt-16 md:pt-24"
+          className="mb-4 pt-16 md:pt-20"
         >
           {logoUrl ? (
-            <div className={`h-32 md:h-40 flex items-center group relative ${isEditMode ? 'hover:ring-2 hover:ring-brick-copper transition-all p-4' : ''}`}>
+            <div className={`w-full max-w-[16rem] md:max-w-xs flex items-center group relative ${isEditMode ? 'hover:ring-2 hover:ring-brick-copper transition-all p-4' : ''}`}>
               <img 
                 src={logoUrl} 
                 alt={settings.brandName || "Logo"} 
-                className="h-full w-auto object-contain transition-all hover:scale-[1.02]"
+                className="w-full h-auto object-contain transition-all hover:scale-[1.02]"
                 referrerPolicy="no-referrer"
               />
               {isEditMode && (

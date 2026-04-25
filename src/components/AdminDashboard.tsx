@@ -45,11 +45,13 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
+  const [testimonials, setTestimonials] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'aesthetics' | 'journal' | 'services' | 'exchange' | 'narratives' | 'layout'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'aesthetics' | 'journal' | 'services' | 'exchange' | 'narratives' | 'layout' | 'social_proof'>('architecture');
   const [showPuck, setShowPuck] = useState(false);
+  const [puckPageId, setPuckPageId] = useState<string | null>(null);
 
   const { settings, pages } = useSiteContent();
   const [localSettings, setLocalSettings] = useState(settings);
@@ -85,6 +87,11 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       setServices(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const qTestimonials = query(collection(db, 'testimonials'), orderBy('order', 'asc'));
+    const unsubTestimonials = onSnapshot(qTestimonials, (snap) => {
+      setTestimonials(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     const qInquiries = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'));
     const unsubInquiries = onSnapshot(qInquiries, (snap) => {
       setInquiries(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -93,6 +100,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     return () => {
       unsubPortfolio();
       unsubServices();
+      unsubTestimonials();
       unsubInquiries();
     };
   }, [user]);
@@ -131,10 +139,19 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   const logAction = async (action: string, details: any) => {
     try {
+      // Deep clone and clean to avoid circular structures in JSON.stringify
+      const sanitizedDetails = JSON.parse(JSON.stringify(details, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (key === 'layout') return '[Layout Data]'; // Avoid logging huge layouts twice
+          return value;
+        }
+        return value;
+      }));
+
       await fetch('/api/admin/logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, details, user: user.email })
+        body: JSON.stringify({ action, details: sanitizedDetails, user: user.email })
       });
     } catch (err) {
       console.error('Failed to log action:', err);
@@ -276,9 +293,40 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
+  const handleCreateTestimonial = async () => {
+    const newItem = {
+      name: 'Client Name',
+      brokerage: 'Brokerage Name',
+      quote: 'An incredible experience end-to-end.',
+      headshotUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a',
+      order: testimonials.length,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    const docRef = await addDoc(collection(db, 'testimonials'), newItem);
+    await logAction('CREATE_TESTIMONIAL', { name: newItem.name });
+    setIsEditing(docRef.id);
+    setEditData({ id: docRef.id, ...newItem });
+  };
+
+  async function handleUpdateTestimonial(id: string) {
+    const docRef = doc(db, 'testimonials', id);
+    const { id: _, createdAt: __, ...dataToUpdate } = editData;
+    await updateDoc(docRef, { ...dataToUpdate, updatedAt: serverTimestamp() });
+    await logAction('UPDATE_TESTIMONIAL', { id });
+    setIsEditing(null);
+  }
+
+  const handleDeleteTestimonial = async (id: string) => {
+    if (confirm('Erase this testimonial?')) {
+      await deleteDoc(doc(db, 'testimonials', id));
+      await logAction('DELETE_TESTIMONIAL', { id });
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-charcoal z-[100] flex flex-col p-8 md:p-16 overflow-y-auto no-scrollbar">
-      {showPuck && <PuckEditor onClose={() => setShowPuck(false)} />}
+      {showPuck && <PuckEditor pageId={puckPageId || undefined} onClose={() => { setShowPuck(false); setPuckPageId(null); }} />}
       
       <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-8 mb-8 border-b border-white/10 pb-8">
         <div>
@@ -317,6 +365,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           { id: 'aesthetics', label: 'Aesthetics', icon: Palette },
           { id: 'journal', label: 'Journal', icon: Layout },
           { id: 'services', label: 'Offerings', icon: Briefcase },
+          { id: 'social_proof', label: 'Social Proof', icon: Users },
           { id: 'exchange', label: 'Exchange', icon: MessageSquare },
           { id: 'narratives', label: 'Narratives', icon: FileText }
         ].map(tab => (
@@ -930,6 +979,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                     <div className="flex justify-between items-center">
                       <div><h4 className="text-sm font-semibold">{page.title}</h4><p className="text-[10px] text-white/40 font-mono">/p/{page.slug}</p></div>
                       <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onClick={() => { setPuckPageId(page.id); setShowPuck(true); }} className="text-white/20 hover:text-brick-copper" title="Launch Visual Editor"><Layout size={16} /></button>
                         <button onClick={() => { setIsEditing(page.id); setEditData(page); }} className="text-white/20 hover:text-brick-copper"><Edit2 size={16} /></button>
                         <button onClick={() => handleDeletePage(page.id)} className="text-white/20 hover:text-red-500"><Trash2 size={16} /></button>
                       </div>
@@ -937,6 +987,74 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   )}
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'social_proof' && (
+          <section>
+            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+              <div className="flex items-center gap-3 text-brick-copper">
+                <Users size={18} />
+                <h3 className="font-display text-2xl italic">Social Proof & Testimonials</h3>
+              </div>
+              <button onClick={handleCreateTestimonial} className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-white transition-colors">
+                <Plus size={14} /> Add Testimonial
+              </button>
+            </div>
+            <div className="space-y-6">
+              {testimonials.map(item => (
+                <div key={item.id} className="border border-white/5 p-6 md:p-8 bg-white/[0.01] hover:border-brick-copper/30 transition-all group">
+                  {isEditing === item.id ? (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div>
+                              <FileUpload 
+                                label="Client Headshot"
+                                path="testimonials"
+                                onUploadComplete={(url) => setEditData({...editData, headshotUrl: url})}
+                              />
+                              {(editData.headshotUrl || item.headshotUrl) && (
+                                <div className="mt-4 w-16 h-16 rounded-full overflow-hidden border border-white/10">
+                                  <img src={editData.headshotUrl || item.headshotUrl} className="w-full h-full object-cover" alt="headshot" />
+                                </div>
+                              )}
+                           </div>
+                           <div className="space-y-4">
+                              <input className="bg-transparent border-b border-white/10 w-full outline-none text-sm py-1 font-display" placeholder="Client Name" value={editData.name ?? ''} onChange={e => setEditData({...editData, name: e.target.value})} />
+                              <input className="bg-transparent border-b border-white/10 w-full outline-none text-[10px] uppercase tracking-widest" placeholder="Brokerage / Company" value={editData.brokerage ?? ''} onChange={e => setEditData({...editData, brokerage: e.target.value})} />
+                              <input type="number" className="bg-transparent border-b border-white/10 w-full outline-none text-[10px] uppercase" placeholder="Index Order" value={editData.order ?? 0} onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} />
+                           </div>
+                        </div>
+                        <textarea className="bg-transparent border border-white/10 w-full h-32 p-4 text-xs font-mono" placeholder="Enter quotation..." value={editData.quote ?? ''} onChange={e => setEditData({...editData, quote: e.target.value})} />
+                        <div className="flex gap-4">
+                           <button onClick={() => handleUpdateTestimonial(item.id)} className="px-6 py-3 bg-brick-copper text-charcoal text-[10px] uppercase tracking-widest">Persist</button>
+                           <button onClick={() => setIsEditing(null)} className="px-6 py-3 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest">Release</button>
+                        </div>
+                      </div>
+                  ) : (
+                    <div className="flex justify-between items-start">
+                       <div className="flex gap-6 items-start">
+                          <img src={item.headshotUrl} className="w-16 h-16 rounded-full object-cover border border-white/10" alt="" />
+                          <div>
+                             <h4 className="text-lg font-display italic text-white mb-1">{item.name}</h4>
+                             <p className="text-[9px] uppercase tracking-widest text-brick-copper mb-4">{item.brokerage}</p>
+                             <p className="text-xs text-white/60 font-mono italic">"{item.quote}"</p>
+                          </div>
+                       </div>
+                       <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                          <button onClick={() => { setIsEditing(item.id); setEditData(item); }} className="text-white/20 hover:text-brick-copper"><Edit2 size={16} /></button>
+                          <button onClick={() => handleDeleteTestimonial(item.id)} className="text-white/20 hover:text-red-500"><Trash2 size={16} /></button>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {testimonials.length === 0 && (
+                <div className="py-20 text-center border border-dashed border-white/5 text-white/20">
+                  <p className="text-[10px] uppercase tracking-[0.3em]">No social proof registered.</p>
+                </div>
+              )}
             </div>
           </section>
         )}

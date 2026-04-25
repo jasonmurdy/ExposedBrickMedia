@@ -37,6 +37,7 @@ interface CustomPage {
   description?: string; // SEO meta
   showInNav: boolean;
   order: number;
+  layout?: any;
 }
 
 interface ServiceItem {

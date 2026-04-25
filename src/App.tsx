@@ -99,7 +99,7 @@ function MainLayout() {
       {/* LEFT COLUMN: BRAND & SERVICES */}
       <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-32 lg:pt-12 overflow-y-auto no-scrollbar">
         <BrandHeader theme={isLight ? 'light' : 'dark'} />
-        <div className="flex-grow flex flex-col justify-end pt-12">
+        <div className="pt-8">
           <Services />
         </div>
       </aside>
@@ -151,6 +151,10 @@ function DynamicPageView() {
   const page = pages.find(p => p.slug === slug);
 
   if (!page) return <div className="p-16 text-center">Narrative not found.</div>;
+
+  if (page.layout && page.layout.content && page.layout.content.length > 0) {
+    return <Render config={config} data={page.layout} />;
+  }
 
   return (
     <motion.section 

@@ -99,6 +99,17 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isValidTestimonial(data) {
+      return data.keys().hasAll(['name', 'brokerage', 'quote', 'headshotUrl', 'order', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() <= 200
+        && data.brokerage is string && data.brokerage.size() <= 200
+        && data.quote is string && data.quote.size() <= 2000
+        && data.headshotUrl is string && data.headshotUrl.size() <= 2000
+        && data.order is number
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
     // 3. Collection Rules
     match /portfolio_items/{itemId} {
       allow read: if true;
@@ -127,6 +138,18 @@ service cloud.firestore {
     match /inquiries/{inquiryId} {
       allow create: if isValidInquiry(incoming()) && isValidId(inquiryId);
       allow read, delete: if isAdmin();
+    }
+
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidTestimonial(incoming()) && isValidId(testimonialId);
+      allow update: if isAdmin()
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'brokerage', 'quote', 'headshotUrl', 'order', 'updatedAt'])
+        );
+      allow delete: if isAdmin();
     }
 
     match /settings/{settingId} {
