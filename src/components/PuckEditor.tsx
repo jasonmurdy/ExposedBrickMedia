@@ -44,9 +44,9 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   const page = pageId ? pages.find(p => p.id === pageId) : null;
 
   // Initialize with current layout or the baseline structure
-  const initialData = cleanObject(page?.layout && page.layout.content && page.layout.content.length > 0
+  const initialData = cleanObject(page?.layout && (page.layout.content?.length > 0 || page.layout.zones)
     ? page.layout
-    : (!pageId && settings.layout && settings.layout.content && settings.layout.content.length > 0)
+    : (!pageId && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones))
       ? settings.layout 
       : BASELINE_LAYOUT);
 

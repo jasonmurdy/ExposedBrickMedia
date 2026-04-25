@@ -40,6 +40,18 @@ service cloud.firestore {
         && (data.get('url', null) == null || (data.url is string && data.url.size() <= 2000))
         && (data.get('description', null) == null || (data.description is string && data.description.size() <= 2000))
         && (data.get('gallery', null) == null || (data.gallery is list))
+        && (data.get('mlsNumber', null) == null || (data.mlsNumber is string && data.mlsNumber.size() <= 100))
+        && (data.get('listPrice', null) == null || (data.listPrice is string && data.listPrice.size() <= 100))
+        && (data.get('propertyType', null) == null || (data.propertyType is string && data.propertyType.size() <= 200))
+        && (data.get('beds', null) == null || (data.beds is string && data.beds.size() <= 20))
+        && (data.get('baths', null) == null || (data.baths is string && data.baths.size() <= 20))
+        && (data.get('sqft', null) == null || (data.sqft is string && data.sqft.size() <= 20))
+        && (data.get('status', null) == null || (data.status is string && data.status.size() <= 40))
+        && (data.get('daysOnMarket', null) == null || (data.daysOnMarket is number))
+        && (data.get('colSpan', null) == null || (data.colSpan is number))
+        && (data.get('rowSpan', null) == null || (data.rowSpan is number))
+        && (data.get('type', null) == null || (data.type is string && (data.type == 'item' || data.type == 'spacer')))
+        && (data.get('panel', null) == null || (data.panel is string && (data.panel == 'main' || data.panel == 'side')))
         && data.order is number
         && data.createdAt == request.time
         && data.updatedAt == request.time;
@@ -120,7 +132,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'updatedAt'])
         );
       allow delete: if isAdmin();
     }

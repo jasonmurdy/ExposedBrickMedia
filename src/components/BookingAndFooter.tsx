@@ -9,6 +9,7 @@ import { Instagram, Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Edit3, Che
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useSiteContent } from '../lib/SiteContentContext';
+import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 
 const platformIcons: Record<string, any> = {
   instagram: Instagram,
@@ -29,23 +30,28 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
   });
 
   const saveInquiryTitle = async (val: string) => {
-    await updateDoc(doc(db, 'settings', 'site'), {
-      inquiryTitle: val,
-      updatedAt: serverTimestamp()
-    });
+    try {
+      await updateDoc(doc(db, 'settings', 'site'), {
+        inquiryTitle: val,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'settings/site');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const path = 'inquiries';
     try {
-      await addDoc(collection(db, 'inquiries'), {
+      await addDoc(collection(db, path), {
         ...formData,
         createdAt: serverTimestamp()
       });
       setSubmitted(true);
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.CREATE, path);
     } finally {
       setLoading(false);
     }
@@ -109,7 +115,7 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
         <div className="flex pt-4">
            <button 
              disabled={loading}
-             className="flex-1 bg-brick-copper/90 text-bg-primary font-semibold text-[10px] uppercase tracking-widest py-4 hover:bg-brick-copper transition-all disabled:opacity-50"
+             className="flex-1 bg-brick-copper/90 text-bg-primary font-semibold text-[10px] uppercase tracking-widest py-4 transition-all duration-300 hover:bg-white hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 shadow-sm hover:shadow-md disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-brick-copper/90"
            >
              {loading ? 'Transmitting...' : 'Request Quote'}
            </button>
@@ -123,10 +129,14 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
   const { settings, isEditMode } = useSiteContent();
 
   const saveFooterQuote = async (val: string) => {
-    await updateDoc(doc(db, 'settings', 'site'), {
-      footerQuote: val,
-      updatedAt: serverTimestamp()
-    });
+    try {
+      await updateDoc(doc(db, 'settings', 'site'), {
+        footerQuote: val,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'settings/site');
+    }
   };
   
   return (

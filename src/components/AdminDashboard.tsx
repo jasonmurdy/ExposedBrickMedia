@@ -34,6 +34,7 @@ import {
 import { FileUpload } from './FileUpload';
 import { GoogleGenAI } from '@google/genai';
 import { PuckEditor } from './PuckEditor';
+import { Portfolio } from './PortfolioSections';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 
 const ADMIN_EMAILS = ['jasonmurdy@gmail.com', 'sherwin.131986@gmail.com'];
@@ -50,14 +51,20 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isFetchingMLS, setIsFetchingMLS] = useState(false);
   const [activeTab, setActiveTab] = useState<'architecture' | 'aesthetics' | 'journal' | 'services' | 'exchange' | 'narratives' | 'layout' | 'social_proof'>('architecture');
   const [showPuck, setShowPuck] = useState(false);
   const [puckPageId, setPuckPageId] = useState<string | null>(null);
 
-  const { settings, pages } = useSiteContent();
+  const { settings, pages, setIsEditMode } = useSiteContent();
   const [localSettings, setLocalSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    setIsEditMode(true);
+    return () => setIsEditMode(false);
+  }, []);
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -159,6 +166,49 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
+  const handleMLSLookup = async () => {
+    if (!editData.mlsNumber) {
+      alert("Please enter an MLS number first.");
+      return;
+    }
+    setIsFetchingMLS(true);
+    try {
+      const result = await fetch('/api/ddf/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mlsNumber: editData.mlsNumber })
+      });
+      
+      const listingData = await result.json();
+
+      if (!result.ok) {
+        throw new Error(listingData.error || "Lookup failed");
+      }
+
+      // Convert CREA dates if needed, or simple calculate DOM
+      const timestamp = Date.parse(listingData.ListingDate);
+      const dom = !isNaN(timestamp) ? Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24)) : 0;
+
+      setEditData({
+        ...editData,
+        title: listingData.Address?.AddressLine1 || editData.title,
+        description: listingData.PublicRemarks || editData.description,
+        img: listingData.Property?.Photo?.[0]?.SequenceId ? `https://cdn.realtor.ca/listing/CREA/${listingData.ListingID}/highres/${listingData.Property.Photo[0].SequenceId}.jpg` : editData.img, // Or whatever is provided by DDF
+        listPrice: listingData.ListPrice || editData.listPrice,
+        propertyType: listingData.Property?.Type || editData.propertyType,
+        beds: listingData.Building?.BedroomsTotal || editData.beds,
+        baths: listingData.Building?.BathroomTotal || editData.baths,
+        sqft: listingData.Building?.SizeInterior || editData.sqft,
+        status: listingData.TransactionType || editData.status
+      });
+    } catch (error: any) {
+      console.error("MLS Lookup failed", error);
+      alert(`MLS Lookup failed: ${error.message}`);
+    } finally {
+      setIsFetchingMLS(false);
+    }
+  };
+
   const handleCreatePortfolio = async () => {
     const newItem = {
       title: 'New Project',
@@ -166,25 +216,36 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       description: 'A study in light and space.',
       img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c',
       gallery: [],
+      type: 'item',
+      colSpan: 1,
+      rowSpan: 1,
       order: portfolioItems.length,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
-    const docRef = await addDoc(collection(db, 'portfolio_items'), newItem);
-    await logAction('CREATE_PORTFOLIO', { title: newItem.title });
-    setIsEditing(docRef.id);
-    setEditData({ id: docRef.id, ...newItem });
+    try {
+      const docRef = await addDoc(collection(db, 'portfolio_items'), newItem);
+      await logAction('CREATE_PORTFOLIO', { title: newItem.title });
+      setIsEditing(docRef.id);
+      setEditData({ id: docRef.id, ...newItem });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'portfolio_items');
+    }
   };
 
   async function handleUpdatePortfolio(id: string) {
     const docRef = doc(db, 'portfolio_items', id);
-    const { id: _, createdAt: __, ...dataToUpdate } = editData;
-    await updateDoc(docRef, {
-      ...dataToUpdate,
-      updatedAt: serverTimestamp()
-    });
-    await logAction('UPDATE_PORTFOLIO', { id, title: editData.title });
-    setIsEditing(null);
+    const { id: _, createdAt: __, daysOnMarket: ___, ...dataToUpdate } = editData;
+    try {
+      await updateDoc(docRef, {
+        ...dataToUpdate,
+        updatedAt: serverTimestamp()
+      });
+      await logAction('UPDATE_PORTFOLIO', { id, title: editData.title });
+      setIsEditing(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `portfolio_items/${id}`);
+    }
   }
 
   const handleCreateService = async () => {
@@ -196,19 +257,27 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
-    await addDoc(collection(db, 'services'), newService);
-    await logAction('CREATE_SERVICE', { title: newService.title });
+    try {
+      await addDoc(collection(db, 'services'), newService);
+      await logAction('CREATE_SERVICE', { title: newService.title });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'services');
+    }
   };
 
   const handleUpdateService = async (id: string) => {
     const docRef = doc(db, 'services', id);
     const { id: _, createdAt: __, ...dataToUpdate } = editData;
-    await updateDoc(docRef, {
-      ...dataToUpdate,
-      updatedAt: serverTimestamp()
-    });
-    await logAction('UPDATE_SERVICE', { id, title: editData.title });
-    setIsEditing(null);
+    try {
+      await updateDoc(docRef, {
+        ...dataToUpdate,
+        updatedAt: serverTimestamp()
+      });
+      await logAction('UPDATE_SERVICE', { id, title: editData.title });
+      setIsEditing(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `services/${id}`);
+    }
   };
 
   const handleDeleteService = async (id: string) => {
@@ -234,7 +303,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       await logAction('UPDATE_SETTINGS', { localSettings });
       setSaveSuccess(true);
     } catch (err) {
-      console.error('Failed to update settings:', err);
+      handleFirestoreError(err, OperationType.UPDATE, 'settings/site');
     } finally {
       setIsSaving(false);
     }
@@ -257,12 +326,16 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const handleUpdatePage = async (id: string) => {
     const docRef = doc(db, 'pages', id);
     const { id: _, createdAt: __, ...dataToUpdate } = editData;
-    await updateDoc(docRef, {
-      ...dataToUpdate,
-      updatedAt: serverTimestamp()
-    });
-    await logAction('UPDATE_PAGE', { id, title: editData.slug });
-    setIsEditing(null);
+    try {
+      await updateDoc(docRef, {
+        ...dataToUpdate,
+        updatedAt: serverTimestamp()
+      });
+      await logAction('UPDATE_PAGE', { id, title: editData.slug });
+      setIsEditing(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `pages/${id}`);
+    }
   };
 
   const handleDeletePage = async (id: string) => {
@@ -290,7 +363,11 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   async function handleDeletePortfolio(id: string) {
     if (confirm('Erase this project narrative?')) {
-      await deleteDoc(doc(db, 'portfolio_items', id));
+      try {
+        await deleteDoc(doc(db, 'portfolio_items', id));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `portfolio_items/${id}`);
+      }
     }
   };
 
@@ -313,9 +390,13 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   async function handleUpdateTestimonial(id: string) {
     const docRef = doc(db, 'testimonials', id);
     const { id: _, createdAt: __, ...dataToUpdate } = editData;
-    await updateDoc(docRef, { ...dataToUpdate, updatedAt: serverTimestamp() });
-    await logAction('UPDATE_TESTIMONIAL', { id });
-    setIsEditing(null);
+    try {
+      await updateDoc(docRef, { ...dataToUpdate, updatedAt: serverTimestamp() });
+      await logAction('UPDATE_TESTIMONIAL', { id });
+      setIsEditing(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `testimonials/${id}`);
+    }
   }
 
   const handleDeleteTestimonial = async (id: string) => {
@@ -550,25 +631,71 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 </div>
 
                 <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
-                  <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">Social Nodes</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="flex justify-between items-center mb-6">
+                    <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60">Social Nodes</h4>
+                    <button 
+                      onClick={() => {
+                        const newSocial = [...(localSettings.socialLinks || [])];
+                        newSocial.push({ id: Date.now().toString(), platform: 'instagram', url: 'https://' });
+                        setLocalSettings({...localSettings, socialLinks: newSocial});
+                      }}
+                      className="text-brick-copper hover:text-white flex items-center gap-2 text-[9px] uppercase tracking-widest transition-colors font-bold"
+                    >
+                      <Plus size={12} /> Add Node
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {(localSettings.socialLinks || []).map((link, idx) => (
-                      <div key={link.id} className="bg-white/5 p-3 border border-white/5 space-y-2">
-                        <div className="flex justify-between items-center text-[8px] uppercase tracking-widest text-white/20">
-                          <span>{link.platform}</span>
+                      <div key={link.id} className="bg-white/5 p-4 border border-white/5 space-y-4 group/social">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            {link.platform === 'instagram' && <Instagram size={14} className="text-white/40" />}
+                            {link.platform === 'twitter' && <Twitter size={14} className="text-white/40" />}
+                            {link.platform === 'linkedin' && <Linkedin size={14} className="text-white/40" />}
+                            {link.platform === 'facebook' && <Facebook size={14} className="text-white/40" />}
+                            <select 
+                              className="bg-transparent text-[8px] uppercase tracking-widest text-white/60 outline-none border-none cursor-pointer hover:text-brick-copper transition-colors"
+                              value={link.platform}
+                              onChange={e => {
+                                const newSocial = [...(localSettings.socialLinks || [])];
+                                newSocial[idx].platform = e.target.value as any;
+                                setLocalSettings({...localSettings, socialLinks: newSocial});
+                              }}
+                            >
+                              <option value="instagram" className="bg-charcoal text-white">Instagram</option>
+                              <option value="twitter" className="bg-charcoal text-white">Twitter</option>
+                              <option value="linkedin" className="bg-charcoal text-white">LinkedIn</option>
+                              <option value="facebook" className="bg-charcoal text-white">Facebook</option>
+                            </select>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              const newSocial = (localSettings.socialLinks || []).filter(s => s.id !== link.id);
+                              setLocalSettings({...localSettings, socialLinks: newSocial});
+                            }}
+                            className="text-white/10 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                         <input 
-                          className="bg-transparent text-[9px] font-mono outline-none w-full border-b border-white/10 focus:border-brick-copper" 
+                          className="bg-transparent text-[10px] font-mono outline-none w-full border-b border-white/10 focus:border-brick-copper py-1" 
                           value={link.url} 
                           onChange={e => {
                             const newSocial = [...(localSettings.socialLinks || [])];
                             newSocial[idx].url = e.target.value;
                             setLocalSettings({...localSettings, socialLinks: newSocial});
                           }}
+                          placeholder="https://..."
                         />
                       </div>
                     ))}
                   </div>
+                  {(localSettings.socialLinks?.length || 0) === 0 && (
+                    <p className="text-[9px] text-white/20 text-center uppercase tracking-widest border border-dashed border-white/10 py-8">
+                      No social nodes established.
+                    </p>
+                  )}
                 </div>
                 
                 <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
@@ -893,6 +1020,82 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                               />
                             </div>
                           </div>
+                          <div className="bg-brick-copper/5 p-4 border border-brick-copper/10 gap-4 flex flex-col">
+                             <div className="flex gap-4 items-end">
+                               <div className="flex-1">
+                                 <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-1">MLS Number</label>
+                                 <input 
+                                   className="bg-transparent border-b border-brick-copper/30 w-full outline-none py-1 text-[10px] font-mono text-white placeholder-white/20" 
+                                   placeholder="e.g. 123456"
+                                   value={editData.mlsNumber ?? item.mlsNumber ?? ''} 
+                                   onChange={e => setEditData({...editData, mlsNumber: e.target.value})} 
+                                 />
+                               </div>
+                               <button 
+                                 onClick={handleMLSLookup} 
+                                 disabled={isFetchingMLS}
+                                 className="px-6 py-1.5 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-colors disabled:opacity-50"
+                               >
+                                 {isFetchingMLS ? 'Fetching...' : 'Fetch from MLS'}
+                               </button>
+                             </div>
+                             <div className="grid grid-cols-2 gap-4">
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
+                                 <input 
+                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
+                                   placeholder="e.g. $1,500,000"
+                                   value={editData.listPrice ?? item.listPrice ?? ''} 
+                                   onChange={e => setEditData({...editData, listPrice: e.target.value})} 
+                                 />
+                               </div>
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Property Type</label>
+                                 <input 
+                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
+                                   placeholder="e.g. Single Family"
+                                   value={editData.propertyType ?? item.propertyType ?? ''} 
+                                   onChange={e => setEditData({...editData, propertyType: e.target.value})} 
+                                 />
+                               </div>
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Beds</label>
+                                 <input 
+                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
+                                   placeholder="e.g. 4"
+                                   value={editData.beds ?? item.beds ?? ''} 
+                                   onChange={e => setEditData({...editData, beds: e.target.value})} 
+                                 />
+                               </div>
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Baths</label>
+                                 <input 
+                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
+                                   placeholder="e.g. 2.5"
+                                   value={editData.baths ?? item.baths ?? ''} 
+                                   onChange={e => setEditData({...editData, baths: e.target.value})} 
+                                 />
+                               </div>
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">SQFT</label>
+                                 <input 
+                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
+                                   placeholder="e.g. 2,500"
+                                   value={editData.sqft ?? item.sqft ?? ''} 
+                                   onChange={e => setEditData({...editData, sqft: e.target.value})} 
+                                 />
+                               </div>
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Status</label>
+                                 <input 
+                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
+                                   placeholder="e.g. For Sale, Sold"
+                                   value={editData.status ?? item.status ?? ''} 
+                                   onChange={e => setEditData({...editData, status: e.target.value})} 
+                                 />
+                               </div>
+                             </div>
+                          </div>
                           <div>
                             <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Index Order</label>
                             <input 
@@ -901,6 +1104,51 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                               value={editData.order ?? item.order} 
                               onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} 
                             />
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Layout Configuration</label>
+                            <div className="grid grid-cols-4 gap-4 bg-white/5 p-4 border border-white/5">
+                              <div>
+                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Registry Type</label>
+                                <select 
+                                  className="bg-charcoal border border-white/10 w-full outline-none py-1 text-[9px] uppercase tracking-tighter"
+                                  value={editData.type || item.type || 'item'}
+                                  onChange={e => setEditData({...editData, type: e.target.value})}
+                                >
+                                  <option value="item">Showcase Item</option>
+                                  <option value="spacer">Blank Space</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Panel Allocation</label>
+                                <select 
+                                  className="bg-charcoal border border-white/10 w-full outline-none py-1 text-[9px] uppercase tracking-tighter text-brick-copper"
+                                  value={editData.panel || item.panel || 'main'}
+                                  onChange={e => setEditData({...editData, panel: e.target.value})}
+                                >
+                                  <option value="main">Main Panel</option>
+                                  <option value="side">Side Panel</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Col Span (1-4)</label>
+                                <input 
+                                  type="number" min="1" max="4"
+                                  className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono text-brick-copper" 
+                                  value={editData.colSpan ?? item.colSpan ?? 1} 
+                                  onChange={e => setEditData({...editData, colSpan: parseInt(e.target.value)})} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Row Span (1-4)</label>
+                                <input 
+                                  type="number" min="1" max="4"
+                                  className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono text-brick-copper" 
+                                  value={editData.rowSpan ?? item.rowSpan ?? 1} 
+                                  onChange={e => setEditData({...editData, rowSpan: parseInt(e.target.value)})} 
+                                />
+                              </div>
+                            </div>
                           </div>
                           <div>
                             <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Project Narrative</label>

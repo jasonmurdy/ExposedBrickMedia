@@ -43,6 +43,9 @@ export const PropertyHighlight = ({
             <span className="text-sm font-semibold uppercase tracking-widest text-white">{packageUsed}</span>
           </div>
         </div>
+        <div className="mt-12 text-[10px] text-white/40 italic flex justify-end">
+          Powered by REALTOR.ca
+        </div>
       </div>
     </div>
   );

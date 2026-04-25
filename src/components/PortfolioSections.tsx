@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Video, Box, Edit3, Trash2, ChevronUp, ChevronDown, Plus, Check, X, GripVertical, Image as ImageIcon, LayoutGrid, Grid3X3 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -55,13 +56,18 @@ const SortablePortfolioItem = ({
   };
 
   const isGallery = variant === 'gallery';
+  const isSpacer = item.type === 'spacer';
   const width = isFeatured && !isGallery ? 1000 : 600;
   const isUnsplash = item.img && item.img.includes('unsplash.com');
   const optimizedUrl = isUnsplash
     ? `${item.img.split('?')[0]}?auto=format&fit=crop&q=80&w=${width}`
     : item.img;
 
-  const content = (
+  const content = isSpacer ? (
+    <div className="absolute inset-0 bg-transparent flex items-center justify-center border border-dashed border-white/5 group-hover:border-white/10 transition-colors">
+       {isEditMode && <span className="text-[8px] uppercase tracking-widest text-white/10">Blank Space</span>}
+    </div>
+  ) : (
     <>
       <motion.img 
         whileHover={!isEditMode && !item.url ? { scale: 1.05 } : {}}
@@ -76,11 +82,22 @@ const SortablePortfolioItem = ({
       {/* Overlay */}
       <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-500 ${isGallery ? 'opacity-40 group-hover:opacity-60' : 'opacity-40 group-hover:opacity-0'}`} />
       
-      {/* Info Overlay (Gallery Mode specific) */}
+      {/* Gallery Info Overlay (Gallery Mode specific) */}
       {isGallery && (
         <div className="absolute bottom-0 left-0 right-0 p-6 translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-          <span className="text-[10px] uppercase tracking-[0.3em] text-brick-copper mb-2 block font-medium">{item.category}</span>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase tracking-[0.3em] text-brick-copper block font-medium">{item.propertyType || item.category}</span>
+            {item.status && <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 bg-brick-copper/20 border border-brick-copper/30 text-brick-copper rounded-sm">{item.status}</span>}
+          </div>
           <h3 className="text-lg font-display italic text-white tracking-tight">{item.title}</h3>
+          {(item.beds || item.baths || item.sqft || item.listPrice) && (
+            <div className="flex gap-3 mt-2 text-[9px] font-mono text-white/60">
+              {item.listPrice && <span>{item.listPrice}</span>}
+              {item.beds && <span>{item.beds} BD</span>}
+              {item.baths && <span>{item.baths} BA</span>}
+              {item.sqft && <span>{item.sqft} SQFT</span>}
+            </div>
+          )}
         </div>
       )}
 
@@ -95,50 +112,142 @@ const SortablePortfolioItem = ({
 
       {/* Grid Hover State */}
       {!isGallery && !isEditMode && (
-        <div className="absolute inset-0 bg-brick-copper/10 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-8 text-center pointer-events-none">
-           <span className="text-[10px] uppercase tracking-[0.4em] font-medium text-white mb-3 shadow-xl">
-             {item.url ? 'View Project' : 'View Journal'}
+        <div className="absolute inset-0 bg-charcoal/90 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center p-8 text-center pointer-events-none">
+           <span className="text-[9px] uppercase tracking-[0.5em] font-bold text-brick-copper mb-4">
+             View Journal Entry
            </span>
-           <h3 className="text-sm font-display italic text-white mb-2">{item.title}</h3>
+           <h3 className="text-xl font-display italic text-white mb-4 leading-tight">{item.title}</h3>
+           
+           <div className="flex flex-col gap-2 mb-6">
+             {item.propertyType && <span className="text-[10px] uppercase tracking-widest text-white/40">{item.propertyType}</span>}
+             {(item.beds || item.baths || item.sqft || item.listPrice || item.status) && (
+               <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-[9px] font-mono text-white/70 border-t border-white/10 pt-4 mt-2">
+                 {item.status && <span className="text-brick-copper font-bold">{item.status}</span>}
+                 {item.listPrice && <span>{item.listPrice}</span>}
+                 {item.beds && <span>{item.beds} BD</span>}
+                 {item.baths && <span>{item.baths} BA</span>}
+                 {item.sqft && <span>{item.sqft} SQFT</span>}
+                 {item.mlsNumber && <span className="text-white/30"># {item.mlsNumber}</span>}
+               </div>
+             )}
+           </div>
+
            {item.description && (
-             <p className="text-[9px] text-white/80 font-mono tracking-tighter leading-tight max-w-[200px] line-clamp-3">
-               {item.description}
+             <p className="text-[10px] text-white/50 font-mono tracking-tighter leading-relaxed max-w-[240px] line-clamp-3 italic">
+               "{item.description}"
              </p>
            )}
+
+           <div className="mt-8 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 delay-100">
+              <span className="px-6 py-2 border border-brick-copper text-brick-copper text-[10px] uppercase tracking-widest">Open Archive</span>
+           </div>
         </div>
       )}
     </>
   );
 
+  const getLinkContent = () => {
+    if (isEditMode || isSpacer) return content;
+    return (
+      <Link to={`/listing/${item.id}`} className="block w-full h-full">
+        {content}
+      </Link>
+    );
+  };
+
+  const colSpanClasses: Record<number, string> = {
+    1: 'sm:col-span-1',
+    2: 'sm:col-span-2',
+    3: 'sm:col-span-3',
+    4: 'sm:col-span-4'
+  };
+
+  const rowSpanClasses: Record<number, string> = {
+    1: 'sm:row-span-1',
+    2: 'sm:row-span-2',
+    3: 'sm:row-span-3',
+    4: 'sm:row-span-4'
+  };
+
+  const colSpan = item.colSpan || (isFeatured && !isGallery ? 2 : 1);
+  const rowSpan = item.rowSpan || (isFeatured && !isGallery ? 2 : 1);
+  const panel = item.panel || 'main';
+
   return (
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`relative overflow-hidden group bg-stone-900 border border-border-subtle hover:border-brick-copper/30 transition-all duration-500 rounded-sm ${
-        !isGallery && isFeatured ? 'sm:col-span-2 sm:row-span-2' : ''
-      } ${!isGallery && index === 3 ? 'sm:col-span-2' : ''} ${isGallery ? 'aspect-[4/5]' : 'aspect-square md:aspect-auto'}`}
+      className={`relative overflow-hidden group ${isSpacer ? 'bg-transparent' : 'bg-stone-900 border border-border-subtle'} hover:border-brick-copper/30 transition-all duration-500 rounded-sm ${
+        !isGallery ? `${colSpanClasses[colSpan] || 'sm:col-span-1'} ${rowSpanClasses[rowSpan] || 'sm:row-span-1'}` : ''
+      } ${isGallery ? 'aspect-[4/5]' : 'aspect-square md:aspect-auto'}`}
     >
-      {item.url && !isEditMode ? (
-        <a href={item.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-          {content}
-        </a>
-      ) : (
-        content
-      )}
+      {getLinkContent()}
 
       {/* Admin Controls */}
       {isEditMode && (
-        <div className="absolute inset-0 bg-charcoal/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
-          <div className="flex gap-2">
-            <div {...attributes} {...listeners} className="p-3 bg-brick-copper text-charcoal rounded cursor-grab active:cursor-grabbing hover:bg-white transition-colors">
-              <GripVertical size={20} />
+        <div className="absolute inset-0 bg-charcoal/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+          <div className="flex flex-col gap-2 scale-90">
+            <div className="flex gap-2">
+              <div {...attributes} {...listeners} className="p-2 bg-brick-copper text-charcoal rounded cursor-grab active:cursor-grabbing hover:bg-white transition-colors">
+                <GripVertical size={16} />
+              </div>
+              {!isSpacer && (
+                <button onClick={() => startEdit(item)} className="p-2 bg-charcoal text-brick-copper rounded border border-brick-copper hover:bg-brick-copper hover:text-charcoal transition-all">
+                  <Edit3 size={16} />
+                </button>
+              )}
+              <button 
+                onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { panel: panel === 'main' ? 'side' : 'main' })}
+                className="p-2 bg-charcoal text-white rounded border border-white/20 hover:bg-white hover:text-charcoal transition-all flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest"
+                title={`Move to ${panel === 'main' ? 'Side' : 'Main'} Panel`}
+              >
+                {panel === 'main' ? 'MAIN' : 'SIDE'}
+              </button>
+              <button onClick={() => deleteItem(item.id)} className="p-2 bg-charcoal text-red-500 rounded border border-red-500 hover:bg-red-500 hover:text-white transition-all">
+                <Trash2 size={16} />
+              </button>
             </div>
-            <button onClick={() => startEdit(item)} className="p-3 bg-charcoal text-brick-copper rounded border border-brick-copper hover:bg-brick-copper hover:text-charcoal transition-all">
-              <Edit3 size={20} />
-            </button>
-            <button onClick={() => deleteItem(item.id)} className="p-3 bg-charcoal text-red-500 rounded border border-red-500 hover:bg-red-500 hover:text-white transition-all">
-              <Trash2 size={20} />
-            </button>
+            
+            {!isGallery && panel === 'main' && (
+              <div className="flex flex-col gap-1 bg-charcoal/80 p-2 rounded border border-white/10">
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-[8px] uppercase tracking-widest text-white/40">Width</span>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { colSpan: Math.max(1, colSpan - 1) })}
+                      className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
+                    >
+                      -
+                    </button>
+                    <span className="text-[10px] w-4 text-center font-mono">{colSpan}</span>
+                    <button 
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { colSpan: Math.min(4, colSpan + 1) })}
+                      className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-[8px] uppercase tracking-widest text-white/40">Height</span>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { rowSpan: Math.max(1, rowSpan - 1) })}
+                      className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
+                    >
+                      -
+                    </button>
+                    <span className="text-[10px] w-4 text-center font-mono">{rowSpan}</span>
+                    <button 
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { rowSpan: Math.min(4, rowSpan + 1) })}
+                      className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -146,12 +255,15 @@ const SortablePortfolioItem = ({
   );
 };
 
-export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }) => {
-  const { isEditMode, isAdmin } = useSiteContent();
-  const [items, setItems] = useState<any[]>([]);
+export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'grid' | 'gallery', panel?: 'main' | 'side' }) => {
+  const { isEditMode, isAdmin, portfolioItems: rawItems } = useSiteContent();
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editFields, setEditFields] = useState<any>({});
   const [activeCategory, setActiveCategory] = useState('All');
+
+  const items = useMemo(() => {
+    return rawItems.filter(item => (item.panel || 'main') === panel);
+  }, [rawItems, panel]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -163,14 +275,6 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  useEffect(() => {
-    const q = query(collection(db, 'portfolio_items'), orderBy('order', 'asc'));
-    return onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setItems(data);
-    });
-  }, []);
 
   const categories = useMemo(() => {
     const cats = ['All', ...new Set(items.map(item => item.category))];
@@ -207,6 +311,10 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
       img: 'https://images.unsplash.com/photo-1600607687940-c52fb036999c',
       description: 'Short project story...',
       url: '',
+      type: 'item',
+      panel: panel,
+      colSpan: 1,
+      rowSpan: 1,
       order: items.length,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -218,10 +326,28 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
       category: 'Detail', 
       description: 'Short project story...', 
       img: 'https://images.unsplash.com/photo-1600607687940-c52fb036999c',
-      url: '' 
+      url: '',
+      type: 'item'
     };
     setEditingItem(itemData);
     setEditFields({ ...itemData });
+  };
+
+  const addSpacer = async () => {
+    await addDoc(collection(db, 'portfolio_items'), {
+      title: 'Spacer',
+      category: 'Utility',
+      img: '',
+      description: '',
+      url: '',
+      type: 'spacer',
+      panel: panel,
+      colSpan: 1,
+      rowSpan: 1,
+      order: items.length,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
   };
 
   const deleteItem = async (id: string) => {
@@ -262,12 +388,20 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
         </div>
         
         {isAdmin && isEditMode && (
-          <button 
-            onClick={addItem}
-            className="flex items-center gap-2 px-6 py-2 bg-brick-copper text-charcoal hover:bg-white transition-all uppercase text-[10px] tracking-widest font-bold shadow-xl rounded-sm"
-          >
-            <Plus size={14} /> Add Project
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={addSpacer}
+              className="flex items-center gap-2 px-4 py-2 border border-white/10 text-white/40 hover:text-white transition-all uppercase text-[8px] tracking-widest font-bold rounded-sm"
+            >
+              <LayoutGrid size={12} /> Add Space
+            </button>
+            <button 
+              onClick={addItem}
+              className="flex items-center gap-2 px-6 py-2 bg-brick-copper text-charcoal hover:bg-white transition-all uppercase text-[10px] tracking-widest font-bold shadow-xl rounded-sm"
+            >
+              <Plus size={14} /> Add Project
+            </button>
+          </div>
         )}
       </div>
 
@@ -322,6 +456,18 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
                           onChange={e => setEditFields({...editFields, title: e.target.value})}
                         />
                       </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Allocation</label>
+                        <select 
+                          className="w-full bg-charcoal border-b border-border-subtle p-2 text-xs outline-none focus:border-brick-copper transition-colors uppercase tracking-widest"
+                          value={editFields.panel || 'main'}
+                          onChange={e => setEditFields({...editFields, panel: e.target.value})}
+                        >
+                          <option value="main">Main Panel</option>
+                          <option value="side">Side Panel</option>
+                        </select>
+                      </div>
                       <div>
                         <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">External Link (Optional)</label>
                         <input 
@@ -332,15 +478,79 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
                         />
                       </div>
                     </div>
-                    <div>
-                      <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Taxonomy</label>
-                      <input 
-                        className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
-                        placeholder="Category (e.g. Interior)"
-                        value={editFields.category}
-                        onChange={e => setEditFields({...editFields, category: e.target.value})}
-                      />
                     </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Taxonomy & Technicals</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
+                          placeholder="Category (e.g. Interior)"
+                          value={editFields.category}
+                          onChange={e => setEditFields({...editFields, category: e.target.value})}
+                        />
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
+                          placeholder="Property Type"
+                          value={editFields.propertyType || ''}
+                          onChange={e => setEditFields({...editFields, propertyType: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">MLS #</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper"
+                          value={editFields.mlsNumber || ''}
+                          onChange={e => setEditFields({...editFields, mlsNumber: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">Price</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper"
+                          value={editFields.listPrice || ''}
+                          onChange={e => setEditFields({...editFields, listPrice: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">Status</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper"
+                          value={editFields.status || ''}
+                          onChange={e => setEditFields({...editFields, status: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 pb-4">
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">Beds</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper"
+                          value={editFields.beds || ''}
+                          onChange={e => setEditFields({...editFields, beds: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">Baths</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper"
+                          value={editFields.baths || ''}
+                          onChange={e => setEditFields({...editFields, baths: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">SQFT</label>
+                        <input 
+                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper"
+                          value={editFields.sqft || ''}
+                          onChange={e => setEditFields({...editFields, sqft: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
                     <div>
                       <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Narrative</label>
                       <textarea 
@@ -373,10 +583,12 @@ export const Portfolio = ({ variant = 'grid' }: { variant?: 'grid' | 'gallery' }
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <div className={`w-full p-4 grid gap-4 md:gap-6 ${
+        <div className={`w-full p-4 grid gap-4 md:gap-1 lg:gap-2 ${
           variant === 'gallery' 
             ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3' 
-            : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 auto-rows-[250px] md:auto-rows-[350px]'
+            : panel === 'side'
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 auto-rows-[120px]'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[150px] md:auto-rows-[200px]'
         }`}>
           <SortableContext 
             items={itemIds}

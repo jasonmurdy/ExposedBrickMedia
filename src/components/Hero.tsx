@@ -223,7 +223,7 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
             const el = document.getElementById('inquire');
             el?.scrollIntoView({ behavior: 'smooth' });
           }}
-          className="px-6 py-2 bg-brick-copper text-charcoal hover:bg-off-white transition-all uppercase text-[10px] tracking-widest font-bold"
+          className="px-6 py-2 bg-brick-copper text-charcoal transition-all duration-300 hover:bg-white hover:-translate-y-0.5 active:scale-95 active:translate-y-0 uppercase text-[10px] tracking-widest font-bold shadow-sm hover:shadow-md"
         >
           Inquire
         </button>
@@ -364,11 +364,11 @@ export const HeroVisual = ({
           {showCta && href && (
             <div className="bg-bg-primary/50 backdrop-blur-sm p-3 border border-border-subtle">
               {ctaLinkType === 'external' ? (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-brick-copper hover:bg-brick-copper/80 text-charcoal font-bold uppercase tracking-widest text-[10px] inline-flex items-center gap-2">
+                <a href={href} target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-brick-copper text-charcoal font-bold uppercase tracking-widest text-[10px] inline-flex items-center gap-2 transition-all duration-300 hover:bg-white hover:-translate-y-0.5 active:scale-95 active:translate-y-0 shadow-sm hover:shadow-md">
                   {ctaLabel} <MoveUpRight size={12} />
                 </a>
               ) : (
-                <Link to={href} className="px-6 py-3 bg-brick-copper hover:bg-brick-copper/80 text-charcoal font-bold uppercase tracking-widest text-[10px] inline-block">
+                <Link to={href} className="px-6 py-3 bg-brick-copper text-charcoal font-bold uppercase tracking-widest text-[10px] inline-block transition-all duration-300 hover:bg-white hover:-translate-y-0.5 active:scale-95 active:translate-y-0 shadow-sm hover:shadow-md">
                   {ctaLabel}
                 </Link>
               )}

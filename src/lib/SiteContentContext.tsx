@@ -52,6 +52,7 @@ interface SiteContentContextType {
   settings: SiteSettings;
   pages: CustomPage[];
   services: ServiceItem[];
+  portfolioItems: any[];
   loading: boolean;
   isAdmin: boolean;
   isEditMode: boolean;
@@ -97,6 +98,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [pages, setPages] = useState<CustomPage[]>([]);
   const [services, setServices] = useState<ServiceItem[]>([]);
+  const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -133,9 +135,16 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const qServices = query(collection(db, 'services'), orderBy('order', 'asc'));
     const unsubServices = onSnapshot(qServices, (snap) => {
       setServices(snap.docs.map(d => ({ id: d.id, ...d.data() } as ServiceItem)));
-      setLoading(false);
     }, (err) => {
       console.error("Services listener failed:", err);
+    });
+
+    const qPortfolio = query(collection(db, 'portfolio_items'), orderBy('order', 'asc'));
+    const unsubPortfolio = onSnapshot(qPortfolio, (snap) => {
+      setPortfolioItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    }, (err) => {
+      console.error("Portfolio listener failed:", err);
       setLoading(false);
     });
 
@@ -144,11 +153,12 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       unsubSettings();
       unsubPages();
       unsubServices();
+      unsubPortfolio();
     };
   }, []);
 
   return (
-    <SiteContentContext.Provider value={{ settings, pages, services, loading, isAdmin, isEditMode, setIsEditMode }}>
+    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, loading, isAdmin, isEditMode, setIsEditMode }}>
       {children}
     </SiteContentContext.Provider>
   );

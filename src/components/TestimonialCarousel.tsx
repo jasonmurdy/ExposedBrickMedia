@@ -52,15 +52,15 @@ export const TestimonialCarousel = ({ maxItems = 5 }: { maxItems?: number }) => 
 
       {testimonials.length > 1 && (
         <div className="flex justify-center gap-8 mt-12">
-          <button onClick={handlePrev} className="p-3 border border-white/10 text-white/40 hover:text-brick-copper hover:border-brick-copper transition-all">
+          <button onClick={handlePrev} className="p-3 border border-white/10 text-white/40 hover:text-charcoal hover:bg-brick-copper hover:border-brick-copper transition-all duration-300 hover:-translate-y-0.5 active:scale-90 rounded-full">
             <ChevronLeft size={16} />
           </button>
           <div className="flex gap-2 items-center">
             {testimonials.map((_, idx) => (
-              <div key={idx} className={`w-1 h-1 transition-all ${idx === currentIndex ? 'bg-brick-copper scale-150' : 'bg-white/20'}`} />
+              <div key={idx} className={`w-1.5 h-1.5 transition-all duration-300 rounded-full ${idx === currentIndex ? 'bg-brick-copper scale-150' : 'bg-white/20'}`} />
             ))}
           </div>
-          <button onClick={handleNext} className="p-3 border border-white/10 text-white/40 hover:text-brick-copper hover:border-brick-copper transition-all">
+          <button onClick={handleNext} className="p-3 border border-white/10 text-white/40 hover:text-charcoal hover:bg-brick-copper hover:border-brick-copper transition-all duration-300 hover:-translate-y-0.5 active:scale-90 rounded-full">
             <ChevronRight size={16} />
           </button>
         </div>

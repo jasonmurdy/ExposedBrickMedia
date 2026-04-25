@@ -95,6 +95,7 @@ export type PuckConfig = {
   };
   Portfolio: {
     variant: "grid" | "gallery";
+    panel?: "main" | "side";
     limit?: number;
     showFilter: boolean;
   };
@@ -206,6 +207,30 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
   };
   
   return {
+    root: {
+      render: ({ children }) => {
+        return (
+          <div className="flex flex-col lg:flex-row min-h-screen bg-bg-primary overflow-hidden">
+            {/* LEFT COLUMN: BRAND & SERVICES */}
+            <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 overflow-y-auto no-scrollbar">
+              <BrandHeader theme="dark" />
+              <div className="pt-12">
+                <Services />
+              </div>
+              <div className="mt-auto pt-8">
+                <DropZone zone="side" />
+              </div>
+            </aside>
+
+            {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
+            <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
+              <DropZone zone="main" />
+              {children}
+            </main>
+          </div>
+        );
+      }
+    },
     components: {
       Button: {
         fields: {
@@ -432,6 +457,13 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             { label: "Gallery Masonry", value: "gallery" }
           ]
         },
+        panel: {
+          type: "select",
+          options: [
+            { label: "Main Panel Items", value: "main" },
+            { label: "Side Panel Items", value: "side" }
+          ]
+        },
         limit: { type: "number" },
         showFilter: { 
           type: "radio",
@@ -443,9 +475,10 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
       },
       defaultProps: {
         variant: "grid",
+        panel: "main",
         showFilter: true,
       },
-      render: ({ variant }) => <Portfolio variant={variant} />,
+      render: ({ variant, panel }) => <Portfolio variant={variant} panel={panel as any} />,
     },
     Services: {
       fields: {
@@ -629,86 +662,32 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
 };
 
 export const BASELINE_LAYOUT = {
-  content: [
-    {
-      type: "Hero",
-      props: { id: "hero-1" }
-    },
-    {
-      type: "Section",
-      props: {
-        id: "section-1",
-        background: "primary",
-        paddingTop: 80,
-        paddingBottom: 80,
-        children: [
-          {
-            type: "TextContent",
-            props: { id: "brand-header-1" }
-          }
-        ]
+  content: [],
+  zones: {
+    side: [
+      {
+        type: "Portfolio",
+        props: { id: "portfolio-side", panel: "side" }
       }
-    },
-    {
-      type: "Section",
-      props: {
-        id: "section-2",
-        background: "secondary",
-        paddingTop: 80,
-        paddingBottom: 80,
-        children: [
-          {
-            type: "Portfolio",
-            props: { id: "portfolio-1", showFilter: true, variant: "grid" }
-          }
-        ]
+    ],
+    main: [
+      {
+        type: "Hero",
+        props: { id: "hero-1" }
+      },
+      {
+        type: "Portfolio",
+        props: { id: "portfolio-main", panel: "main" }
+      },
+      {
+        type: "Contact",
+        props: { id: "contact-1" }
+      },
+      {
+        type: "Footer",
+        props: { id: "footer-1" }
       }
-    },
-    {
-      type: "Section",
-      props: {
-        id: "section-3",
-        background: "primary",
-        paddingTop: 80,
-        paddingBottom: 80,
-        children: [
-          {
-            type: "Services",
-            props: { id: "services-1" }
-          }
-        ]
-      }
-    },
-    {
-      type: "Section",
-      props: {
-        id: "section-4",
-        background: "accent",
-        paddingTop: 120,
-        paddingBottom: 120,
-        children: [
-          {
-            type: "Columns",
-            props: {
-              id: "columns-1",
-              leftColumnWidth: 50,
-              left: [
-                {
-                  type: "Contact",
-                  props: { id: "contact-1" }
-                }
-              ],
-              right: [
-                {
-                  type: "Footer",
-                  props: { id: "footer-1" }
-                }
-              ]
-            }
-          }
-        ]
-      }
-    }
-  ],
+    ]
+  },
   root: { props: { title: "Home" } }
 };

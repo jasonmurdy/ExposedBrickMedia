@@ -42,6 +42,63 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // DDF MLS Lookup Endpoint
+  app.post("/api/ddf/lookup", async (req, res) => {
+    try {
+      const { mlsNumber } = req.body;
+      if (!mlsNumber) {
+        return res.status(400).json({ error: "MLS Number is required" });
+      }
+
+      const clientId = process.env.DDF_CLIENT_ID || "jsO4iysHFBpmMamciyq3v3bs";
+      const clientSecret = process.env.DDF_CLIENT_SECRET || "DJyn2N83zaU8TWiNtSAuotKn";
+
+      // 1. Get OAuth Token
+      const tokenRes = await fetch("https://identity.crea.ca/connect/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
+          scope: "DDFApi_Read"
+        }).toString()
+      });
+
+      if (!tokenRes.ok) {
+        throw new Error(`Failed to get CREA token: ${tokenRes.statusText}`);
+      }
+
+      const tokenData = await tokenRes.json();
+      const accessToken = tokenData.access_token;
+
+      // 2. Query Listing
+      const listingUrl = `https://ddfapi.realtor.ca/odata/v1/property?$filter=ListingID eq '${mlsNumber}'`;
+      const listingRes = await fetch(listingUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        }
+      });
+
+      if (!listingRes.ok) {
+        throw new Error(`Failed to fetch listing: ${listingRes.statusText}`);
+      }
+
+      const listingData = await listingRes.json();
+      
+      if (!listingData.value || listingData.value.length === 0) {
+        return res.status(404).json({ error: "Listing not found" });
+      }
+
+      res.json(listingData.value[0]);
+    } catch (error: any) {
+      console.error("MLS Lookup error:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch MLS listing" });
+    }
+  });
+
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
