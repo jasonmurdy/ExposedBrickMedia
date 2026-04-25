@@ -4,7 +4,7 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, Search, Sun, Moon, X, Check, Edit3 } from 'lucide-react';
+import { Menu, Search, Sun, Moon, X, Check, Edit3, MoveUpRight } from 'lucide-react';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -313,7 +313,21 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
 };
 
 // Simplified Hero visual for the right-hand panel
-export const HeroVisual = ({ imageUrl }: { imageUrl?: string }) => {
+export const HeroVisual = ({ 
+  imageUrl, 
+  showCta, 
+  ctaLabel, 
+  ctaLinkType, 
+  ctaInternalPage, 
+  ctaExternalUrl 
+}: { 
+  imageUrl?: string, 
+  showCta?: boolean, 
+  ctaLabel?: string, 
+  ctaLinkType?: "internal" | "external", 
+  ctaInternalPage?: string, 
+  ctaExternalUrl?: string 
+}) => {
   const { settings, isEditMode } = useSiteContent();
   const [isEditing, setIsEditing] = useState(false);
   const [imgUrl, setImgUrl] = useState(settings.heroImage || '');
@@ -328,6 +342,8 @@ export const HeroVisual = ({ imageUrl }: { imageUrl?: string }) => {
 
   const displayImage = imageUrl || settings.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=1200";
   
+  const href = ctaLinkType === 'internal' ? ctaInternalPage : ctaExternalUrl;
+  
   return (
     <div className="relative h-80 sm:h-[60vh] lg:h-[50%] w-full overflow-hidden border-b border-border-subtle group">
        <motion.img 
@@ -339,9 +355,25 @@ export const HeroVisual = ({ imageUrl }: { imageUrl?: string }) => {
           className="w-full h-full object-cover opacity-80"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-transparent opacity-60" />
-        <div className="absolute bottom-8 left-8">
-           <span className="text-[9px] uppercase tracking-[0.3em] bg-bg-primary/80 px-3 py-1 border border-border-subtle">01 / Site Identity</span>
-           <h2 className="font-display text-2xl mt-3 text-text-primary/90 italic">{settings.brandName}</h2>
+        <div className="absolute bottom-8 left-8 right-8 flex flex-wrap justify-between items-end gap-4">
+          <div>
+            <span className="text-[9px] uppercase tracking-[0.3em] bg-bg-primary/80 px-3 py-1 border border-border-subtle">01 / Site Identity</span>
+            <h2 className="font-display text-2xl mt-3 text-text-primary/90 italic">{settings.brandName}</h2>
+          </div>
+          
+          {showCta && href && (
+            <div className="bg-bg-primary/50 backdrop-blur-sm p-3 border border-border-subtle">
+              {ctaLinkType === 'external' ? (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-brick-copper hover:bg-brick-copper/80 text-charcoal font-bold uppercase tracking-widest text-[10px] inline-flex items-center gap-2">
+                  {ctaLabel} <MoveUpRight size={12} />
+                </a>
+              ) : (
+                <Link to={href} className="px-6 py-3 bg-brick-copper hover:bg-brick-copper/80 text-charcoal font-bold uppercase tracking-widest text-[10px] inline-block">
+                  {ctaLabel}
+                </Link>
+              )}
+            </div>
+          )}
         </div>
 
         {isEditMode && (

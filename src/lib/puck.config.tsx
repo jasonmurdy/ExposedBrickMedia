@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import React, { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { MoveUpRight } from "lucide-react";
 import { Config, DropZone } from "@measured/puck";
 import { HeroVisual, BrandHeader } from "../components/Hero";
 import { Portfolio, Services } from "../components/PortfolioSections";
@@ -10,6 +13,47 @@ import { BookingForm, FooterContent } from "../components/BookingAndFooter";
 import { TestimonialCarousel } from "../components/TestimonialCarousel";
 import { PropertyHighlight, TourEmbed } from "../components/PropertyFeatures";
 import { LogoCloud, InstagramFeed } from "../components/SocialNodes";
+import { LinkButton } from "../components/LinkButton";
+
+const InlineHTML = ({ html, height }: { html: string, height?: number }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    // Clear and set HTML
+    containerRef.current.innerHTML = html;
+    
+    // Find all scripts inside the injected HTML
+    const scripts = Array.from(containerRef.current.querySelectorAll('script'));
+    
+    // Re-create and append scripts to force execution
+    scripts.forEach(oldScript => {
+      const newScript = document.createElement('script');
+      
+      // Copy attributes
+      Array.from(oldScript.attributes).forEach(attr => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+      
+      // Copy content if inline
+      if (oldScript.innerHTML) {
+        newScript.innerHTML = oldScript.innerHTML;
+      }
+      
+      // Replace old script with new one
+      oldScript.parentNode?.replaceChild(newScript, oldScript);
+    });
+  }, [html]);
+
+  return (
+    <div 
+      ref={containerRef}
+      className="w-full overflow-hidden" 
+      style={height ? { height: `${height}px`, overflowY: 'auto' } : {}}
+    />
+  );
+};
 
 export type PuckConfig = {
   Section: {
@@ -37,6 +81,11 @@ export type PuckConfig = {
   Hero: {
     imageUrl?: string;
     height: "short" | "medium" | "tall";
+    cta: {
+      type: "internal" | "external";
+      url: string;
+      label: string;
+    };
   };
   TextContent: {
     title1: string;
@@ -96,10 +145,97 @@ export type PuckConfig = {
     title?: string;
     wrapInIframe?: boolean;
   };
+  Button: {
+    link: {
+      type: "internal" | "external";
+      url: string;
+      label: string;
+    };
+    align: "left" | "center" | "right";
+  };
 };
 
-export const config: Config<PuckConfig> = {
-  components: {
+export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
+  const pageOptions = pages.map(p => ({ label: p.title || p.slug, value: p.slug }));
+  
+  const LinkField = {
+    type: "custom" as const,
+    render: ({ name, value, onChange }: any) => {
+      const val = value || { type: 'internal', label: '', url: '' };
+      return (
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => onChange({ ...val, type: "internal" })}
+              className={`flex-1 py-1 text-xs border ${val.type === "internal" ? "bg-brick-copper border-brick-copper text-charcoal font-bold" : "bg-transparent border-gray-600 text-gray-300"}`}
+            >Internal</button>
+            <button
+              onClick={() => onChange({ ...val, type: "external" })}
+              className={`flex-1 py-1 text-xs border ${val.type === "external" ? "bg-brick-copper border-brick-copper text-charcoal font-bold" : "bg-transparent border-gray-600 text-gray-300"}`}
+            >External</button>
+          </div>
+          <input
+            className="w-full bg-[#202020] border-none p-2 text-xs text-white"
+            placeholder="Button Label"
+            value={val.label || ""}
+            onChange={(e) => onChange({ ...val, label: e.target.value })}
+          />
+          {val.type === "internal" ? (
+            <select
+              className="w-full bg-[#202020] border-none p-2 text-xs text-white"
+              value={val.url || ""}
+              onChange={(e) => onChange({ ...val, url: e.target.value })}
+            >
+              <option value="">Select a page...</option>
+              <option value="/">Home</option>
+              {pageOptions.map(p => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="w-full bg-[#202020] border-none p-2 text-xs text-white"
+              placeholder="https://"
+              value={val.url || ""}
+              onChange={(e) => onChange({ ...val, url: e.target.value })}
+            />
+          )}
+        </div>
+      );
+    }
+  };
+  
+  return {
+    components: {
+      Button: {
+        fields: {
+          link: LinkField as any,
+          align: {
+            type: "radio",
+            options: [
+              { label: "Left", value: "left" },
+              { label: "Center", value: "center" },
+              { label: "Right", value: "right" },
+            ]
+          }
+        },
+        defaultProps: {
+          link: {
+            type: "internal",
+            label: "Learn More",
+            url: "about"
+          },
+          align: "left"
+        },
+        render: ({ link, align }) => {
+          const justify = align === 'center' ? 'center' : align === 'right' ? 'end' : 'start';
+          return (
+            <div className={`flex justify-${justify} my-4`}>
+              <LinkButton link={link} />
+            </div>
+          );
+        }
+      },
     Section: {
       fields: {
         children: { type: "slot" },
@@ -250,8 +386,31 @@ export const config: Config<PuckConfig> = {
             { label: "Tall", value: "tall" },
           ],
         },
+        cta: LinkField as any,
       },
-      render: ({ imageUrl }) => <HeroVisual imageUrl={imageUrl} />,
+      defaultProps: {
+        height: "short",
+        cta: {
+          type: "internal",
+          label: "View Portfolio",
+          url: "portfolio"
+        }
+      },
+      render: ({ imageUrl, cta }) => (
+        <div className="relative">
+          <HeroVisual 
+            imageUrl={imageUrl} 
+            showCta={false}  // Pass false to not render internal CTA in HeroVisual, we will overlay it
+          />
+          {cta?.label && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-24">
+              <div className="pointer-events-auto">
+                <LinkButton link={cta} />
+              </div>
+            </div>
+          )}
+        </div>
+      ),
     },
     TextContent: {
       fields: {
@@ -456,20 +615,17 @@ export const config: Config<PuckConfig> = {
               srcDoc={html}
               title={title}
               style={{ width: '100%', height: height ? `${height}px` : 'auto', border: 'none' }}
-              sandbox="allow-scripts allow-top-navigation allow-same-origin"
+              sandbox="allow-scripts allow-top-navigation allow-same-origin allow-forms allow-popups"
             />
           );
         }
         return (
-          <div 
-            className="w-full overflow-hidden" 
-            style={height ? { height: `${height}px`, overflowY: 'auto' } : {}}
-            dangerouslySetInnerHTML={{ __html: html }} 
-          />
+          <InlineHTML html={html} height={height} />
         );
       }
-    },
-  },
+    }
+  }
+};
 };
 
 export const BASELINE_LAYOUT = {

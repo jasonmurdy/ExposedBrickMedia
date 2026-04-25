@@ -34,6 +34,7 @@ import {
 import { FileUpload } from './FileUpload';
 import { GoogleGenAI } from '@google/genai';
 import { PuckEditor } from './PuckEditor';
+import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 
 const ADMIN_EMAILS = ['jasonmurdy@gmail.com', 'sherwin.131986@gmail.com'];
 
@@ -883,14 +884,23 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                               />
                             </div>
                             <div>
-                              <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Index Order</label>
+                              <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">External Link</label>
                               <input 
-                                type="number"
-                                className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                                value={editData.order ?? item.order} 
-                                onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} 
+                                className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] lowercase tracking-widest" 
+                                placeholder="https://..."
+                                value={editData.url ?? item.url ?? ''} 
+                                onChange={e => setEditData({...editData, url: e.target.value})} 
                               />
                             </div>
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Index Order</label>
+                            <input 
+                              type="number"
+                              className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
+                              value={editData.order ?? item.order} 
+                              onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} 
+                            />
                           </div>
                           <div>
                             <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Project Narrative</label>

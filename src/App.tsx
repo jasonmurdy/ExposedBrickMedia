@@ -12,11 +12,11 @@ const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m =
 import { Shield, Loader2 } from 'lucide-react';
 
 import { SiteContentProvider, useSiteContent } from './lib/SiteContentContext';
-import { BrowserRouter, Routes, Route, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams, useLocation, Link } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { Render } from "@measured/puck";
-import { config } from "./lib/puck.config";
+import { createConfig } from "./lib/puck.config";
 
 function MainLayout() {
   const [showAdmin, setShowAdmin] = useState(false);
@@ -124,10 +124,10 @@ function MainLayout() {
 }
 
 function HomeView() {
-  const { settings } = useSiteContent();
+  const { settings, pages } = useSiteContent();
   
   if (settings.layout && settings.layout.content && settings.layout.content.length > 0) {
-    return <Render config={config} data={settings.layout} />;
+    return <Render config={createConfig(pages)} data={settings.layout} />;
   }
 
   const sections = settings.homeSectionsOrder || ['portfolio'];
@@ -152,21 +152,30 @@ function DynamicPageView() {
 
   if (!page) return <div className="p-16 text-center">Narrative not found.</div>;
 
-  if (page.layout && page.layout.content && page.layout.content.length > 0) {
-    return <Render config={config} data={page.layout} />;
-  }
-
   return (
-    <motion.section 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="p-8 md:p-16 lg:p-24"
-    >
-      <h2 className="font-display text-5xl mb-12">{page.title}</h2>
-      <div className="prose prose-invert max-w-none prose-p:text-text-primary/70 prose-headings:text-text-primary">
-        <Markdown>{page.content}</Markdown>
+    <div className="flex flex-col w-full min-h-screen">
+      <div className="w-full px-8 md:px-12 lg:px-16 py-6 border-b border-border-subtle flex items-center gap-4 text-[10px] uppercase tracking-widest text-text-primary/60">
+        <Link to="/" className="hover:text-brick-copper transition-colors">Home</Link>
+        <span>/</span>
+        <span className="text-text-primary">{page.title}</span>
       </div>
-    </motion.section>
+      <div className="flex-1">
+        {page.layout && page.layout.content && page.layout.content.length > 0 ? (
+          <Render config={createConfig(pages)} data={page.layout} />
+        ) : (
+          <motion.section 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-8 md:p-16 lg:p-24"
+          >
+            <h2 className="font-display text-5xl mb-12">{page.title}</h2>
+            <div className="prose prose-invert max-w-none prose-p:text-text-primary/70 prose-headings:text-text-primary">
+              <Markdown>{page.content}</Markdown>
+            </div>
+          </motion.section>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -5,16 +5,19 @@
 
 import { Puck } from "@measured/puck";
 import "@measured/puck/dist/index.css";
-import { config, BASELINE_LAYOUT } from "../lib/puck.config";
+import { createConfig, BASELINE_LAYOUT } from "../lib/puck.config";
 import { useSiteContent } from "../lib/SiteContentContext";
 import { db } from "../lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Save, X, Loader2, RotateCcw } from "lucide-react";
+import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 
 export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () => void }) => {
   const { settings, pages } = useSiteContent();
   const [isSaving, setIsSaving] = useState(false);
+
+  const config = useMemo(() => createConfig(pages), [pages]);
 
   // Define cleanObject before usage or as a helper
   const cleanObject = (obj: any): any => {
@@ -64,7 +67,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
         }, { merge: true });
       }
     } catch (err) {
-      console.error("Failed to save layout:", err);
+      handleFirestoreError(err, OperationType.UPDATE, pageId ? `pages/${pageId}` : `settings/site`);
     } finally {
       setIsSaving(false);
     }
