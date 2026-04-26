@@ -8,12 +8,14 @@ export const LogoCloud = ({ logos }: { logos: { url: string, alt: string }[] }) 
         <p className="text-center text-[9px] uppercase tracking-[0.4em] text-white/40 mb-12">Trusted by the industry's vanguard</p>
         <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-60">
           {logos.map((logo, idx) => (
-            <img 
-              key={idx} 
-              src={logo.url} 
-              alt={logo.alt || `Brand ${idx}`} 
-              className="h-8 md:h-12 object-contain grayscale hover:grayscale-0 transition-all duration-500 hover:scale-105 cursor-pointer" 
-            />
+            logo.url ? (
+              <img 
+                key={idx} 
+                src={logo.url} 
+                alt={logo.alt || `Brand ${idx}`} 
+                className="h-8 md:h-12 object-contain grayscale hover:grayscale-0 transition-all duration-500 hover:scale-105 cursor-pointer" 
+              />
+            ) : null
           ))}
         </div>
       </div>

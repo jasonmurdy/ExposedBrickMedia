@@ -46,6 +46,17 @@
   backdrop-filter: blur(10px);
 }
 
+.puck-container {
+  --bg-primary: inherit;
+  --text-primary: inherit;
+  --border-subtle: inherit;
+  --glass-bg: inherit;
+  --color-accent: inherit;
+  /* Prevent ResizeObserver loop error in some browsers */
+  overflow: hidden;
+  height: 100%;
+}
+
 .font-serif {
   font-family: var(--font-display);
 }

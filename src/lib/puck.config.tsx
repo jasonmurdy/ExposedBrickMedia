@@ -73,14 +73,17 @@ export type PuckConfig = {
     level: 1 | 2 | 3 | 4;
     align: "left" | "center" | "right";
     accent: boolean;
+    width: "full" | "half";
   };
   RichText: {
     content: string;
     size: "sm" | "base" | "lg";
+    width: "full" | "half";
   };
   Hero: {
     imageUrl?: string;
     height: "short" | "medium" | "tall";
+    width: "full" | "half";
     cta: {
       type: "internal" | "external";
       url: string;
@@ -92,35 +95,43 @@ export type PuckConfig = {
     title2: string;
     accent: string;
     tagline: string;
+    width: "full" | "half";
   };
   Portfolio: {
     variant: "grid" | "gallery";
     panel?: "main" | "side";
     limit?: number;
     showFilter: boolean;
+    width: "full" | "half";
   };
   Services: {
     title: string;
     subtitle: string;
+    width: "full" | "half";
   };
   Contact: {
     title: string;
     description?: string;
+    width: "full" | "half";
   };
   Footer: {
     quote: string;
+    width: "full" | "half";
   };
   Spacer: {
     size: number;
+    width: "full" | "half";
   };
   Testimonials: {
     maxItems: number;
+    width: "full" | "half";
   };
   MediaEmbed: {
     url: string;
     mediaType: "image" | "video";
     widthPercentage: number;
     aspectRatio: "16/9" | "4/3" | "1/1" | "9/16";
+    width: "full" | "half";
   };
   PropertyHighlight: {
     mediaUrl: string;
@@ -129,22 +140,27 @@ export type PuckConfig = {
     salePrice: string;
     listPrice: string;
     packageUsed: string;
+    width: "full" | "half";
   };
   TourEmbed: {
     url: string;
     height: number;
+    width: "full" | "half";
   };
   LogoCloud: {
     logos: { url: string; alt: string }[];
+    width: "full" | "half";
   };
   InstagramFeed: {
     username: string;
+    width: "full" | "half";
   };
   HTMLEmbed: {
     html: string;
     height?: number;
     title?: string;
     wrapInIframe?: boolean;
+    width: "full" | "half";
   };
   Button: {
     link: {
@@ -153,6 +169,7 @@ export type PuckConfig = {
       label: string;
     };
     align: "left" | "center" | "right";
+    width: "full" | "half";
   };
 };
 
@@ -206,25 +223,39 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
     }
   };
   
+  const WidthField = {
+    type: "radio" as const,
+    options: [
+      { label: "Full Width", value: "full" },
+      { label: "Half Width", value: "half" }
+    ]
+  };
+
+  const ComponentWrapper = ({ width, children }: { width?: "full" | "half", children: React.ReactNode }) => {
+    return (
+      <div className={`${width === 'half' ? 'w-full lg:w-1/2' : 'w-full'}`}>
+        {children}
+      </div>
+    );
+  };
+  
   return {
     root: {
       render: ({ children }) => {
         return (
           <div className="flex flex-col lg:flex-row min-h-screen bg-bg-primary overflow-hidden">
             {/* LEFT COLUMN: BRAND & SERVICES */}
-            <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 overflow-y-auto no-scrollbar">
-              <BrandHeader theme="dark" />
-              <div className="pt-12">
-                <Services />
-              </div>
-              <div className="mt-auto pt-8">
+            <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-32 lg:pt-12 overflow-y-auto no-scrollbar">
+              <div className="flex flex-col flex-wrap lg:flex-nowrap gap-y-4">
                 <DropZone zone="side" />
               </div>
             </aside>
 
             {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
-            <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
-              <DropZone zone="main" />
+            <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth pt-8 lg:pt-0">
+              <div className="flex flex-wrap content-start">
+                <DropZone zone="main" />
+              </div>
               {children}
             </main>
           </div>
@@ -242,7 +273,8 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
               { label: "Center", value: "center" },
               { label: "Right", value: "right" },
             ]
-          }
+          },
+          width: WidthField as any,
         },
         defaultProps: {
           link: {
@@ -250,14 +282,17 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             label: "Learn More",
             url: "about"
           },
-          align: "left"
+          align: "left",
+          width: "full",
         },
-        render: ({ link, align }) => {
+        render: ({ link, align, width }) => {
           const justify = align === 'center' ? 'center' : align === 'right' ? 'end' : 'start';
           return (
-            <div className={`flex justify-${justify} my-4`}>
-              <LinkButton link={link} />
-            </div>
+            <ComponentWrapper width={width}>
+              <div className={`flex justify-${justify} my-4`}>
+                <LinkButton link={link} />
+              </div>
+            </ComponentWrapper>
           );
         }
       },
@@ -352,14 +387,16 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             { label: "Accent Color", value: true }
           ]
         },
+        width: WidthField as any,
       },
       defaultProps: {
         text: "Elevated Architecture",
         level: 2,
         align: "left",
         accent: false,
+        width: "full",
       },
-      render: ({ text, level, align, accent }) => {
+      render: ({ text, level, align, accent, width }) => {
         const Tag = (`h${level}` as any) || "h2";
         const alignClass = { left: "text-left", center: "text-center", right: "text-right" }[align];
         const sizeClass = {
@@ -369,9 +406,13 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
           4: "text-xl md:text-2xl",
         }[level];
         return (
-          <Tag className={`${alignClass} ${sizeClass} font-display italic tracking-tight ${accent ? "text-brick-copper" : "text-text-primary"}`}>
-            {text}
-          </Tag>
+          <ComponentWrapper width={width}>
+            <div className="p-8">
+              <Tag className={`${alignClass} ${sizeClass} font-display italic tracking-tight ${accent ? "text-brick-copper" : "text-text-primary"}`}>
+                {text}
+              </Tag>
+            </div>
+          </ComponentWrapper>
         );
       },
     },
@@ -386,17 +427,21 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             { label: "Large", value: "lg" },
           ],
         },
+        width: WidthField as any,
       },
       defaultProps: {
         content: "High-fidelity narratives for architectural excellence.",
         size: "base",
+        width: "full",
       },
-      render: ({ content, size }) => {
+      render: ({ content, size, width }) => {
         const sizeClass = { sm: "text-xs", base: "text-sm", lg: "text-base" }[size];
         return (
-          <div className={`${sizeClass} leading-relaxed text-text-primary/60 max-w-2xl`}>
-            {content}
-          </div>
+          <ComponentWrapper width={width}>
+            <div className={`${sizeClass} leading-relaxed text-text-primary/60 max-w-2xl p-8`}>
+              {content}
+            </div>
+          </ComponentWrapper>
         );
       },
     },
@@ -412,29 +457,33 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
           ],
         },
         cta: LinkField as any,
+        width: WidthField as any,
       },
       defaultProps: {
         height: "short",
+        width: "full",
         cta: {
           type: "internal",
           label: "View Portfolio",
           url: "portfolio"
         }
       },
-      render: ({ imageUrl, cta }) => (
-        <div className="relative">
-          <HeroVisual 
-            imageUrl={imageUrl} 
-            showCta={false}  // Pass false to not render internal CTA in HeroVisual, we will overlay it
-          />
-          {cta?.label && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-24">
-              <div className="pointer-events-auto">
-                <LinkButton link={cta} />
+      render: ({ imageUrl, cta, width }) => (
+        <ComponentWrapper width={width}>
+          <div className="relative">
+            <HeroVisual 
+              imageUrl={imageUrl} 
+              showCta={false} 
+            />
+            {cta?.label && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-24">
+                <div className="pointer-events-auto">
+                  <LinkButton link={cta} />
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </ComponentWrapper>
       ),
     },
     TextContent: {
@@ -443,9 +492,19 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
         title2: { type: "text" },
         accent: { type: "text" },
         tagline: { type: "text" },
+        width: WidthField as any,
       },
-      render: ({ title1, title2, accent, tagline }) => (
-        <BrandHeader override={{ title1, title2, accent, tagline }} />
+      defaultProps: {
+        title1: "EXPOSED",
+        title2: "BRICK",
+        accent: "MEDIA",
+        tagline: "HIGH-FIDELITY ARCHITECTURAL NARRATIVES",
+        width: "full",
+      },
+      render: ({ title1, title2, accent, tagline, width }) => (
+        <ComponentWrapper width={width}>
+          <BrandHeader override={{ title1, title2, accent, tagline }} />
+        </ComponentWrapper>
       ),
     },
     Portfolio: {
@@ -472,33 +531,68 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             { label: "Hide", value: false }
           ]
         },
+        width: WidthField as any,
       },
       defaultProps: {
         variant: "grid",
         panel: "main",
         showFilter: true,
+        width: "full",
       },
-      render: ({ variant, panel }) => <Portfolio variant={variant} panel={panel as any} />,
+      render: ({ variant, panel, width }) => (
+        <ComponentWrapper width={width}>
+          <Portfolio variant={variant} panel={panel as any} />
+        </ComponentWrapper>
+      ),
     },
     Services: {
       fields: {
         title: { type: "text" },
         subtitle: { type: "text" },
+        width: WidthField as any,
       },
-      render: ({ title, subtitle }) => <Services override={{ title, subtitle }} />,
+      defaultProps: {
+        title: "SERVICES",
+        subtitle: "Refined Solutions",
+        width: "full",
+      },
+      render: ({ title, subtitle, width }) => (
+        <ComponentWrapper width={width}>
+          <Services override={{ title, subtitle }} />
+        </ComponentWrapper>
+      ),
     },
     Contact: {
       fields: {
         title: { type: "text" },
         description: { type: "text" },
+        width: WidthField as any,
       },
-      render: ({ title }) => <BookingForm override={{ title }} />,
+      defaultProps: {
+        title: "GET IN TOUCH",
+        description: "Let's discuss your next project",
+        width: "full",
+      },
+      render: ({ title, width }) => (
+        <ComponentWrapper width={width}>
+          <BookingForm override={{ title }} />
+        </ComponentWrapper>
+      ),
     },
     Footer: {
       fields: {
         quote: { type: "text" },
+        width: WidthField as any,
       },
-      render: ({ quote }) => <FooterContent override={{ quote }} />,
+      defaultProps: {
+        quote: "Elegance is the only beauty that never fades.",
+        width: "full",
+      },
+      render: ({ quote, width }) => (
+        <ComponentWrapper width={width}>
+          <FooterContent override={{ quote }} />
+        </ComponentWrapper>
+      ),
     },
     Spacer: {
       fields: {
@@ -507,18 +601,29 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
           min: 0,
           max: 200
         },
+        width: WidthField as any,
       },
       defaultProps: {
         size: 40,
+        width: "full",
       },
-      render: ({ size }) => <div style={{ height: `${size}px` }} />,
+      render: ({ size, width }) => (
+        <ComponentWrapper width={width}>
+          <div style={{ height: `${size}px` }} />
+        </ComponentWrapper>
+      ),
     },
     Testimonials: {
       fields: {
         maxItems: { type: "number" },
+        width: WidthField as any,
       },
-      defaultProps: { maxItems: 5 },
-      render: ({ maxItems }) => <TestimonialCarousel maxItems={maxItems} />,
+      defaultProps: { maxItems: 5, width: "full" },
+      render: ({ maxItems, width }) => (
+        <ComponentWrapper width={width}>
+          <TestimonialCarousel maxItems={maxItems} />
+        </ComponentWrapper>
+      ),
     },
     PropertyHighlight: {
       fields: {
@@ -531,6 +636,7 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
         salePrice: { type: "text" },
         listPrice: { type: "text" },
         packageUsed: { type: "text" },
+        width: WidthField as any,
       },
       defaultProps: {
         mediaUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
@@ -539,25 +645,33 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
         salePrice: "$1,250,000",
         listPrice: "$1,150,000",
         packageUsed: "Cinematic Plus",
+        width: "full",
       },
-      render: ({ mediaUrl, mediaType, daysOnMarket, salePrice, listPrice, packageUsed }) => (
-        <PropertyHighlight 
-          mediaUrl={mediaUrl} 
-          mediaType={mediaType} 
-          daysOnMarket={daysOnMarket} 
-          salePrice={salePrice} 
-          listPrice={listPrice} 
-          packageUsed={packageUsed} 
-        />
+      render: ({ mediaUrl, mediaType, daysOnMarket, salePrice, listPrice, packageUsed, width }) => (
+        <ComponentWrapper width={width}>
+          <PropertyHighlight 
+            mediaUrl={mediaUrl} 
+            mediaType={mediaType} 
+            daysOnMarket={daysOnMarket} 
+            salePrice={salePrice} 
+            listPrice={listPrice} 
+            packageUsed={packageUsed} 
+          />
+        </ComponentWrapper>
       ),
     },
     TourEmbed: {
       fields: {
         url: { type: "text" },
         height: { type: "number" },
+        width: WidthField as any,
       },
-      defaultProps: { url: "", height: 600 },
-      render: ({ url, height }) => <TourEmbed url={url} height={height} />,
+      defaultProps: { url: "", height: 600, width: "full" },
+      render: ({ url, height, width }) => (
+        <ComponentWrapper width={width}>
+          <TourEmbed url={url} height={height} />
+        </ComponentWrapper>
+      ),
     },
     LogoCloud: {
       fields: {
@@ -568,22 +682,33 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             alt: { type: "text" },
           },
         },
+        width: WidthField as any,
       },
       defaultProps: {
+        width: "full",
         logos: [
           { url: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Compass_logo.svg", alt: "Compass" },
           { url: "https://upload.wikimedia.org/wikipedia/commons/e/ee/Sotheby%27s_International_Realty_logo.svg", alt: "Sotheby's" },
           { url: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Coldwell_Banker_logo.svg", alt: "Coldwell Banker" },
         ]
       },
-      render: ({ logos }) => <LogoCloud logos={logos} />,
+      render: ({ logos, width }) => (
+        <ComponentWrapper width={width}>
+          <LogoCloud logos={logos} />
+        </ComponentWrapper>
+      ),
     },
     InstagramFeed: {
       fields: {
         username: { type: "text" },
+        width: WidthField as any,
       },
-      defaultProps: { username: "exposedbrickmedia" },
-      render: ({ username }) => <InstagramFeed username={username} />,
+      defaultProps: { username: "exposedbrickmedia", width: "full" },
+      render: ({ username, width }) => (
+        <ComponentWrapper width={width}>
+          <InstagramFeed username={username} />
+        </ComponentWrapper>
+      ),
     },
     MediaEmbed: {
       fields: {
@@ -601,25 +726,29 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             { label: "1:1", value: "1/1" },
             { label: "9:16", value: "9/16" },
           ]
-        }
+        },
+        width: WidthField as any,
       },
       defaultProps: {
         url: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
         mediaType: "image",
         widthPercentage: 100,
-        aspectRatio: "16/9"
+        aspectRatio: "16/9",
+        width: "full",
       },
-      render: ({ url, mediaType, widthPercentage, aspectRatio }) => {
+      render: ({ url, mediaType, widthPercentage, aspectRatio, width }) => {
         return (
-          <div className="w-full flex justify-center my-8">
-            <div style={{ width: `${widthPercentage}%`, aspectRatio: aspectRatio }} className="overflow-hidden bg-white/5 relative group border border-white/10">
-              {mediaType === 'video' ? (
-                <video src={url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
-              ) : (
-                <img src={url} className="w-full h-full object-cover" alt="" />
-              )}
+          <ComponentWrapper width={width}>
+            <div className="w-full flex justify-center my-8">
+              <div style={{ width: `${widthPercentage}%`, aspectRatio: aspectRatio }} className="overflow-hidden bg-white/5 relative group border border-white/10">
+                {mediaType === 'video' ? (
+                  url ? <video src={url} autoPlay loop muted playsInline className="w-full h-full object-cover" /> : null
+                ) : (
+                  url ? <img src={url} className="w-full h-full object-cover" alt="" /> : null
+                )}
+              </div>
             </div>
-          </div>
+          </ComponentWrapper>
         )
       }
     },
@@ -635,25 +764,30 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
             { label: "Iframe (Isolated)", value: true }
           ]
         },
+        width: WidthField as any,
       },
       defaultProps: {
         html: "<div style=\"padding: 20px; background: #eee; text-align: center;\">Custom HTML content</div>",
         wrapInIframe: false,
-        title: "HTML Embed"
+        title: "HTML Embed",
+        width: "full"
       },
-      render: ({ html, height, title, wrapInIframe }) => {
-        if (wrapInIframe) {
-          return (
-            <iframe
-              srcDoc={html}
-              title={title}
-              style={{ width: '100%', height: height ? `${height}px` : 'auto', border: 'none' }}
-              sandbox="allow-scripts allow-top-navigation allow-same-origin allow-forms allow-popups"
-            />
-          );
-        }
-        return (
+      render: ({ html, height, title, wrapInIframe, width }) => {
+        const content = wrapInIframe ? (
+          <iframe
+            srcDoc={html}
+            title={title}
+            style={{ width: '100%', height: height ? `${height}px` : 'auto', border: 'none' }}
+            sandbox="allow-scripts allow-top-navigation allow-same-origin allow-forms allow-popups"
+          />
+        ) : (
           <InlineHTML html={html} height={height} />
+        );
+
+        return (
+          <ComponentWrapper width={width}>
+            {content}
+          </ComponentWrapper>
         );
       }
     }
@@ -665,6 +799,20 @@ export const BASELINE_LAYOUT = {
   content: [],
   zones: {
     side: [
+      {
+        type: "TextContent",
+        props: { 
+          id: "brand-header-1",
+          title1: "EXPOSED",
+          title2: "BRICK",
+          accent: "MEDIA",
+          tagline: "HIGH-FIDELITY ARCHITECTURAL NARRATIVES"
+        }
+      },
+      {
+        type: "Services",
+        props: { id: "services-1" }
+      },
       {
         type: "Portfolio",
         props: { id: "portfolio-side", panel: "side" }

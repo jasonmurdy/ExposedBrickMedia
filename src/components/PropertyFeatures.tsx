@@ -19,9 +19,9 @@ export const PropertyHighlight = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/10 group">
       <div className="relative aspect-square md:aspect-auto md:h-full overflow-hidden bg-white/5">
         {mediaType === 'video' ? (
-          <video src={mediaUrl} autoPlay loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+          mediaUrl ? <video src={mediaUrl} autoPlay loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" /> : null
         ) : (
-          <img src={mediaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="Highlight" />
+          mediaUrl ? <img src={mediaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="Highlight" /> : null
         )}
       </div>
       <div className="p-8 md:p-16 flex flex-col justify-center bg-charcoal">
@@ -61,7 +61,7 @@ export const TourEmbed = ({ url, height = 600 }: { url: string, height?: number 
          <span className="text-[9px] uppercase tracking-widest font-bold">Interactive Origin</span>
       </div>
       <iframe 
-        src={url} 
+        src={url || undefined} 
         width="100%" 
         height={height} 
         frameBorder="0" 

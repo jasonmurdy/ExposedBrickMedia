@@ -104,12 +104,14 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
         >
           {logoUrl ? (
             <div className={`w-full max-w-[16rem] md:max-w-xs flex items-center group relative ${isEditMode ? 'hover:ring-2 hover:ring-brick-copper transition-all p-4' : ''}`}>
-              <img 
-                src={logoUrl} 
-                alt={settings.brandName || "Logo"} 
-                className="w-full h-auto object-contain transition-all hover:scale-[1.02]"
-                referrerPolicy="no-referrer"
-              />
+              {logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt={settings.brandName || "Logo"} 
+                  className="w-full h-auto object-contain transition-all hover:scale-[1.02]"
+                  referrerPolicy="no-referrer"
+                />
+              ) : null}
               {isEditMode && (
                 <div className="absolute inset-0 bg-charcoal/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-[10px] text-white bg-brick-copper px-3 py-1 uppercase tracking-widest font-bold">Change Logo in Admin</span>

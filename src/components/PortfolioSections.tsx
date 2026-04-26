@@ -80,21 +80,22 @@ const SortablePortfolioItem = ({
       />
       
       {/* Overlay */}
-      <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-500 ${isGallery ? 'opacity-40 group-hover:opacity-60' : 'opacity-40 group-hover:opacity-0'}`} />
+      <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-500 ${isGallery ? 'opacity-40 group-hover:opacity-70' : 'opacity-40 group-hover:opacity-0'}`} />
+      
+      {/* 45% overall darker overlay on hover for better contrast */}
+      <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       
       {/* Gallery Info Overlay (Gallery Mode specific) */}
       {isGallery && (
-        <div className="absolute bottom-0 left-0 right-0 p-6 translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+        <div className="absolute bottom-0 left-0 right-0 p-8 translate-y-3 group-hover:translate-y-0 transition-transform duration-500 z-20">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-brick-copper block font-medium">{item.propertyType || item.category}</span>
-            {item.status && <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 bg-brick-copper/20 border border-brick-copper/30 text-brick-copper rounded-sm">{item.status}</span>}
+            <span className="text-[11px] uppercase tracking-[0.4em] text-brick-copper block font-black drop-shadow-2xl">{item.propertyType || item.category}</span>
+            {item.status && <span className="text-[9px] uppercase tracking-widest px-3 py-1 bg-brick-copper text-white rounded-sm shadow-2xl font-bold">{item.status}</span>}
           </div>
-          <h3 className="text-lg font-display italic text-white tracking-tight">{item.title}</h3>
+          <h3 className="text-xl font-display italic text-white tracking-tight drop-shadow-2xl">{item.title}</h3>
           {(item.beds || item.baths || item.sqft || item.listPrice) && (
-            <div className="flex gap-3 mt-2 text-[9px] font-mono text-white/60">
+            <div className="flex gap-4 mt-3 text-[10px] font-mono text-white drop-shadow-md">
               {item.listPrice && <span>{item.listPrice}</span>}
-              {item.beds && <span>{item.beds} BD</span>}
-              {item.baths && <span>{item.baths} BA</span>}
               {item.sqft && <span>{item.sqft} SQFT</span>}
             </div>
           )}
@@ -104,7 +105,7 @@ const SortablePortfolioItem = ({
       {/* Category Tag (Grid Mode) */}
       {!isGallery && (
         <div className="absolute bottom-4 left-4 z-10 transition-transform group-hover:-translate-y-1">
-           <span className="text-[8px] uppercase tracking-widest bg-bg-primary/80 px-2 py-1 border border-border-subtle group-hover:border-brick-copper/50">
+           <span className="text-[10px] uppercase tracking-widest bg-charcoal px-3 py-1.5 border border-border-subtle group-hover:border-brick-copper group-hover:text-brick-copper transition-all font-bold shadow-2xl">
              {index + 1 < 10 ? `0${index + 1}` : index + 1} / {item.category}
            </span>
         </div>
@@ -112,17 +113,17 @@ const SortablePortfolioItem = ({
 
       {/* Grid Hover State */}
       {!isGallery && !isEditMode && (
-        <div className="absolute inset-0 bg-charcoal/90 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center p-8 text-center pointer-events-none">
-           <span className="text-[9px] uppercase tracking-[0.5em] font-bold text-brick-copper mb-4">
-             View Journal Entry
+        <div className="absolute inset-0 bg-charcoal/98 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center p-8 text-center pointer-events-none">
+           <span className="text-[11px] uppercase tracking-[0.6em] font-black text-brick-copper mb-5 drop-shadow-2xl border-b-2 border-brick-copper/40 pb-2">
+             Archive Entry
            </span>
-           <h3 className="text-xl font-display italic text-white mb-4 leading-tight">{item.title}</h3>
+           <h3 className="text-2xl font-display italic text-white mb-6 leading-tight drop-shadow-2xl">{item.title}</h3>
            
            <div className="flex flex-col gap-2 mb-6">
              {item.propertyType && <span className="text-[10px] uppercase tracking-widest text-white/40">{item.propertyType}</span>}
              {(item.beds || item.baths || item.sqft || item.listPrice || item.status) && (
                <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-[9px] font-mono text-white/70 border-t border-white/10 pt-4 mt-2">
-                 {item.status && <span className="text-brick-copper font-bold">{item.status}</span>}
+                 {item.status && <span className="text-brick-copper font-bold drop-shadow-sm">{item.status}</span>}
                  {item.listPrice && <span>{item.listPrice}</span>}
                  {item.beds && <span>{item.beds} BD</span>}
                  {item.baths && <span>{item.baths} BA</span>}
@@ -138,8 +139,8 @@ const SortablePortfolioItem = ({
              </p>
            )}
 
-           <div className="mt-8 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 delay-100">
-              <span className="px-6 py-2 border border-brick-copper text-brick-copper text-[10px] uppercase tracking-widest">Open Archive</span>
+           <div className="mt-8 transform translate-y-6 group-hover:translate-y-0 transition-all duration-700 delay-100">
+              <span className="px-10 py-3.5 border-2 border-brick-copper text-brick-copper text-[11px] uppercase tracking-[0.3em] bg-brick-copper/10 shadow-[0_0_40px_rgba(184,115,51,0.25)] drop-shadow-2xl font-black">Open Archive</span>
            </div>
         </div>
       )}
@@ -177,7 +178,7 @@ const SortablePortfolioItem = ({
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`relative overflow-hidden group ${isSpacer ? 'bg-transparent' : 'bg-stone-900 border border-border-subtle'} hover:border-brick-copper/30 transition-all duration-500 rounded-sm ${
+      className={`relative overflow-hidden group ${isSpacer ? 'bg-transparent' : 'bg-stone-900 border border-border-subtle'} hover:border-brick-copper/80 hover:shadow-[0_0_30px_rgba(184,115,51,0.15)] transition-all duration-500 rounded-sm ${
         !isGallery ? `${colSpanClasses[colSpan] || 'sm:col-span-1'} ${rowSpanClasses[rowSpan] || 'sm:row-span-1'}` : ''
       } ${isGallery ? 'aspect-[4/5]' : 'aspect-square md:aspect-auto'}`}
     >
@@ -376,9 +377,9 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`text-[10px] uppercase tracking-[0.3em] transition-all whitespace-nowrap ${
+              className={`text-[10px] uppercase tracking-[0.4em] transition-all whitespace-nowrap ${
                 activeCategory === cat 
-                  ? 'text-brick-copper font-bold border-b border-brick-copper' 
+                  ? 'text-brick-copper font-black border-b-2 border-brick-copper pb-1' 
                   : 'text-text-primary/40 hover:text-text-primary'
               }`}
             >
@@ -698,7 +699,7 @@ const SortableServiceItem = ({
                 )}
                 <h4 className="text-sm font-semibold group-hover:text-brick-copper transition-colors">{tier.title}</h4>
               </div>
-              {tier.price && <span className="text-[8px] font-mono text-brick-copper/50 tracking-tighter">{tier.price}</span>}
+              {tier.price && <span className="text-[10px] font-mono text-brick-copper tracking-widest font-bold drop-shadow-sm">{tier.price}</span>}
             </div>
             <p className="text-[10px] text-text-primary/40 leading-relaxed tracking-wide pl-6">
               {tier.description}

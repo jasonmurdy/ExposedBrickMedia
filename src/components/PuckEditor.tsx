@@ -92,6 +92,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
           data={initialData}
           onPublish={handleSave}
           headerPath="EB Editor"
+          iframe={{ enabled: true }}
         />
       </div>
       
