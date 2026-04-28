@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db, auth } from './firebase';
 import { collection, onSnapshot, query, orderBy, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { ADMIN_EMAILS } from '../constants';
 
 interface SiteSettings {
   brandName: string;
@@ -92,8 +93,6 @@ const DEFAULT_SETTINGS: SiteSettings = {
 };
 
 const SiteContentContext = createContext<SiteContentContextType | undefined>(undefined);
-
-const ADMIN_EMAILS = ['jasonmurdy@gmail.com', 'sherwin.131986@gmail.com'];
 
 export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);

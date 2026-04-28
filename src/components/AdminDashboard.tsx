@@ -29,7 +29,8 @@ import {
   LogOut, Plus, Trash2, Edit2, Check, X, Shield, Sparkles, Upload, 
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
-  Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box
+  Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
+  Eye, EyeOff
 } from 'lucide-react';
 import { FileUpload } from './FileUpload';
 import { LinkSelector } from './LinkSelector';
@@ -37,8 +38,7 @@ import { GoogleGenAI } from '@google/genai';
 import { PuckEditor } from './PuckEditor';
 import { Portfolio } from './PortfolioSections';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
-
-const ADMIN_EMAILS = ['jasonmurdy@gmail.com', 'sherwin.131986@gmail.com'];
+import { ADMIN_EMAILS } from '../constants';
 
 // Initialize Gemini on the frontend as per system instructions
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -122,7 +122,34 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     };
   }, [user]);
 
-  const login = () => signInWithPopup(auth, new GoogleAuthProvider());
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const login = async () => {
+    setIsLoggingIn(true);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
+    try {
+      console.log("Initiating login with Popup...");
+      // Using result to log completion
+      const result = await signInWithPopup(auth, provider);
+      console.log("Login successful for:", result.user.email);
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      if (err.code === 'auth/popup-blocked') {
+        alert("The login popup was blocked. Please allow popups for this site.");
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        console.warn("User closed the popup.");
+      } else if (err.code === 'auth/unauthorized-domain') {
+        alert(`Login failed: This domain (${window.location.hostname}) is not authorized in the Firebase Console. \n\nPlease go to Firebase Console > Authentication > Settings > Authorized Domains and add ${window.location.hostname}`);
+      } else {
+        alert(`Login failed: ${err.message}`);
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   const logout = () => signOut(auth);
 
   const isAdmin = !!user?.email && (
@@ -137,9 +164,11 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         <h2 className="font-display text-4xl mb-8">Admin Gateway</h2>
         <button 
           onClick={login}
-          className="px-12 py-4 bg-brick-copper text-charcoal font-semibold uppercase tracking-widest hover:bg-off-white transition-all"
+          disabled={isLoggingIn}
+          className="px-12 py-4 bg-brick-copper text-charcoal font-semibold uppercase tracking-widest hover:bg-off-white transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
         >
-          Identify as Admin
+          {isLoggingIn ? <Loader2 size={20} className="animate-spin" /> : null}
+          {isLoggingIn ? 'Establishing Link...' : 'Identify as Admin'}
         </button>
         <button onClick={onClose} className="mt-8 text-off-white/40 uppercase text-[10px] tracking-widest hover:text-off-white">Return to Site</button>
       </div>
@@ -489,7 +518,6 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         {[
           { id: 'architecture', label: 'Architecture', icon: Compass },
           { id: 'layout', label: 'Layout Engine', icon: Layout },
-          { id: 'aesthetics', label: 'Aesthetics', icon: Palette },
           { id: 'journal', label: 'Journal', icon: Layout },
           { id: 'services', label: 'Offerings', icon: Briefcase },
           { id: 'social_proof', label: 'Social Proof', icon: Users },
@@ -524,11 +552,29 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 onClick={() => setShowPuck(true)}
                 className="px-12 py-4 bg-brick-copper text-charcoal font-bold uppercase tracking-widest hover:bg-white transition-all shadow-2xl"
               >
-                Launch Engine
+                Launch Home Engine
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="bg-white/5 p-8 border border-white/10 col-span-full">
+                <h4 className="text-[10px] uppercase tracking-widest text-brick-copper mb-6">Narrative Orchestration</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {pages.map(p => (
+                    <button 
+                      key={p.id}
+                      onClick={() => { setPuckPageId(p.id); setShowPuck(true); }}
+                      className="flex items-center justify-between p-4 bg-white/[0.03] border border-white/5 hover:border-brick-copper/40 transition-all group"
+                    >
+                      <div className="text-left">
+                        <p className="text-[10px] text-white font-medium mb-1">{p.title}</p>
+                        <p className="text-[8px] text-white/30 font-mono tracking-widest lowercase">/p/{p.slug}</p>
+                      </div>
+                      <Layout size={14} className="text-white/20 group-hover:text-brick-copper transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="bg-white/5 p-8 border border-white/10">
                 <h4 className="text-[10px] uppercase tracking-widest text-brick-copper mb-4">Draft Status</h4>
                 <p className="text-[10px] text-white/40 uppercase tracking-widest">
@@ -632,6 +678,69 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                         onChange={e => setLocalSettings({...localSettings, heroTitleAccent: e.target.value})} 
                         placeholder="e.g. Cinematic Visualization"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
+                  <div className="flex items-center gap-3 text-brick-copper mb-6">
+                    <Sparkles size={18} />
+                    <h3 className="text-xl font-display italic">Branding Assets</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <FileUpload 
+                        label="Logo Spectrum (Light)"
+                        path="logos"
+                        onUploadComplete={(url) => setLocalSettings(prev => ({ ...prev, logoLight: url }))}
+                      />
+                      {localSettings.logoLight && (
+                        <div className="h-20 bg-white flex items-center justify-center p-4 border border-white/5">
+                          <img src={localSettings.logoLight} className="max-h-full object-contain" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-4">
+                      <FileUpload 
+                        label="Logo Spectrum (Dark)"
+                        path="logos"
+                        onUploadComplete={(url) => setLocalSettings(prev => ({ ...prev, logoDark: url }))}
+                      />
+                      {localSettings.logoDark && (
+                        <div className="h-20 bg-charcoal flex items-center justify-center p-4 border border-white/5">
+                          <img src={localSettings.logoDark} className="max-h-full object-contain" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 mt-8">
+                    <label className="text-[10px] uppercase tracking-[0.3em] text-white/60 block">Identity Status</label>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Brand Name</label>
+                        <input 
+                          className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-lg tracking-[0.2em]" 
+                          value={localSettings.brandName} 
+                          onChange={e => setLocalSettings({...localSettings, brandName: e.target.value})} 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Monogram Text</label>
+                        <input 
+                          className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-lg tracking-[0.3em]" 
+                          value={localSettings.logoText} 
+                          onChange={e => setLocalSettings({...localSettings, logoText: e.target.value})} 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Tagline</label>
+                        <input 
+                          className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-xs" 
+                          value={localSettings.tagline} 
+                          onChange={e => setLocalSettings({...localSettings, tagline: e.target.value})} 
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -798,143 +907,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
-        {activeTab === 'aesthetics' && (
-          <section className="space-y-16">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-              <div className="space-y-8">
-                <div className="flex items-center gap-3 text-brick-copper mb-6">
-                  <Type size={18} />
-                  <h3 className="text-xl font-display italic">Typography & Tones</h3>
-                </div>
 
-                <div className="space-y-8 bg-white/[0.02] border border-white/5 p-8">
-                  <div className="space-y-4">
-                    <label className="text-[10px] uppercase tracking-[0.3em] text-white/60 block">Display Foundry (Headings)</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      {['Prata', 'Playfair Display', 'Inter', 'Montserrat'].map(font => (
-                        <button 
-                          key={font}
-                          onClick={() => setLocalSettings({...localSettings, fontTitle: font as any})}
-                          className={`py-3 px-4 text-[11px] border transition-all text-left flex justify-between items-center ${localSettings.fontTitle === font ? 'border-brick-copper bg-brick-copper/10 text-brick-copper' : 'border-white/5 text-white/30 hover:border-white/20'}`}
-                        >
-                          <span style={{ fontFamily: font }}>{font}</span>
-                          {localSettings.fontTitle === font && <Check size={12} />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <label className="text-[10px] uppercase tracking-[0.3em] text-white/60 block">Body Foundry (Content)</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      {['Montserrat', 'Inter', 'Open Sans'].map(font => (
-                        <button 
-                          key={font}
-                          onClick={() => setLocalSettings({...localSettings, fontBody: font as any})}
-                          className={`py-3 px-4 text-[11px] border transition-all text-left flex justify-between items-center ${localSettings.fontBody === font ? 'border-brick-copper bg-brick-copper/10 text-brick-copper' : 'border-white/5 text-white/30 hover:border-white/20'}`}
-                        >
-                          <span style={{ fontFamily: font }}>{font}</span>
-                          {localSettings.fontBody === font && <Check size={12} />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-8 bg-white/[0.02] border border-white/5 p-8">
-                  <div className="space-y-4">
-                    <label className="text-[10px] uppercase tracking-[0.3em] text-white/60 block">Brand Pigment (Accent)</label>
-                    <div className="flex items-center gap-6">
-                      <div className="relative group">
-                        <input 
-                          type="color" 
-                          value={localSettings.accentColor || '#A47149'} 
-                          onChange={e => setLocalSettings({...localSettings, accentColor: e.target.value})}
-                          className="bg-transparent border-none w-20 h-20 cursor-pointer rounded-none"
-                        />
-                      </div>
-                      <div className="space-y-2 flex-grow">
-                        <input 
-                          type="text" 
-                          value={localSettings.accentColor || '#A47149'} 
-                          onChange={e => setLocalSettings({...localSettings, accentColor: e.target.value})}
-                          className="bg-transparent border-b border-white/10 text-lg font-mono w-full outline-none focus:border-brick-copper p-2"
-                        />
-                        <p className="text-[9px] uppercase tracking-widest text-white/20">Hexadecimal Identity</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                <div className="flex items-center gap-3 text-brick-copper mb-6">
-                  <Sparkles size={18} />
-                  <h3 className="text-xl font-display italic">Branding Assets</h3>
-                </div>
-
-                <div className="space-y-8 bg-white/[0.02] border border-white/5 p-8">
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <FileUpload 
-                        label="Logo Spectrum (Light)"
-                        path="logos"
-                        onUploadComplete={(url) => setLocalSettings(prev => ({ ...prev, logoLight: url }))}
-                      />
-                      {localSettings.logoLight && (
-                        <div className="h-20 bg-white flex items-center justify-center p-4 border border-white/5">
-                          <img src={localSettings.logoLight} className="max-h-full object-contain" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-4">
-                      <FileUpload 
-                        label="Logo Spectrum (Dark)"
-                        path="logos"
-                        onUploadComplete={(url) => setLocalSettings(prev => ({ ...prev, logoDark: url }))}
-                      />
-                      {localSettings.logoDark && (
-                        <div className="h-20 bg-charcoal flex items-center justify-center p-4 border border-white/5">
-                          <img src={localSettings.logoDark} className="max-h-full object-contain" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <label className="text-[10px] uppercase tracking-[0.3em] text-white/60 block">Identity Status</label>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Brand Name</label>
-                        <input 
-                          className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-lg tracking-[0.2em]" 
-                          value={localSettings.brandName} 
-                          onChange={e => setLocalSettings({...localSettings, brandName: e.target.value})} 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Monogram Text</label>
-                        <input 
-                          className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-lg tracking-[0.3em]" 
-                          value={localSettings.logoText} 
-                          onChange={e => setLocalSettings({...localSettings, logoText: e.target.value})} 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Tagline</label>
-                        <input 
-                          className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-xs" 
-                          value={localSettings.tagline} 
-                          onChange={e => setLocalSettings({...localSettings, tagline: e.target.value})} 
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
 
         {activeTab === 'services' && (
           <section>
@@ -1193,6 +1166,20 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                   onChange={e => setEditData({...editData, rowSpan: parseInt(e.target.value)})} 
                                 />
                               </div>
+                              <div className="col-span-4 mt-4 pt-4 border-t border-white/5">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                  <input 
+                                    type="checkbox" 
+                                    className="hidden"
+                                    checked={editData.hidden ?? item.hidden ?? false}
+                                    onChange={e => setEditData({...editData, hidden: e.target.checked})}
+                                  />
+                                  <div className={`w-4 h-4 border flex items-center justify-center transition-all ${ (editData.hidden ?? item.hidden) ? 'bg-red-500 border-red-500' : 'border-white/20 group-hover:border-brick-copper'}`}>
+                                    {(editData.hidden ?? item.hidden) && <Check size={10} className="text-white" />}
+                                  </div>
+                                  <span className="text-[10px] uppercase tracking-widest text-white/60">Hide listing from archive</span>
+                                </label>
+                              </div>
                             </div>
                           </div>
                           <div>
@@ -1219,11 +1206,21 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           <div className="absolute top-1 left-1 bg-brick-copper text-charcoal text-[8px] font-bold px-1">{item.order}</div>
                         </div>
                         <div>
-                          <h4 className="text-xl font-display italic text-white mb-1">{item.title}</h4>
+                          <h4 className="text-xl font-display italic text-white mb-1 flex items-center gap-3">
+                            {item.title}
+                            {item.hidden && <span className="text-[8px] bg-red-600 text-white px-2 py-0.5 rounded-sm uppercase tracking-widest font-black">Hidden</span>}
+                          </h4>
                           <p className="text-[9px] text-brick-copper uppercase tracking-[0.3em] font-medium">{item.category}</p>
                         </div>
                       </div>
                       <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                        <button 
+                          onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { hidden: !item.hidden })}
+                          className={`p-3 border border-white/5 transition-all ${item.hidden ? 'text-red-500 hover:text-white hover:bg-red-500' : 'text-white/40 hover:text-white hover:border-white'}`}
+                          title={item.hidden ? "Unhide from public" : "Hide from public"}
+                        >
+                          {item.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                         <button onClick={() => { setIsEditing(item.id); setEditData(item); }} className="p-3 border border-white/5 hover:border-brick-copper hover:text-brick-copper transition-all"><Edit2 size={16} /></button>
                         <button onClick={() => handleDeletePortfolio(item.id)} className="p-3 border border-white/5 hover:border-red-500 hover:text-red-500 transition-all"><Trash2 size={16} /></button>
                       </div>

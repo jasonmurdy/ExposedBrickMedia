@@ -198,6 +198,13 @@ const SortablePortfolioItem = ({
         !isGallery ? `${colSpanClasses[colSpan] || 'sm:col-span-1'} ${rowSpanClasses[rowSpan] || 'sm:row-span-1'}` : ''
       } ${isGallery ? 'aspect-[4/5]' : 'aspect-square md:aspect-auto'}`}
     >
+      {/* Hidden Badge for Admin */}
+      {isAdmin && item.hidden && (
+        <div className="absolute top-4 left-4 z-[25] bg-red-600 text-white text-[8px] font-black uppercase tracking-[0.3em] px-2 py-1 shadow-lg border border-red-400">
+          Hidden from public
+        </div>
+      )}
+
       {getLinkContent()}
 
       {/* Admin Controls */}
@@ -279,8 +286,15 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
   const [activeCategory, setActiveCategory] = useState('All');
 
   const items = useMemo(() => {
-    return rawItems.filter(item => (item.panel || 'main') === panel);
-  }, [rawItems, panel]);
+    let baseItems = rawItems.filter(item => (item.panel || 'main') === panel);
+    
+    // Non-admins should not see hidden items
+    if (!isAdmin) {
+      baseItems = baseItems.filter(item => !item.hidden);
+    }
+    
+    return baseItems;
+  }, [rawItems, panel, isAdmin]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -294,14 +308,31 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
   );
 
   const categories = useMemo(() => {
-    const cats = ['All', ...new Set(items.map(item => item.category))];
+    const cats = ['All', ...new Set(items.map(item => item.category).filter(Boolean))];
     return cats;
   }, [items]);
 
+  const propertyTypes = useMemo(() => {
+    const types = ['All Types', ...new Set(items.map(item => item.propertyType).filter(Boolean))];
+    return types;
+  }, [items]);
+
+  const statuses = useMemo(() => {
+    const s = ['All Statuses', ...new Set(items.map(item => item.status).filter(Boolean))];
+    return s;
+  }, [items]);
+
+  const [activePropertyType, setActivePropertyType] = useState('All Types');
+  const [activeStatus, setActiveStatus] = useState('All Statuses');
+
   const filteredItems = useMemo(() => {
-    if (activeCategory === 'All') return items;
-    return items.filter(item => item.category === activeCategory);
-  }, [items, activeCategory]);
+    return items.filter(item => {
+      const matchCategory = activeCategory === 'All' || item.category === activeCategory;
+      const matchPropertyType = activePropertyType === 'All Types' || item.propertyType === activePropertyType;
+      const matchStatus = activeStatus === 'All Statuses' || item.status === activeStatus;
+      return matchCategory && matchPropertyType && matchStatus;
+    });
+  }, [items, activeCategory, activePropertyType, activeStatus]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -386,40 +417,78 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
 
   return (
     <div className="relative w-full">
-      {/* Category Filter */}
-      <div className="mb-8 flex flex-wrap gap-4 items-center justify-between border-b border-border-subtle pb-6 px-4">
-        <div className="flex gap-6 overflow-x-auto no-scrollbar py-2">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`text-[10px] uppercase tracking-[0.4em] transition-all whitespace-nowrap ${
-                activeCategory === cat 
-                  ? 'text-brick-copper font-black border-b-2 border-brick-copper pb-1' 
-                  : 'text-text-primary/40 hover:text-text-primary'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-        
-        {isAdmin && isEditMode && (
-          <div className="flex gap-2">
-            <button 
-              onClick={addSpacer}
-              className="flex items-center gap-2 px-4 py-2 border border-white/10 text-white/40 hover:text-white transition-all uppercase text-[8px] tracking-widest font-bold rounded-sm"
-            >
-              <LayoutGrid size={12} /> Add Space
-            </button>
-            <button 
-              onClick={addItem}
-              className="flex items-center gap-2 px-6 py-2 bg-brick-copper text-charcoal hover:bg-white transition-all uppercase text-[10px] tracking-widest font-bold shadow-xl rounded-sm"
-            >
-              <Plus size={14} /> Add Project
-            </button>
+      {/* Category & Property Filter */}
+      <div className="mb-8 space-y-4 border-b border-border-subtle pb-6 px-4">
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex gap-6 overflow-x-auto no-scrollbar py-1">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`text-[10px] uppercase tracking-[0.4em] transition-all whitespace-nowrap ${
+                  activeCategory === cat 
+                    ? 'text-brick-copper font-black border-b-2 border-brick-copper pb-1' 
+                    : 'text-text-primary/40 hover:text-text-primary'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
-        )}
+          
+          {isAdmin && isEditMode && (
+            <div className="flex gap-2">
+              <button 
+                onClick={addSpacer}
+                className="flex items-center gap-2 px-4 py-2 border border-white/10 text-white/40 hover:text-white transition-all uppercase text-[8px] tracking-widest font-bold rounded-sm"
+              >
+                <LayoutGrid size={12} /> Add Space
+              </button>
+              <button 
+                onClick={addItem}
+                className="flex items-center gap-2 px-6 py-2 bg-brick-copper text-charcoal hover:bg-white transition-all uppercase text-[10px] tracking-widest font-bold shadow-xl rounded-sm"
+              >
+                <Plus size={14} /> Add Project
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-x-4 gap-y-2 overflow-x-auto no-scrollbar py-1 border-t border-white/5 pt-4">
+          <div className="flex gap-2">
+            {propertyTypes.map(type => (
+              <button
+                key={type}
+                onClick={() => setActivePropertyType(type)}
+                className={`text-[9px] uppercase tracking-widest px-3 py-1 border transition-all whitespace-nowrap ${
+                  activePropertyType === type 
+                    ? 'border-brick-copper text-brick-copper bg-brick-copper/5' 
+                    : 'border-white/5 text-white/20 hover:text-white/40'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+          
+          <div className="h-6 w-px bg-white/10 mx-2 hidden sm:block" />
+
+          <div className="flex gap-2">
+            {statuses.map(status => (
+              <button
+                key={status}
+                onClick={() => setActiveStatus(status)}
+                className={`text-[9px] uppercase tracking-widest px-3 py-1 border transition-all whitespace-nowrap ${
+                  activeStatus === status
+                    ? 'border-white text-white bg-white/5' 
+                    : 'border-white/5 text-white/20 hover:text-white/40'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Edit Modal */}
@@ -567,7 +636,21 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                     </div>
 
                     <div>
-                      <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Narrative</label>
+                      <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Visibility & Narrative</label>
+                      <div className="flex items-center gap-4 mb-4 bg-charcoal/50 p-3 border border-border-subtle">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input 
+                            type="checkbox" 
+                            className="hidden"
+                            checked={editFields.hidden || false}
+                            onChange={e => setEditFields({...editFields, hidden: e.target.checked})}
+                          />
+                          <div className={`w-4 h-4 border flex items-center justify-center transition-all ${editFields.hidden ? 'bg-red-500 border-red-500' : 'border-white/20 group-hover:border-brick-copper'}`}>
+                            {editFields.hidden && <Check size={10} className="text-white" />}
+                          </div>
+                          <span className="text-[10px] uppercase tracking-widest text-white/60">Hide listing from public</span>
+                        </label>
+                      </div>
                       <textarea 
                         className="w-full bg-transparent border border-border-subtle p-3 h-32 text-xs outline-none focus:border-brick-copper transition-colors resize-none custom-scrollbar"
                         placeholder="Project technical details and atmosphere..."

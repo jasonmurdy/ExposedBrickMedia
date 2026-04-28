@@ -16,6 +16,7 @@ import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () => void }) => {
   const { settings, pages } = useSiteContent();
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPageId, setCurrentPageId] = useState(pageId);
 
   const config = useMemo(() => createConfig(pages), [pages]);
 
@@ -41,22 +42,22 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
     }
   };
 
-  const page = pageId ? pages.find(p => p.id === pageId) : null;
+  const page = currentPageId ? pages.find(p => p.id === currentPageId) : null;
 
   // Initialize with current layout or the baseline structure
-  const initialData = cleanObject(page?.layout && (page.layout.content?.length > 0 || page.layout.zones)
+  const initialData = useMemo(() => cleanObject(page?.layout && (page.layout.content?.length > 0 || page.layout.zones)
     ? page.layout
-    : (!pageId && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones))
+    : (!currentPageId && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones))
       ? settings.layout 
-      : BASELINE_LAYOUT);
+      : BASELINE_LAYOUT), [page, currentPageId, settings.layout]);
 
   const handleSave = async (data: any) => {
     setIsSaving(true);
     try {
       const sanitizedData = cleanObject(data);
       
-      if (pageId) {
-        await setDoc(doc(db, 'pages', pageId), {
+      if (currentPageId) {
+        await setDoc(doc(db, 'pages', currentPageId), {
           layout: sanitizedData,
           updatedAt: serverTimestamp()
         }, { merge: true });
@@ -76,7 +77,23 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   return (
     <div className="fixed inset-0 z-[200] bg-bg-primary flex flex-col">
       <div className="bg-charcoal p-4 flex justify-between items-center border-b border-border-subtle">
-        <h2 className="text-brick-copper font-display text-xl italic">Visual Layout Engine</h2>
+        <div className="flex items-center gap-6">
+          <h2 className="text-brick-copper font-display text-xl italic">Visual Layout Engine</h2>
+          <div className="h-6 w-px bg-white/10" />
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] uppercase tracking-widest text-white/40">Editing:</span>
+            <select 
+              value={currentPageId || ""} 
+              onChange={(e) => setCurrentPageId(e.target.value || undefined)}
+              className="bg-white/5 border border-white/10 text-[10px] uppercase tracking-widest text-white py-1 px-3 outline-none focus:border-brick-copper transition-colors"
+            >
+              <option value="">Home Page</option>
+              {pages.map(p => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div className="flex gap-4">
           <button 
             onClick={onClose}
@@ -88,6 +105,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       </div>
       <div className="flex-grow overflow-hidden relative puck-container">
         <Puck
+          key={currentPageId || 'home'}
           config={config}
           data={initialData}
           onPublish={handleSave}

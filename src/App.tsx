@@ -11,6 +11,7 @@ import { ProjectDetailView } from './components/ProjectDetailView';
 import AboutPage from './pages/About';
 // Lazy load the AdminDashboard to reduce initial bundle size
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const PuckEditor = lazy(() => import('./components/PuckEditor').then(m => ({ default: m.PuckEditor })));
 import { Shield, Loader2 } from 'lucide-react';
 
 import { SiteContentProvider, useSiteContent } from './lib/SiteContentContext';
@@ -23,6 +24,7 @@ import { Helmet } from 'react-helmet-async';
 
 function MainLayout() {
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showPuck, setShowPuck] = useState(false);
   const { isAdmin, settings, isEditMode, setIsEditMode, pages } = useSiteContent();
   const [isLight, setIsLight] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -34,6 +36,7 @@ function MainLayout() {
   const location = useLocation();
   const slugFromPath = location.pathname.startsWith('/p/') ? location.pathname.split('/p/')[1] : null;
   const currentPage = slugFromPath ? pages.find(p => p.slug === slugFromPath) : null;
+
   
   // Check if we are on a page that uses a Puck layout
   const hasPuckLayout = (location.pathname === '/' && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones)) || 
@@ -47,19 +50,6 @@ function MainLayout() {
       document.documentElement.classList.remove('light');
     }
   }, [isLight]);
-
-  // Apply accent color and fonts
-  useEffect(() => {
-    if (settings.accentColor) {
-      document.documentElement.style.setProperty('--color-accent', settings.accentColor);
-    }
-    if (settings.fontTitle) {
-      document.documentElement.style.setProperty('--font-display-custom', `"${settings.fontTitle}", serif`);
-    }
-    if (settings.fontBody) {
-      document.documentElement.style.setProperty('--font-body-custom', `"${settings.fontBody}", sans-serif`);
-    }
-  }, [settings.accentColor, settings.fontTitle, settings.fontBody]);
 
   // Hidden keyboard shortcut to open admin: Shift + A
   useEffect(() => {
@@ -94,52 +84,14 @@ function MainLayout() {
     );
   };
 
-  // If using Puck layout, we rely on Puck's root component for the shell
-  if (hasPuckLayout) {
-    return (
-      <div className={`min-h-screen bg-bg-primary text-text-primary transition-colors duration-500 ${isLight ? 'light' : ''}`}>
-        <Navbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
-        <MobileNavbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
-        
-        <Suspense fallback={null}>
-          {showAdmin && <AdminDashboard onClose={() => setShowAdmin(false)} />}
-        </Suspense>
-
-        <div className="fixed bottom-8 left-8 z-[100] flex flex-col gap-4">
-          {isAdmin && (
-            <motion.button 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 0.2, scale: 1 }}
-              whileHover={{ opacity: 1, scale: 1.05 }}
-              onClick={() => setIsEditMode(!isEditMode)}
-              className={`p-4 rounded-full border border-brick-copper shadow-lg transition-all flex items-center gap-2 group overflow-hidden ${isEditMode ? 'bg-brick-copper text-charcoal' : 'bg-charcoal text-brick-copper'}`}
-            >
-              <Shield size={20} />
-              <span className="text-[10px] uppercase tracking-widest font-bold max-w-0 group-hover:max-w-[150px] transition-all duration-500 whitespace-nowrap overflow-hidden">
-                {isEditMode ? 'Exit Visual Editor' : 'Visual Edit Mode'}
-              </span>
-            </motion.button>
-          )}
-          <button 
-            onClick={() => setShowAdmin(true)}
-            className="p-4 bg-charcoal text-brick-copper rounded-full border border-brick-copper shadow-lg opacity-10 hover:opacity-100 transition-all"
-          >
-            <Shield size={20} />
-          </button>
-        </div>
-
-        {renderContent()}
-      </div>
-    );
-  }
-
   return (
-    <div className={`flex flex-col lg:flex-row min-h-screen lg:h-screen w-screen overflow-x-hidden lg:overflow-hidden bg-bg-primary text-text-primary selection:bg-brick-copper selection:text-charcoal relative transition-colors duration-500 ${isLight ? 'light' : ''}`}>
+    <div className={`${hasPuckLayout ? 'min-h-screen overflow-x-hidden' : 'flex flex-col lg:flex-row min-h-screen lg:h-screen w-screen overflow-x-hidden lg:overflow-hidden'} bg-bg-primary text-text-primary selection:bg-brick-copper selection:text-charcoal relative transition-colors duration-500 ${isLight ? 'light' : ''}`}>
       <Navbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
       <MobileNavbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
       
       <Suspense fallback={null}>
         {showAdmin && <AdminDashboard onClose={() => setShowAdmin(false)} />}
+        {showPuck && <PuckEditor pageId={currentPage?.id || undefined} onClose={() => setShowPuck(false)} />}
       </Suspense>
 
       {/* Admin Quick Access Trigger (Hidden but accessible) */}
@@ -149,7 +101,12 @@ function MainLayout() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 0.2, scale: 1 }}
             whileHover={{ opacity: 1, scale: 1.05 }}
-            onClick={() => setIsEditMode(!isEditMode)}
+            onClick={() => {
+              setIsEditMode(!isEditMode);
+              if (!isEditMode && (hasPuckLayout || location.pathname.startsWith('/p/'))) {
+                 setShowPuck(true);
+              }
+            }}
             className={`p-4 rounded-full border border-brick-copper shadow-lg transition-all flex items-center gap-2 group overflow-hidden ${isEditMode ? 'bg-brick-copper text-charcoal' : 'bg-charcoal text-brick-copper'}`}
           >
             <Shield size={20} />
@@ -166,30 +123,38 @@ function MainLayout() {
         </button>
       </div>
 
-      {/* LEFT COLUMN: BRAND & SERVICES */}
-      <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-20 lg:pt-12 lg:overflow-y-auto no-scrollbar">
-        <BrandHeader theme={isLight ? 'light' : 'dark'} />
-        <div className="pt-12 space-y-16 hidden lg:block">
-          <Services />
-          <BookingForm />
+      {hasPuckLayout ? (
+        <div className="w-full">
+          {renderContent()}
         </div>
-      </aside>
+      ) : (
+        <>
+          {/* LEFT COLUMN: BRAND & SERVICES */}
+          <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-20 lg:pt-12 lg:overflow-y-auto no-scrollbar">
+            <BrandHeader theme={isLight ? 'light' : 'dark'} />
+            <div className="pt-12 space-y-16 hidden lg:block">
+              <Services />
+              <BookingForm />
+            </div>
+          </aside>
 
-      {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
-      <main className="w-full lg:w-2/3 flex flex-col lg:overflow-y-auto no-scrollbar scroll-smooth pt-8 lg:pt-0">
-        {renderContent()}
+          {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
+          <main className="w-full lg:w-2/3 flex flex-col lg:overflow-y-auto no-scrollbar scroll-smooth pt-8 lg:pt-0">
+            {renderContent()}
 
-        {/* Mobile-only sections for better flow */}
-        <div className="lg:hidden p-8 space-y-16 bg-bg-primary">
-          <Services />
-          <BookingForm />
-        </div>
+            {/* Mobile-only sections for better flow */}
+            <div className="lg:hidden p-8 space-y-16 bg-bg-primary">
+              <Services />
+              <BookingForm />
+            </div>
 
-        {/* BOTTOM: BOOKING & FOOTER */}
-        <section className="mt-auto p-8 md:p-12 lg:p-16 border-t border-border-subtle bg-text-primary/[0.01]">
-          <FooterContent />
-        </section>
-      </main>
+            {/* BOTTOM: BOOKING & FOOTER */}
+            <section className="mt-auto p-8 md:p-12 lg:p-16 border-t border-border-subtle bg-text-primary/[0.01]">
+              <FooterContent />
+            </section>
+          </main>
+        </>
+      )}
     </div>
   );
 }
