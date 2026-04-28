@@ -8,6 +8,7 @@ import { BrandHeader, Navbar, HeroVisual, MobileNavbar } from './components/Hero
 import { Portfolio, Services } from './components/PortfolioSections';
 import { BookingForm, FooterContent } from './components/BookingAndFooter';
 import { ProjectDetailView } from './components/ProjectDetailView';
+import AboutPage from './pages/About';
 // Lazy load the AdminDashboard to reduce initial bundle size
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 import { Shield, Loader2 } from 'lucide-react';
@@ -18,6 +19,7 @@ import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { Render } from "@measured/puck";
 import { createConfig } from "./lib/puck.config";
+import { Helmet } from 'react-helmet-async';
 
 function MainLayout() {
   const [showAdmin, setShowAdmin] = useState(false);
@@ -30,12 +32,12 @@ function MainLayout() {
   });
 
   const location = useLocation();
-  const { slug } = useParams();
+  const slugFromPath = location.pathname.startsWith('/p/') ? location.pathname.split('/p/')[1] : null;
+  const currentPage = slugFromPath ? pages.find(p => p.slug === slugFromPath) : null;
   
   // Check if we are on a page that uses a Puck layout
-  const currentPage = slug ? pages.find(p => p.slug === slug) : null;
   const hasPuckLayout = (location.pathname === '/' && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones)) || 
-                       (location.pathname.startsWith('/p/') && currentPage?.layout && (currentPage.layout.content?.length > 0 || currentPage.layout.zones));
+                       (currentPage?.layout && (currentPage.layout.content?.length > 0 || currentPage.layout.zones));
 
   useEffect(() => {
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
@@ -70,11 +72,21 @@ function MainLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    // Attempt to scroll main area to top on route change
+    window.scrollTo(0, 0);
+    const main = document.querySelector('main');
+    if (main) {
+      main.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [location.pathname]);
+
   const renderContent = () => {
     return (
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<HomeView />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/p/:slug" element={<DynamicPageView />} />
           <Route path="/listing/:id" element={<ProjectDetailView />} />
         </Routes>
@@ -155,20 +167,26 @@ function MainLayout() {
       </div>
 
       {/* LEFT COLUMN: BRAND & SERVICES */}
-      <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-32 lg:pt-12 overflow-y-auto no-scrollbar">
+      <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-20 lg:pt-12 lg:overflow-y-auto no-scrollbar">
         <BrandHeader theme={isLight ? 'light' : 'dark'} />
-        <div className="pt-12">
+        <div className="pt-12 space-y-16 hidden lg:block">
           <Services />
+          <BookingForm />
         </div>
       </aside>
 
       {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
-      <main className="w-full lg:w-2/3 flex flex-col overflow-y-auto no-scrollbar scroll-smooth pt-8 lg:pt-0">
+      <main className="w-full lg:w-2/3 flex flex-col lg:overflow-y-auto no-scrollbar scroll-smooth pt-8 lg:pt-0">
         {renderContent()}
 
-        {/* BOTTOM: BOOKING & FOOTER */}
-        <section className="mt-auto p-8 md:p-12 lg:p-16 border-t border-border-subtle flex flex-col lg:flex-row gap-12 bg-text-primary/[0.01]">
+        {/* Mobile-only sections for better flow */}
+        <div className="lg:hidden p-8 space-y-16 bg-bg-primary">
+          <Services />
           <BookingForm />
+        </div>
+
+        {/* BOTTOM: BOOKING & FOOTER */}
+        <section className="mt-auto p-8 md:p-12 lg:p-16 border-t border-border-subtle bg-text-primary/[0.01]">
           <FooterContent />
         </section>
       </main>
@@ -187,6 +205,13 @@ function HomeView() {
   
   return (
     <section className="flex flex-col">
+      <Helmet>
+        <title>Exposed Brick Media | Architectural Narratives & High-Fidelity Capture</title>
+        <meta name="description" content="Premium real estate photography, cinematic videography, and digital marketing strategies for high-end properties in Kingston, Belleville, and Tyendinaga." />
+        <meta property="og:title" content="Exposed Brick Media | Architectural Narratives" />
+        <meta property="og:description" content="Premium real estate photography and cinematic videography." />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <HeroVisual />
       <div className="bg-bg-primary/50">
         <Portfolio key="portfolio" />
@@ -204,6 +229,11 @@ function DynamicPageView() {
 
   return (
     <div className="flex flex-col w-full min-h-screen">
+      <Helmet>
+        <title>{`${page.title} | Exposed Brick Media`}</title>
+        <meta name="description" content={page.content?.substring(0, 160).replace(/[#*`]/g, '') || `Read about ${page.title} at Exposed Brick Media.`} />
+        <meta property="og:title" content={`${page.title} | Exposed Brick Media`} />
+      </Helmet>
       <div className="w-full px-8 md:px-12 lg:px-16 py-6 border-b border-border-subtle flex items-center gap-4 text-[10px] uppercase tracking-widest text-text-primary/60">
         <Link to="/" className="hover:text-brick-copper transition-colors">Home</Link>
         <span>/</span>

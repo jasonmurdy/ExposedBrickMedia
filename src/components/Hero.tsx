@@ -4,7 +4,7 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, Search, Sun, Moon, X, Check, Edit3, MoveUpRight } from 'lucide-react';
+import { Menu, Search, CloudSun, CloudMoon, X, Check, Edit3, MoveUpRight } from 'lucide-react';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -100,7 +100,7 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.215, 0.61, 0.355, 1] }}
-          className="mb-4 pt-16 md:pt-20"
+          className="mb-4 pt-4 md:pt-20"
         >
           {logoUrl ? (
             <div className={`w-full max-w-[16rem] md:max-w-xs flex items-center group relative ${isEditMode ? 'hover:ring-2 hover:ring-brick-copper transition-all p-4' : ''}`}>
@@ -179,10 +179,10 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
       <div className="flex items-center gap-10">
         <button 
           onClick={onThemeToggle}
-          className="text-text-primary/40 hover:text-brick-copper transition-colors p-2"
+          className="text-text-primary/60 hover:text-brick-copper transition-all p-2 rounded-full hover:bg-brick-copper/10"
           aria-label="Toggle Theme"
         >
-          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          {theme === 'light' ? <CloudMoon size={22} strokeWidth={2.5} /> : <CloudSun size={22} strokeWidth={2.5} />}
         </button>
         
         {/* Dynamic Pages in Nav */}
@@ -210,6 +210,15 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
             {item.label}
           </a>
         ))}
+
+        <Link 
+          to="/about"
+          className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
+            location.pathname === '/about' ? 'text-brick-copper' : 'text-text-primary/40 hover:text-brick-copper'
+          }`}
+        >
+          About
+        </Link>
 
         <Link 
           to="/"
@@ -254,8 +263,12 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
           </span>
         </Link>
         <div className="flex items-center gap-4">
-          <button onClick={onThemeToggle} className="text-text-primary/40 p-2">
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          <button 
+            onClick={onThemeToggle} 
+            className="text-text-primary/60 p-2 rounded-full hover:bg-brick-copper/10 transition-all"
+            aria-label="Toggle Theme"
+          >
+            {theme === 'light' ? <CloudMoon size={22} strokeWidth={2} /> : <CloudSun size={22} strokeWidth={2} />}
           </button>
           <button onClick={() => setIsOpen(!isOpen)} className="text-text-primary/60 p-2">
             {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -272,6 +285,7 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
             className="fixed inset-0 z-[55] bg-bg-primary pt-24 px-8 overflow-y-auto"
           >
             <div className="flex flex-col gap-8 py-12">
+              <Link to="/about" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/about' ? 'text-brick-copper' : 'text-text-primary/60'}`}>About</Link>
               <Link to="/" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/' ? 'text-brick-copper' : 'text-text-primary/60'}`}>Portfolio</Link>
               
               {pages.filter(p => p.showInNav).map(page => (

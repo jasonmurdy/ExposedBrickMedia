@@ -59,7 +59,7 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
 
   if (submitted) {
     return (
-      <div id="inquire" className="w-full lg:w-1/2 lg:pr-8 border-b lg:border-b-0 lg:border-r border-border-subtle pb-12 lg:pb-0 flex flex-col items-center justify-center text-center">
+      <div id="inquire" className="w-full pb-12 lg:pb-0 flex flex-col items-center justify-center text-center">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
            <h3 className="font-display text-4xl mb-4 text-brick-copper italic">Received</h3>
            <p className="text-text-primary/60 text-sm">Your vision has been transmitted. Expect a response shortly.</p>
@@ -70,7 +70,7 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
   }
 
   return (
-    <div id="inquire" className="w-full lg:w-1/2 lg:pr-8 border-b lg:border-b-0 lg:border-r border-border-subtle pb-12 lg:pb-0">
+    <div id="inquire" className="w-full pb-12 lg:pb-0">
       <h3 className={`text-[10px] uppercase tracking-[0.3em] text-brick-copper mb-8 outline-none ${isEditMode ? 'focus:ring-1 focus:ring-brick-copper/50 rounded px-1' : ''}`}
         contentEditable={isEditMode}
         suppressContentEditableWarning
@@ -140,7 +140,7 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
   };
   
   return (
-    <div className="w-full lg:w-1/2 lg:pl-12 flex flex-col pt-12 lg:pt-0 pb-12 lg:pb-0">
+    <div className="w-full flex flex-col pt-12 lg:pt-0 pb-12 lg:pb-0 px-4 md:px-8">
       <div className="space-y-6">
         <motion.p 
           initial={{ opacity: 0 }}
@@ -153,41 +153,75 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
           &ldquo;{override?.quote || settings.footerQuote}&rdquo;
         </motion.p>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-8 border-t border-border-subtle/30">
-          <div className="space-y-4">
-            <h4 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper">Connect</h4>
-            <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-12 pt-12 border-t border-border-subtle/30">
+          <div className="space-y-6">
+            <h4 className="text-[9px] uppercase tracking-[0.4em] text-brick-copper font-bold">Contact Coordinates</h4>
+            <div className="flex flex-col gap-4">
               {settings.contactInfo?.email && (
-                <div className="flex items-center gap-2 text-[10px] text-text-primary/50">
-                  <Mail size={12} /> {settings.contactInfo.email}
-                </div>
+                <motion.a 
+                  href={`mailto:${settings.contactInfo.email}`}
+                  whileHover={{ x: 4 }}
+                  className="group flex items-center gap-3 text-[11px] text-text-primary/50 hover:text-text-primary transition-colors w-fit"
+                >
+                  <span className="p-2 bg-text-primary/5 rounded-full group-hover:bg-brick-copper/10 group-hover:text-brick-copper transition-colors">
+                    <Mail size={14} />
+                  </span>
+                  <span className="tracking-wide">{settings.contactInfo.email}</span>
+                </motion.a>
               )}
               {settings.contactInfo?.phone && (
-                <div className="flex items-center gap-2 text-[10px] text-text-primary/50">
-                  <Phone size={12} /> {settings.contactInfo.phone}
-                </div>
+                <motion.a 
+                  href={`tel:${settings.contactInfo.phone.replace(/[^0-9]/g, '')}`}
+                  whileHover={{ x: 4 }}
+                  className="group flex items-center gap-3 text-[11px] text-text-primary/50 hover:text-text-primary transition-colors w-fit"
+                >
+                  <span className="p-2 bg-text-primary/5 rounded-full group-hover:bg-brick-copper/10 group-hover:text-brick-copper transition-colors">
+                    <Phone size={14} />
+                  </span>
+                  <span className="tracking-wide">{settings.contactInfo.phone}</span>
+                </motion.a>
               )}
               {settings.contactInfo?.address && (
-                <div className="flex items-start gap-2 text-[10px] text-text-primary/50">
-                  <MapPin size={12} className="mt-1" /> {settings.contactInfo.address}
-                </div>
+                <motion.div 
+                  whileHover={{ x: 4 }}
+                  className="group flex items-start gap-3 text-[11px] text-text-primary/50 w-fit"
+                >
+                  <span className="p-2 bg-text-primary/5 rounded-full">
+                    <MapPin size={14} />
+                  </span>
+                  <span className="tracking-wide max-w-[200px] leading-relaxed italic">{settings.contactInfo.address}</span>
+                </motion.div>
               )}
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper">Nodes</h4>
-            <div className="flex gap-4">
-              {(settings.socialLinks || []).map(link => {
-                const Icon = platformIcons[link.platform];
-                if (!Icon) return null;
-                return (
-                  <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="text-text-primary/40 hover:text-brick-copper transition-colors">
-                    <Icon size={18} />
-                  </a>
-                );
-              })}
+          <div className="space-y-6 lg:pl-12 border-l border-border-subtle/20">
+            <h4 className="text-[9px] uppercase tracking-[0.4em] text-brick-copper font-bold">Digital Nodes</h4>
+            <div className="flex flex-wrap gap-3">
+              {(settings.socialLinks || [])
+                .filter(link => link.url && link.url.trim() !== '')
+                .map(link => {
+                  const Icon = platformIcons[link.platform];
+                  if (!Icon) return null;
+                  return (
+                    <motion.a 
+                      key={link.id} 
+                      href={link.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      whileHover={{ y: -4, scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="p-3 bg-text-primary/5 rounded-xl text-text-primary/40 hover:text-brick-copper hover:bg-brick-copper/5 transition-all shadow-sm hover:shadow-md"
+                      title={link.platform}
+                    >
+                      <Icon size={20} />
+                    </motion.a>
+                  );
+                })}
             </div>
+            <p className="text-[9px] text-text-primary/30 italic max-w-[180px] leading-relaxed">
+              Connect with us across platforms for the latest property showcases and technical insights.
+            </p>
           </div>
         </div>
       </div>

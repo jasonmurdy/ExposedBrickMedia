@@ -22,6 +22,7 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "price": { "type": "string" },
+        "url": { "type": "string" },
         "order": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
@@ -83,6 +84,17 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "AdminUser": {
+      "title": "Admin User",
+      "description": "A user with administrative privileges.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin"] },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "addedAt"]
     }
   },
   "firestore": {
@@ -105,6 +117,10 @@
     "pages": {
       "schema": "CustomPage",
       "description": "User-generated custom pages."
+    },
+    "admins": {
+      "schema": "AdminUser",
+      "description": "Authorized administrators."
     }
   }
 }

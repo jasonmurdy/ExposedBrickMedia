@@ -6,6 +6,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, MapPin, Home, Bed, Bath, Square, 
   DollarSign, Clock, ExternalLink, Share2, 
@@ -50,6 +51,13 @@ export const ProjectDetailView = () => {
 
   return (
     <div className="flex flex-col w-full min-h-screen bg-bg-primary text-text-primary selection:bg-brick-copper selection:text-charcoal">
+      <Helmet>
+        <title>{`${project.title} | ${project.category} | Exposed Brick Media`}</title>
+        <meta name="description" content={`Explore ${project.title}, a ${project.propertyType || project.category} showcase. ${project.description?.substring(0, 120)}`} />
+        <meta property="og:title" content={`${project.title} | Architectural Showcase`} />
+        <meta property="og:image" content={project.img} />
+        <meta name="twitter:card" content="summary_large_image" />
+      </Helmet>
       {/* Top Nav */}
       <div className="w-full px-8 md:px-12 lg:px-16 py-6 border-b border-border-subtle flex items-center justify-between sticky top-0 bg-bg-primary/80 backdrop-blur-xl z-50">
         <div className="flex items-center gap-4 text-[10px] uppercase tracking-widest text-text-primary/60">

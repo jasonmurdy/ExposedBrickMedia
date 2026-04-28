@@ -45,6 +45,7 @@ interface ServiceItem {
   title: string;
   description: string;
   price?: string;
+  url?: string;
   order: number;
 }
 
@@ -106,10 +107,23 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     let currentIsAdmin = false;
 
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
-      const isAdminUser = !!user?.email && ADMIN_EMAILS.includes(user.email);
-      setIsAdmin(isAdminUser);
-      currentIsAdmin = isAdminUser;
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      if (user?.email) {
+        if (ADMIN_EMAILS.includes(user.email)) {
+          setIsAdmin(true);
+          currentIsAdmin = true;
+          return;
+        }
+
+        // Also check Firestore admins collection
+        const adminDoc = await getDoc(doc(db, 'admins', user.email));
+        const isAdminUser = adminDoc.exists();
+        setIsAdmin(isAdminUser);
+        currentIsAdmin = isAdminUser;
+      } else {
+        setIsAdmin(false);
+        currentIsAdmin = false;
+      }
     });
 
     const settingsRef = doc(db, 'settings', 'site');

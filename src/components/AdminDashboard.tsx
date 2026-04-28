@@ -32,6 +32,7 @@ import {
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box
 } from 'lucide-react';
 import { FileUpload } from './FileUpload';
+import { LinkSelector } from './LinkSelector';
 import { GoogleGenAI } from '@google/genai';
 import { PuckEditor } from './PuckEditor';
 import { Portfolio } from './PortfolioSections';
@@ -48,11 +49,13 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [services, setServices] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [testimonials, setTestimonials] = useState<any[]>([]);
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFetchingMLS, setIsFetchingMLS] = useState(false);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'aesthetics' | 'journal' | 'services' | 'exchange' | 'narratives' | 'layout' | 'social_proof'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'aesthetics' | 'journal' | 'services' | 'exchange' | 'narratives' | 'layout' | 'social_proof' | 'security'>('architecture');
   const [showPuck, setShowPuck] = useState(false);
   const [puckPageId, setPuckPageId] = useState<string | null>(null);
 
@@ -105,18 +108,27 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       setInquiries(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const qAdmins = query(collection(db, 'admins'), orderBy('addedAt', 'desc'));
+    const unsubAdmins = onSnapshot(qAdmins, (snap) => {
+      setAdmins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubPortfolio();
       unsubServices();
       unsubTestimonials();
       unsubInquiries();
+      unsubAdmins();
     };
   }, [user]);
 
   const login = () => signInWithPopup(auth, new GoogleAuthProvider());
   const logout = () => signOut(auth);
 
-  const isAdmin = !!user?.email && ADMIN_EMAILS.includes(user.email);
+  const isAdmin = !!user?.email && (
+    ADMIN_EMAILS.includes(user.email) || 
+    admins.some(a => a.email === user.email)
+  );
 
   if (!user) {
     return (
@@ -311,9 +323,9 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   const handleCreatePage = async () => {
     const newPage = {
-      title: 'New Narrative',
-      slug: 'new-narrative-' + Date.now(),
-      content: '# New Narrative\n\nBegin your story here...',
+      title: 'New Page',
+      slug: 'new-page-' + Date.now(),
+      content: '# New Page\n\nBegin your content here...',
       showInNav: true,
       order: pages.length,
       createdAt: serverTimestamp(),
@@ -387,6 +399,39 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     setEditData({ id: docRef.id, ...newItem });
   };
 
+  const handleCreateAdmin = async () => {
+    if (!newAdminEmail) return;
+    try {
+      const email = newAdminEmail.toLowerCase().trim();
+      const newAdmin = {
+        email,
+        role: 'admin',
+        addedAt: serverTimestamp()
+      };
+      // Use email as doc ID to make rules checking easier
+      await setDoc(doc(db, 'admins', email), newAdmin);
+      await logAction('ADD_ADMIN', { email });
+      setNewAdminEmail('');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'admins');
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string, email: string) => {
+    if (ADMIN_EMAILS.includes(email)) {
+      alert("This guardian is part of the core narrative and cannot be erased.");
+      return;
+    }
+    if (confirm(`Relinquish administrative privileges for ${email}?`)) {
+      try {
+        await deleteDoc(doc(db, 'admins', id));
+        await logAction('REMOVE_ADMIN', { email });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `admins/${id}`);
+      }
+    }
+  };
+
   async function handleUpdateTestimonial(id: string) {
     const docRef = doc(db, 'testimonials', id);
     const { id: _, createdAt: __, ...dataToUpdate } = editData;
@@ -449,7 +494,8 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           { id: 'services', label: 'Offerings', icon: Briefcase },
           { id: 'social_proof', label: 'Social Proof', icon: Users },
           { id: 'exchange', label: 'Exchange', icon: MessageSquare },
-          { id: 'narratives', label: 'Narratives', icon: FileText }
+          { id: 'narratives', label: 'Pages', icon: FileText },
+          { id: 'security', label: 'Guardians', icon: Shield }
         ].map(tab => (
           <button 
             key={tab.id}
@@ -724,13 +770,12 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                             <Trash2 size={14} />
                           </button>
                         </div>
-                        <input 
-                          className="bg-transparent border-b border-white/10 text-[10px] font-mono text-white/40 outline-none w-full p-1 focus:border-brick-copper transition-colors" 
+                        <LinkSelector 
                           value={item.url}
-                          placeholder="Path (/p/about) or External (https://...)"
-                          onChange={e => {
+                          allowListing={false}
+                          onChange={(val) => {
                             const newItems = [...(localSettings.navigationItems || [])];
-                            newItems[idx].url = e.target.value;
+                            newItems[idx].url = val;
                             setLocalSettings({...localSettings, navigationItems: newItems});
                           }}
                         />
@@ -1200,10 +1245,10 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
               <div className="flex items-center gap-3 text-brick-copper">
                 <FileText size={18} />
-                <h3 className="font-display text-2xl italic">Custom Narratives</h3>
+                <h3 className="font-display text-2xl italic">Custom Pages</h3>
               </div>
-              <button onClick={handleCreatePage} className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-sand transition-colors">
-                <Plus size={14} /> New Narrative
+              <button onClick={handleCreatePage} className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-sand transition-colors font-bold">
+                <Plus size={14} /> New Page
               </button>
             </div>
             <div className="space-y-4">
@@ -1360,6 +1405,133 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   <p className="text-[10px] uppercase tracking-[0.3em]">No inquiries found in the stream.</p>
                 </div>
               )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'security' && (
+          <section className="max-w-4xl">
+            <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4">
+              <Shield size={18} />
+              <h3 className="font-display text-2xl italic">Guardian Access</h3>
+            </div>
+            
+            <div className="bg-white/[0.02] border border-white/5 p-8 mb-12 flex justify-between items-center">
+              <div>
+                <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-2">System Orchestration</h4>
+                <p className="text-[10px] text-white/20 italic font-mono">Initialize high-quality narratives for your core services.</p>
+              </div>
+              <button 
+                onClick={async () => {
+                  const servicePages = [
+                    {
+                      title: 'Architectural Photography',
+                      slug: 'architectural-photography',
+                      description: 'High-fidelity architectural photography capturing the soul of structural design.',
+                      content: '# Architectural Photography: The Art of Stillness\n\nAt **Exposed Brick Media**, we don\'t just take pictures of buildings. We capture the conversation between light, shadow, and structure.\n\n## Our Approach\nEvery property has a "hero" narrative. Our process involves:\n- **Light Study**: We analyze the sun\'s path to ensure we capture the exterior at the precise moment of \'Golden Hour\' or \'Blue Hour\'.\n- **Composition**: Using wide-angle shift lenses to maintain vertical integrity and geometric precision.\n- **Atmosphere**: Beyond the wide shot, we focus on the textures—the grain of the wood, the coldness of the steel, the "exposed brick."\n\n### Technical Standard\n- Full-frame high-resolution sensors.\n- Manual bracketed exposures for perfect HDR (High Dynamic Range) without the "fake" look.\n- Advanced post-processing for color accuracy.',
+                      showInNav: false,
+                      order: 10
+                    },
+                    {
+                      title: 'Cinematic Video Tours',
+                      slug: 'cinematic-video-tours',
+                      description: 'Story-driven cinematic video tours for luxury real estate.',
+                      content: '# Cinematic Video: Rhythmic Narratives\n\nVideo should be an experience, not just a walkthrough. We create rhythmic, story-driven films that evoke an emotional connection with the space.\n\n## The Narrative Flow\nWe treat every video like a short film:\n1. **The Arrival**: Capturing the approach and the first impression.\n2. **The Heart**: Focusing on the primary living spaces where life happens.\n3. **The Details**: Macro shots of premium finishes and architectural flourishes.\n4. **The Context**: Aerial footage showing the property\'s place in the world.\n\n### Deliverables\n- 4K High Bitrate delivery.\n- Licensed cinematic soundtrack.\n- Social media "Teaser" trailers (9:16 vertical).',
+                      showInNav: false,
+                      order: 11
+                    },
+                    {
+                      title: 'Aerial Perspective',
+                      slug: 'aerial-perspective',
+                      description: 'Precision drone photography and videography to capture context and scale.',
+                      content: '# Aerial Perspective: The Big Picture\n\nContext is everything. Our aerial services provide the bird\'s eye view necessary to understand a property\'s scale, its surrounding landscape, and its relationship to the environment.\n\n## Precision Flight\n- **RPAS Licensed Pilots**: Safety and regulation compliance is non-negotiable.\n- **Advanced Sensors**: We use drones with large sensors to ensure aerial shots match the quality of our ground-based photography.\n- **Site Planning**: We map out flight paths to highlight proximity to landmarks, water, and acreage.\n\n### Use Cases\n- Large estate overviews.\n- Commercial site progress.\n- Neighborhood context for residential listings.',
+                      showInNav: false,
+                      order: 12
+                    }
+                  ];
+                  
+                  for (const pageData of servicePages) {
+                    if (!pages.find(p => p.slug === pageData.slug)) {
+                       await addDoc(collection(db, 'pages'), {
+                         ...pageData,
+                         createdAt: serverTimestamp(),
+                         updatedAt: serverTimestamp()
+                       });
+                    }
+                  }
+
+                  // Link existing services
+                  for (const service of services) {
+                    const match = servicePages.find(p => p.title.toLowerCase().includes(service.title.toLowerCase()) || service.title.toLowerCase().includes(p.title.toLowerCase()));
+                    if (match && !service.url) {
+                      await updateDoc(doc(db, 'services', service.id), {
+                        url: `/p/${match.slug}`,
+                        updatedAt: serverTimestamp()
+                      });
+                    }
+                  }
+                  alert("Narratives seeded and linked.");
+                }}
+                className="px-6 py-2 border border-brick-copper text-brick-copper text-[10px] uppercase tracking-widest font-bold hover:bg-brick-copper hover:text-charcoal transition-all"
+              >
+                Seed Service Narratives
+              </button>
+            </div>
+
+            <div className="bg-white/[0.02] border border-white/5 p-8 mb-12">
+              <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">Authorize New Guardian</h4>
+              <div className="flex gap-4">
+                <input 
+                  className="flex-1 bg-transparent border-b border-white/10 outline-none py-2 text-sm focus:border-brick-copper transition-colors"
+                  placeholder="Enter email address..."
+                  value={newAdminEmail}
+                  onChange={e => setNewAdminEmail(e.target.value)}
+                />
+                <button 
+                  onClick={handleCreateAdmin}
+                  className="px-8 py-3 bg-brick-copper text-charcoal text-[10px] uppercase tracking-widest font-bold hover:bg-white transition-all"
+                >
+                  Authorize
+                </button>
+              </div>
+              <p className="mt-4 text-[10px] text-white/20 italic italic font-mono">Note: Core developers defined in source code have persistent access.</p>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">Active Guardians</h4>
+              
+              {/* Hardcoded Core Admins */}
+              {ADMIN_EMAILS.map(email => (
+                <div key={email} className="flex justify-between items-center p-6 border border-brick-copper/20 bg-brick-copper/[0.02]">
+                  <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-brick-copper animate-pulse" />
+                    <div>
+                      <p className="text-sm font-medium">{email}</p>
+                      <p className="text-[10px] text-brick-copper uppercase tracking-widest">Core Narrative Guardian</p>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest italic">Immutable</div>
+                </div>
+              ))}
+
+              {/* Dynamic Admins */}
+              {admins.map(admin => (
+                <div key={admin.id} className="flex justify-between items-center p-6 border border-white/5 bg-white/[0.01] group hover:border-white/10 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-white/20" />
+                    <div>
+                      <p className="text-sm font-medium">{admin.email}</p>
+                      <p className="text-[10px] text-white/40 uppercase tracking-widest">Authorized Administrator</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => handleDeleteAdmin(admin.id, admin.email)}
+                    className="p-3 text-white/10 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
             </div>
           </section>
         )}

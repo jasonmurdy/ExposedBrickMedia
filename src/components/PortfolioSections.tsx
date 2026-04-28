@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Video, Box, Edit3, Trash2, ChevronUp, ChevronDown, Plus, Check, X, GripVertical, Image as ImageIcon, LayoutGrid, Grid3X3 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -11,6 +11,7 @@ import { useSiteContent } from '../lib/SiteContentContext';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { FileUpload } from './FileUpload';
+import { LinkSelector } from './LinkSelector';
 import {
   DndContext, 
   closestCenter,
@@ -70,8 +71,10 @@ const SortablePortfolioItem = ({
   ) : (
     <>
       <motion.img 
-        whileHover={!isEditMode && !item.url ? { scale: 1.05 } : {}}
-        transition={{ duration: 1.2, ease: [0.215, 0.61, 0.355, 1] }}
+        initial={{ scale: 1.1, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 1.2, ease: [0.215, 0.61, 0.355, 1], delay: index * 0.05 }}
+        whileHover={!isEditMode ? { scale: 1.05 } : {}}
         src={optimizedUrl} 
         alt={item.title}
         loading="lazy"
@@ -149,8 +152,18 @@ const SortablePortfolioItem = ({
 
   const getLinkContent = () => {
     if (isEditMode || isSpacer) return content;
+    const to = item.url && item.url !== 'listing' ? item.url : `/listing/${item.id}`;
+    
+    if (to.startsWith('http')) {
+      return (
+        <a href={to} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+          {content}
+        </a>
+      );
+    }
+
     return (
-      <Link to={`/listing/${item.id}`} className="block w-full h-full">
+      <Link to={to} className="block w-full h-full">
         {content}
       </Link>
     );
@@ -174,11 +187,14 @@ const SortablePortfolioItem = ({
   const rowSpan = item.rowSpan || (isFeatured && !isGallery ? 2 : 1);
   const panel = item.panel || 'main';
 
+  const isClickable = !isEditMode && !isSpacer;
+
   return (
-    <div 
+    <motion.div 
       ref={setNodeRef} 
       style={style}
-      className={`relative overflow-hidden group ${isSpacer ? 'bg-transparent' : 'bg-stone-900 border border-border-subtle'} hover:border-brick-copper/80 hover:shadow-[0_0_30px_rgba(184,115,51,0.15)] transition-all duration-500 rounded-sm ${
+      whileTap={isClickable ? { scale: 0.985 } : {}}
+      className={`relative overflow-hidden group ${isSpacer ? 'bg-transparent' : 'bg-stone-900 border border-border-subtle'} ${isClickable ? 'cursor-pointer' : ''} hover:border-brick-copper/80 hover:shadow-[0_0_30px_rgba(184,115,51,0.15)] transition-all duration-500 rounded-sm ${
         !isGallery ? `${colSpanClasses[colSpan] || 'sm:col-span-1'} ${rowSpanClasses[rowSpan] || 'sm:row-span-1'}` : ''
       } ${isGallery ? 'aspect-[4/5]' : 'aspect-square md:aspect-auto'}`}
     >
@@ -252,7 +268,7 @@ const SortablePortfolioItem = ({
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
@@ -470,12 +486,10 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                         </select>
                       </div>
                       <div>
-                        <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">External Link (Optional)</label>
-                        <input 
-                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
-                          placeholder="https://example.com/listing"
-                          value={editFields.url || ''}
-                          onChange={e => setEditFields({...editFields, url: e.target.value})}
+                        <LinkSelector 
+                          label="Destination"
+                          value={editFields.url || 'listing'}
+                          onChange={(val) => setEditFields({...editFields, url: val})}
                         />
                       </div>
                     </div>
@@ -627,6 +641,7 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
 
 const SortableServiceItem = ({ 
   tier, 
+  index,
   isEditMode, 
   isAdmin, 
   editingId, 
@@ -653,67 +668,110 @@ const SortableServiceItem = ({
     opacity: isDragging ? 0.5 : 1
   };
 
+  const targetUrl = tier.url ? (tier.url.startsWith('/') || tier.url.startsWith('http') ? tier.url : `/p/${tier.url}`) : null;
+  const navigate = useNavigate();
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isEditMode) return;
+    if (targetUrl) {
+      if (targetUrl.startsWith('http')) {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(targetUrl);
+      }
+    }
+  };
+
+  const cardContent = (
+    <motion.div 
+      layout
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ delay: index * 0.05 }}
+      whileHover={!isEditMode && targetUrl ? { 
+        x: 5, 
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderColor: 'var(--color-brick-copper)',
+      } : {}}
+      whileTap={!isEditMode && targetUrl ? { scale: 0.96 } : {}}
+      onClick={handleClick}
+      className={`group relative border border-border-subtle p-5 transition-all bg-text-primary/[0.02] ${
+        isEditMode 
+          ? 'hover:border-brick-copper/50' 
+          : (targetUrl ? 'cursor-pointer shadow-sm hover:shadow-md' : 'cursor-default')
+      }`}
+    >
+      {editingId === tier.id ? (
+        <div className="space-y-3" onClick={e => e.stopPropagation()}>
+          <div className="flex gap-2">
+            <input 
+              className="bg-transparent border-b border-brick-copper/30 w-full outline-none text-sm font-semibold"
+              value={editFields.title}
+              onChange={e => setEditFields({...editFields, title: e.target.value})}
+              autoFocus
+            />
+            <input 
+              className="bg-transparent border-b border-brick-copper/30 w-24 outline-none text-[10px] font-mono text-brick-copper"
+              value={editFields.price}
+              onChange={e => setEditFields({...editFields, price: e.target.value})}
+            />
+          </div>
+          <textarea 
+            className="bg-transparent border border-brick-copper/10 w-full h-16 p-2 text-[10px] outline-none"
+            value={editFields.description}
+            onChange={e => setEditFields({...editFields, description: e.target.value})}
+          />
+          <div className="py-2">
+            <LinkSelector 
+              label="Service Narrative Page"
+              value={editFields.url || ''}
+              allowListing={false}
+              onChange={val => setEditFields({...editFields, url: val})}
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button onClick={() => saveEdit(tier.id)} className="text-green-500 hover:text-green-400 font-bold p-1"><Check size={14} /></button>
+            <button onClick={() => setEditingId(null)} className="text-text-primary/30 hover:text-text-primary font-bold p-1"><X size={14} /></button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex justify-between items-start mb-1">
+            <div className="flex items-center gap-2">
+              {isEditMode && (
+                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-text-primary/20 hover:text-brick-copper transition-colors p-1" onClick={e => e.stopPropagation()}>
+                  <GripVertical size={14} />
+                </div>
+              )}
+              <h4 className="text-sm font-semibold group-hover:text-brick-copper transition-colors">{tier.title}</h4>
+            </div>
+            {tier.price && <span className="text-[10px] font-mono text-brick-copper tracking-widest font-bold drop-shadow-sm">{tier.price}</span>}
+          </div>
+          <p className="text-[10px] text-text-primary/40 leading-relaxed tracking-wide pl-6">
+            {tier.description}
+          </p>
+
+          {!isEditMode && targetUrl && (
+            <div className="pl-6 mt-3">
+               <span className="text-[8px] uppercase tracking-[0.2em] text-brick-copper border-b border-brick-copper/20 pb-0.5 group-hover:border-brick-copper transition-colors">Explore Narrative &rarr;</span>
+            </div>
+          )}
+
+          {isAdmin && isEditMode && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-3 pr-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+              <button onClick={() => startEdit(tier)} className="text-text-primary/20 hover:text-brick-copper transition-colors"><Edit3 size={12} /></button>
+              <button onClick={() => deleteTier(tier.id)} className="text-text-primary/20 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+            </div>
+          )}
+        </>
+      )}
+    </motion.div>
+  );
+
   return (
     <div ref={setNodeRef} style={style}>
-      <motion.div 
-        layout
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        whileHover={!isEditMode ? { x: 5 } : {}}
-        className={`group relative border border-border-subtle p-5 transition-all bg-text-primary/[0.02] ${isEditMode ? 'hover:border-brick-copper/50' : 'hover:border-brick-copper'}`}
-      >
-        {editingId === tier.id ? (
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <input 
-                className="bg-transparent border-b border-brick-copper/30 w-full outline-none text-sm font-semibold"
-                value={editFields.title}
-                onChange={e => setEditFields({...editFields, title: e.target.value})}
-                autoFocus
-              />
-              <input 
-                className="bg-transparent border-b border-brick-copper/30 w-24 outline-none text-[10px] font-mono text-brick-copper"
-                value={editFields.price}
-                onChange={e => setEditFields({...editFields, price: e.target.value})}
-              />
-            </div>
-            <textarea 
-              className="bg-transparent border border-brick-copper/10 w-full h-16 p-2 text-[10px] outline-none"
-              value={editFields.description}
-              onChange={e => setEditFields({...editFields, description: e.target.value})}
-            />
-            <div className="flex gap-3 pt-1">
-              <button onClick={() => saveEdit(tier.id)} className="text-green-500 hover:text-green-400"><Check size={14} /></button>
-              <button onClick={() => setEditingId(null)} className="text-text-primary/30 hover:text-text-primary"><X size={14} /></button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="flex justify-between items-start mb-1">
-              <div className="flex items-center gap-2">
-                {isEditMode && (
-                  <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-text-primary/20 hover:text-brick-copper transition-colors">
-                    <GripVertical size={14} />
-                  </div>
-                )}
-                <h4 className="text-sm font-semibold group-hover:text-brick-copper transition-colors">{tier.title}</h4>
-              </div>
-              {tier.price && <span className="text-[10px] font-mono text-brick-copper tracking-widest font-bold drop-shadow-sm">{tier.price}</span>}
-            </div>
-            <p className="text-[10px] text-text-primary/40 leading-relaxed tracking-wide pl-6">
-              {tier.description}
-            </p>
-
-            {isAdmin && isEditMode && (
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-3 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => startEdit(tier)} className="text-text-primary/20 hover:text-brick-copper transition-colors"><Edit3 size={12} /></button>
-                <button onClick={() => deleteTier(tier.id)} className="text-text-primary/20 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
-              </div>
-            )}
-          </>
-        )}
-      </motion.div>
+      {cardContent}
     </div>
   );
 };
@@ -721,10 +779,14 @@ const SortableServiceItem = ({
 export const Services = ({ override }: { override?: { title: string, subtitle: string } }) => {
   const { services, settings, isAdmin, isEditMode } = useSiteContent();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editFields, setEditFields] = useState({ title: '', description: '', price: '' });
+  const [editFields, setEditFields] = useState({ title: '', description: '', price: '', url: '' });
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -780,7 +842,12 @@ export const Services = ({ override }: { override?: { title: string, subtitle: s
 
   const startEdit = (tier: any) => {
     setEditingId(tier.id);
-    setEditFields({ title: tier.title, description: tier.description, price: tier.price || '' });
+    setEditFields({ 
+      title: tier.title, 
+      description: tier.description, 
+      price: tier.price || '',
+      url: tier.url || ''
+    });
   };
 
   const saveEdit = async (id: string) => {
@@ -841,10 +908,11 @@ export const Services = ({ override }: { override?: { title: string, subtitle: s
             strategy={verticalListSortingStrategy}
           >
             <AnimatePresence>
-              {displayServices.map((tier) => (
+              {displayServices.map((tier, index) => (
                 <SortableServiceItem 
                   key={tier.id}
                   tier={tier}
+                  index={index}
                   isEditMode={isEditMode}
                   isAdmin={isAdmin}
                   editingId={editingId}

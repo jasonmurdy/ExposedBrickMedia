@@ -16,7 +16,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (request.auth.token.email == 'jasonmurdy@gmail.com' || request.auth.token.email == 'sherwin.131986@gmail.com');
+      return isSignedIn() && (
+        request.auth.token.email == 'jasonmurdy@gmail.com' || 
+        request.auth.token.email == 'sherwin.131986@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
+      );
     }
 
     function isValidId(id) {
@@ -62,6 +66,7 @@ service cloud.firestore {
         && data.title is string && data.title.size() <= 100
         && data.description is string && data.description.size() <= 2000
         && (data.get('price', null) == null || (data.price is string && data.price.size() <= 100))
+        && (data.get('url', null) == null || (data.url is string && data.url.size() <= 1000))
         && data.order is number
         && data.createdAt == request.time
         && data.updatedAt == request.time;
@@ -124,7 +129,18 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'role', 'addedAt'])
+        && data.email is string && data.email.size() <= 200
+        && data.role is string && (data.role == 'owner' || data.role == 'admin')
+        && data.addedAt == request.time;
+    }
+
     // 3. Collection Rules
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && isValidAdmin(incoming()) && isValidId(adminId);
+    }
     match /portfolio_items/{itemId} {
       allow read: if true;
       allow create: if isAdmin() && isValidPortfolioItem(incoming()) && isValidId(itemId);
@@ -144,7 +160,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'price', 'order', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'price', 'url', 'order', 'updatedAt'])
         );
       allow delete: if isAdmin();
     }
