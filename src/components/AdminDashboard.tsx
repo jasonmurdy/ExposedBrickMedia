@@ -30,8 +30,26 @@ import {
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown
 } from 'lucide-react';
+import {
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  TouchSensor
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { FileUpload } from './FileUpload';
 import { LinkSelector } from './LinkSelector';
 import { GoogleGenAI } from '@google/genai';
@@ -42,6 +60,120 @@ import { ADMIN_EMAILS } from '../constants';
 
 // Initialize Gemini on the frontend as per system instructions
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const SortablePortfolioRow = ({ 
+  item, 
+  onEdit, 
+  onToggleHidden, 
+  onDelete 
+}: { 
+  item: any; 
+  onEdit: (item: any) => void; 
+  onToggleHidden: (id: string, hidden: boolean) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <tr 
+      ref={setNodeRef} 
+      style={style} 
+      className={`group hover:bg-white/[0.02] transition-colors ${isDragging ? 'bg-white/5 border-y border-brick-copper/50 shadow-2xl relative' : ''}`}
+    >
+      <td className="p-4 w-10">
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-white/10 hover:text-brick-copper transition-colors">
+          <GripVertical size={16} />
+        </div>
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 border border-white/10 overflow-hidden flex-shrink-0 bg-charcoal">
+            <img src={item.img} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt="" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white group-hover:text-brick-copper transition-colors uppercase tracking-tight">{item.title}</p>
+            <p className="text-[8px] text-white/20 font-mono tracking-tighter mt-0.5 select-all">{item.id}</p>
+          </div>
+        </div>
+      </td>
+      <td className="p-4">
+        {item.bannerText ? (
+          <span 
+            className="text-[8px] font-black px-2 py-0.5 rounded-sm uppercase tracking-widest shadow-sm border border-white/10"
+            style={{ 
+              backgroundColor: item.bannerColor || '#C57D5D',
+              color: item.bannerColor === '#FAFAFA' ? '#1a1a1a' : (item.bannerColor === '#1A1A1A' ? '#ffffff' : '#1a1a1a')
+            }}
+          >
+            {item.bannerText}
+          </span>
+        ) : (
+          <span className="text-[8px] text-white/10 uppercase tracking-widest">—</span>
+        )}
+      </td>
+      <td className="p-4">
+        <span className="text-[9px] uppercase tracking-widest text-white/40">{item.category}</span>
+      </td>
+      <td className="p-4">
+        <span className="text-[11px] font-mono text-brick-copper">{item.mlsNumber || 'N/A'}</span>
+      </td>
+      <td className="p-4">
+        <span className={`text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm border ${
+          item.status?.toLowerCase().includes('sold') ? 'border-red-500/30 text-red-500 bg-red-500/5' : 
+          item.status?.toLowerCase().includes('sale') ? 'border-green-500/30 text-green-500 bg-green-500/5' : 
+          'border-white/10 text-white/40'
+        }`}>
+          {item.status || 'Pending'}
+        </span>
+      </td>
+      <td className="p-4">
+         <div className="flex flex-col gap-1">
+           <span className="text-[8px] uppercase tracking-tighter text-white/20">Panel: {item.panel || 'main'}</span>
+           <span className="text-[8px] uppercase tracking-tighter text-white/20">Order: {item.order}</span>
+         </div>
+      </td>
+      <td className="p-4 text-right">
+        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+          <button 
+            onClick={() => onEdit(item)}
+            className="p-2 text-white/40 hover:text-brick-copper hover:bg-white/5 transition-all"
+            title="Metadata Sculpting"
+          >
+            <Edit2 size={14} />
+          </button>
+          <button 
+            onClick={() => onToggleHidden(item.id, item.hidden)}
+            className={`p-2 transition-all ${item.hidden ? 'text-red-500 bg-red-500/5' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+            title={item.hidden ? "Restore to Public" : "Archive from Stream"}
+          >
+            {item.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+          <button 
+            onClick={() => onDelete(item.id)}
+            className="p-2 text-white/20 hover:text-red-500 hover:bg-red-500/5 transition-all"
+            title="Erase Record"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+};
 
 export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [user, setUser] = useState<any>(null);
@@ -58,11 +190,66 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [activeTab, setActiveTab] = useState<'architecture' | 'aesthetics' | 'journal' | 'services' | 'exchange' | 'narratives' | 'layout' | 'social_proof' | 'security'>('architecture');
   const [showPuck, setShowPuck] = useState(false);
   const [puckPageId, setPuckPageId] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'order', direction: 'asc' });
 
   const { settings, pages, setIsEditMode } = useSiteContent();
   const [localSettings, setLocalSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = portfolioItems.findIndex((item) => item.id === active.id);
+      const newIndex = portfolioItems.findIndex((item) => item.id === over.id);
+
+      const newItems = arrayMove(portfolioItems, oldIndex, newIndex);
+      setPortfolioItems(newItems);
+
+      // Persist the new order to Firestore
+      const updates = newItems.map((item, index) => {
+        if (item.order !== index) {
+          return updateDoc(doc(db, 'portfolio_items', item.id), { 
+            order: index,
+            updatedAt: serverTimestamp() 
+          });
+        }
+        return null;
+      }).filter(Boolean);
+      
+      try {
+        await Promise.all(updates);
+        await logAction('REORDER_PORTFOLIO', { count: updates.length });
+      } catch (err) {
+        console.error("Failed to persist new order", err);
+      }
+    }
+  };
+
+  const getSortedItems = (items: any[]) => {
+    if (!sortConfig || (sortConfig.key === 'order' && sortConfig.direction === 'asc')) return items;
+    return [...items].sort((a, b) => {
+      const aVal = a[sortConfig.key] || '';
+      const bVal = b[sortConfig.key] || '';
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
 
   useEffect(() => {
     setIsEditMode(true);
@@ -981,258 +1168,360 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         )}
 
         {activeTab === 'journal' && (
-          <section>
-            <div className="flex justify-between items-end mb-8 border-b border-white/5 pb-4">
+          <section className="space-y-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 border-b border-white/5 pb-6">
               <div className="flex items-center gap-3 text-brick-copper">
                 <Box size={18} />
-                <h3 className="font-display text-2xl italic">Project Catalog</h3>
+                <h3 className="font-display text-2xl italic">Project Catalog Matrix</h3>
               </div>
-              <button onClick={handleCreatePortfolio} className="text-brick-copper hover:text-off-white flex items-center gap-2 text-[10px] uppercase tracking-widest transition-colors font-bold">
-                <Plus size={14} /> New Project
-              </button>
+              <div className="flex flex-wrap gap-4 w-full md:w-auto">
+                <div className="flex-1 md:w-64 relative">
+                  <input 
+                    type="text" 
+                    placeholder="Search by Title, MLS, or Status..." 
+                    className="bg-white/5 border border-white/10 w-full outline-none py-2 px-4 text-[10px] uppercase tracking-widest focus:border-brick-copper transition-colors"
+                    value={editData.search || ''}
+                    onChange={e => setEditData({...editData, search: e.target.value})}
+                  />
+                  {sortConfig?.key !== 'order' && (
+                    <button 
+                      onClick={() => setSortConfig({ key: 'order', direction: 'asc' })}
+                      className="absolute right-0 -bottom-6 text-[8px] uppercase tracking-widest text-brick-copper hover:text-white transition-colors"
+                    >
+                      Reset to Manual Order
+                    </button>
+                  )}
+                </div>
+                <button 
+                  onClick={handleCreatePortfolio}
+                  className="px-6 py-2 bg-brick-copper text-charcoal border border-brick-copper/20 text-[10px] uppercase tracking-widest hover:bg-white transition-all font-bold"
+                >
+                  <Plus size={14} className="inline mr-2" /> New Catalog Entry
+                </button>
+              </div>
             </div>
-            <div className="space-y-6">
-              {portfolioItems.map(item => (
-                <div key={item.id} className="bg-white/5 border border-white/5 p-6 md:p-10 group hover:border-brick-copper/30 transition-all">
-                  {isEditing === item.id ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+
+            <div className="grid grid-cols-1 gap-12">
+              {/* Registry Table View - The "Identifiers" list */}
+              <div className="bg-white/[0.01] border border-white/5 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <DndContext 
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/10 bg-white/5">
+                          <th className="p-4 w-10"></th>
+                          <th 
+                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
+                            onClick={() => requestSort('title')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Project / Address
+                              {sortConfig?.key === 'title' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
+                            </div>
+                          </th>
+                          <th 
+                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
+                            onClick={() => requestSort('bannerText')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Banner
+                              {sortConfig?.key === 'bannerText' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
+                            </div>
+                          </th>
+                          <th 
+                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
+                            onClick={() => requestSort('category')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Taxonomy
+                              {sortConfig?.key === 'category' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
+                            </div>
+                          </th>
+                          <th 
+                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
+                            onClick={() => requestSort('mlsNumber')}
+                          >
+                            <div className="flex items-center gap-2">
+                              MLS System
+                              {sortConfig?.key === 'mlsNumber' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
+                            </div>
+                          </th>
+                          <th 
+                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
+                            onClick={() => requestSort('status')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Condition
+                              {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
+                            </div>
+                          </th>
+                          <th 
+                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
+                            onClick={() => requestSort('order')}
+                          >
+                            <div className="flex items-center gap-2">
+                              Registry
+                              {sortConfig?.key === 'order' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
+                            </div>
+                          </th>
+                          <th className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        <SortableContext 
+                          items={portfolioItems.map(i => i.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {getSortedItems(portfolioItems)
+                            .filter(item => {
+                              const s = editData.search?.toLowerCase() || '';
+                              return !s || 
+                                item.title?.toLowerCase().includes(s) || 
+                                item.mlsNumber?.toLowerCase().includes(s) || 
+                                item.status?.toLowerCase().includes(s) ||
+                                item.category?.toLowerCase().includes(s) ||
+                                item.bannerText?.toLowerCase().includes(s);
+                            })
+                            .map(item => (
+                              <SortablePortfolioRow 
+                                key={item.id}
+                                item={item}
+                                onEdit={(it) => { setIsEditing(it.id); setEditData(it); }}
+                                onToggleHidden={(id, hidden) => updateDoc(doc(db, 'portfolio_items', id), { hidden: !hidden, updatedAt: serverTimestamp() })}
+                                onDelete={handleDeletePortfolio}
+                              />
+                            ))}
+                        </SortableContext>
+                      </tbody>
+                    </table>
+                  </DndContext>
+                </div>
+              </div>
+
+              {/* Edit Modal (Portal) */}
+              {isEditing && portfolioItems.find(i => i.id === isEditing) && (
+                <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-6 backdrop-blur-sm">
+                  <div className="bg-charcoal border border-brick-copper/30 w-full max-w-4xl max-h-[90vh] overflow-y-auto no-scrollbar shadow-3xl">
+                    <div className="sticky top-0 bg-charcoal/80 backdrop-blur-md p-6 border-b border-white/5 flex justify-between items-center z-10">
+                      <div>
+                        <h4 className="text-xl font-display italic text-white">{editData.title}</h4>
+                        <p className="text-[9px] text-brick-copper uppercase tracking-widest">{editData.category}</p>
+                      </div>
+                      <button onClick={() => setIsEditing(null)} className="text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+                    </div>
+                    
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-12">
                       <div className="space-y-6">
                         <FileUpload 
-                          label="Project Cinema"
+                          label="Cinema Primary Asset"
                           path="portfolio"
                           onUploadComplete={(url) => setEditData({...editData, img: url})}
                         />
-                        {(editData.img || item.img) && (
-                          <div className="aspect-square rounded border border-white/10 overflow-hidden">
-                            <img src={editData.img || item.img} className="w-full h-full object-cover" alt="Preview" />
+                        {editData.img && (
+                          <div className="aspect-video border border-white/10 overflow-hidden">
+                            <img src={editData.img} className="w-full h-full object-cover" alt="" />
                           </div>
                         )}
+                        
+                          <div className="space-y-6">
+                             <div>
+                              <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Banner Overlay Text</label>
+                              <input 
+                                placeholder="e.g. RECORD BREAKING SALE"
+                                className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] uppercase tracking-[0.2em] text-brick-copper font-bold" 
+                                value={editData.bannerText || ''} 
+                                onChange={e => setEditData({...editData, bannerText: e.target.value})} 
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-2">Banner Color</label>
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                  {['#C57D5D', '#B5A48F', '#1A1A1A', '#FAFAFA', '#E53E3E', '#38A169'].map(c => (
+                                    <button 
+                                      key={c}
+                                      onClick={() => setEditData({...editData, bannerColor: c})}
+                                      className={`w-6 h-6 border transition-all ${editData.bannerColor === c ? 'border-white scale-110 shadow-lg' : 'border-white/10 hover:scale-105'}`}
+                                      style={{ backgroundColor: c }}
+                                      title={c}
+                                    />
+                                  ))}
+                                </div>
+                                <input 
+                                  placeholder="Hex Code"
+                                  className="bg-white/5 border border-white/5 w-full outline-none py-2 px-3 text-[10px] font-mono text-white/60" 
+                                  value={editData.bannerColor || ''} 
+                                  onChange={e => setEditData({...editData, bannerColor: e.target.value})} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-2">Banner Size</label>
+                                <select 
+                                  className="bg-white/5 border border-white/5 w-full outline-none py-2 px-3 text-[10px] uppercase tracking-[0.1em] text-white/60 appearance-none"
+                                  value={editData.bannerSize || 'normal'}
+                                  onChange={e => setEditData({...editData, bannerSize: e.target.value})}
+                                >
+                                  <option value="compact">Compact / Minimal</option>
+                                  <option value="normal">Standard / Fidelity</option>
+                                  <option value="large">Expansive / Statement</option>
+                                  <option value="extra">Maximum / Impact</option>
+                                </select>
+                                <p className="text-[8px] text-white/20 mt-2 italic">Adjusts the scale of the sash narrative.</p>
+                              </div>
+                            </div>
+
+                            <p className="text-[8px] text-white/20 mt-1 italic">These attributes define the high-fidelity sash overlay on the catalog card.</p>
+                          </div>
                       </div>
-                      
+
                       <div className="space-y-6">
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Project Identification</label>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Title / Address</label>
                             <input 
-                              className="bg-transparent border-b border-brick-copper w-full outline-none py-2 text-lg font-display italic text-white" 
-                              value={editData.title ?? item.title} 
+                              className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-sm font-display italic" 
+                              value={editData.title || ''} 
                               onChange={e => setEditData({...editData, title: e.target.value})} 
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Taxonomy</label>
-                              <input 
-                                className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] uppercase tracking-widest" 
-                                value={editData.category ?? item.category} 
-                                onChange={e => setEditData({...editData, category: e.target.value})} 
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">External Link</label>
-                              <input 
-                                className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] lowercase tracking-widest" 
-                                placeholder="https://..."
-                                value={editData.url ?? item.url ?? ''} 
-                                onChange={e => setEditData({...editData, url: e.target.value})} 
-                              />
-                            </div>
-                          </div>
-                          <div className="bg-brick-copper/5 p-4 border border-brick-copper/10 gap-4 flex flex-col">
-                             <div className="flex gap-4 items-end">
-                               <div className="flex-1">
-                                 <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-1">MLS Number</label>
-                                 <input 
-                                   className="bg-transparent border-b border-brick-copper/30 w-full outline-none py-1 text-[10px] font-mono text-white placeholder-white/20" 
-                                   placeholder="e.g. 123456"
-                                   value={editData.mlsNumber ?? item.mlsNumber ?? ''} 
-                                   onChange={e => setEditData({...editData, mlsNumber: e.target.value})} 
-                                 />
-                               </div>
-                               <button 
-                                 onClick={handleMLSLookup} 
-                                 disabled={isFetchingMLS}
-                                 className="px-6 py-1.5 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-colors disabled:opacity-50"
-                               >
-                                 {isFetchingMLS ? 'Fetching...' : 'Fetch from MLS'}
-                               </button>
-                             </div>
-                             <div className="grid grid-cols-2 gap-4">
-                               <div>
-                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
-                                 <input 
-                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                                   placeholder="e.g. $1,500,000"
-                                   value={editData.listPrice ?? item.listPrice ?? ''} 
-                                   onChange={e => setEditData({...editData, listPrice: e.target.value})} 
-                                 />
-                               </div>
-                               <div>
-                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Property Type</label>
-                                 <input 
-                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                                   placeholder="e.g. Single Family"
-                                   value={editData.propertyType ?? item.propertyType ?? ''} 
-                                   onChange={e => setEditData({...editData, propertyType: e.target.value})} 
-                                 />
-                               </div>
-                               <div>
-                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Beds</label>
-                                 <input 
-                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                                   placeholder="e.g. 4"
-                                   value={editData.beds ?? item.beds ?? ''} 
-                                   onChange={e => setEditData({...editData, beds: e.target.value})} 
-                                 />
-                               </div>
-                               <div>
-                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Baths</label>
-                                 <input 
-                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                                   placeholder="e.g. 2.5"
-                                   value={editData.baths ?? item.baths ?? ''} 
-                                   onChange={e => setEditData({...editData, baths: e.target.value})} 
-                                 />
-                               </div>
-                               <div>
-                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">SQFT</label>
-                                 <input 
-                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                                   placeholder="e.g. 2,500"
-                                   value={editData.sqft ?? item.sqft ?? ''} 
-                                   onChange={e => setEditData({...editData, sqft: e.target.value})} 
-                                 />
-                               </div>
-                               <div>
-                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Status</label>
-                                 <input 
-                                   className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                                   placeholder="e.g. For Sale, Sold"
-                                   value={editData.status ?? item.status ?? ''} 
-                                   onChange={e => setEditData({...editData, status: e.target.value})} 
-                                 />
-                               </div>
-                             </div>
-                          </div>
                           <div>
-                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Index Order</label>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Taxonomy</label>
+                            <input 
+                              className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] uppercase tracking-widest" 
+                              value={editData.category || ''} 
+                              onChange={e => setEditData({...editData, category: e.target.value})} 
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-brick-copper/[0.03] p-6 border border-brick-copper/10 space-y-4">
+                           <div className="flex gap-4">
+                              <div className="flex-1">
+                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-1">MLS Number</label>
+                                <input 
+                                  className="bg-transparent border-b border-brick-copper/30 w-full outline-none py-1 text-[10px] font-mono" 
+                                  value={editData.mlsNumber || ''} 
+                                  onChange={e => setEditData({...editData, mlsNumber: e.target.value})} 
+                                />
+                              </div>
+                              <button 
+                                onClick={handleMLSLookup}
+                                disabled={isFetchingMLS}
+                                className="px-4 py-2 bg-brick-copper text-charcoal text-[9px] uppercase font-bold tracking-widest hover:bg-white transition-all disabled:opacity-50"
+                              >
+                                {isFetchingMLS ? 'Accessing...' : 'Fetch MLS'}
+                              </button>
+                           </div>
+                           <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
+                                <input 
+                                  className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-[10px] font-mono" 
+                                  value={editData.listPrice || ''} 
+                                  onChange={e => setEditData({...editData, listPrice: e.target.value})} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Status</label>
+                                <input 
+                                  className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-[10px] font-mono" 
+                                  value={editData.status || ''} 
+                                  onChange={e => setEditData({...editData, status: e.target.value})} 
+                                />
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-4 bg-white/5 p-4">
+                          <div>
+                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Order</label>
                             <input 
                               type="number"
-                              className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono" 
-                              value={editData.order ?? item.order} 
+                              className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-xs font-mono" 
+                              value={editData.order || 0} 
                               onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} 
                             />
                           </div>
                           <div>
-                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Layout Configuration</label>
-                            <div className="grid grid-cols-4 gap-4 bg-white/5 p-4 border border-white/5">
-                              <div>
-                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Registry Type</label>
-                                <select 
-                                  className="bg-charcoal border border-white/10 w-full outline-none py-1 text-[9px] uppercase tracking-tighter"
-                                  value={editData.type || item.type || 'item'}
-                                  onChange={e => setEditData({...editData, type: e.target.value})}
-                                >
-                                  <option value="item">Showcase Item</option>
-                                  <option value="spacer">Blank Space</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Panel Allocation</label>
-                                <select 
-                                  className="bg-charcoal border border-white/10 w-full outline-none py-1 text-[9px] uppercase tracking-tighter text-brick-copper"
-                                  value={editData.panel || item.panel || 'main'}
-                                  onChange={e => setEditData({...editData, panel: e.target.value})}
-                                >
-                                  <option value="main">Main Panel</option>
-                                  <option value="side">Side Panel</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Col Span (1-4)</label>
-                                <input 
-                                  type="number" min="1" max="4"
-                                  className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono text-brick-copper" 
-                                  value={editData.colSpan ?? item.colSpan ?? 1} 
-                                  onChange={e => setEditData({...editData, colSpan: parseInt(e.target.value)})} 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Row Span (1-4)</label>
-                                <input 
-                                  type="number" min="1" max="4"
-                                  className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono text-brick-copper" 
-                                  value={editData.rowSpan ?? item.rowSpan ?? 1} 
-                                  onChange={e => setEditData({...editData, rowSpan: parseInt(e.target.value)})} 
-                                />
-                              </div>
-                              <div className="col-span-4 mt-4 pt-4 border-t border-white/5">
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                  <input 
-                                    type="checkbox" 
-                                    className="hidden"
-                                    checked={editData.hidden ?? item.hidden ?? false}
-                                    onChange={e => setEditData({...editData, hidden: e.target.checked})}
-                                  />
-                                  <div className={`w-4 h-4 border flex items-center justify-center transition-all ${ (editData.hidden ?? item.hidden) ? 'bg-red-500 border-red-500' : 'border-white/20 group-hover:border-brick-copper'}`}>
-                                    {(editData.hidden ?? item.hidden) && <Check size={10} className="text-white" />}
-                                  </div>
-                                  <span className="text-[10px] uppercase tracking-widest text-white/60">Hide listing from archive</span>
-                                </label>
-                              </div>
-                            </div>
+                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Type</label>
+                            <select 
+                              className="bg-charcoal border border-white/10 w-full outline-none text-[9px] uppercase py-1"
+                              value={editData.type || 'item'}
+                              onChange={e => setEditData({...editData, type: e.target.value})}
+                            >
+                              <option value="item">Item</option>
+                              <option value="spacer">Spacer</option>
+                            </select>
                           </div>
                           <div>
-                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Project Narrative</label>
-                            <textarea 
-                              className="bg-transparent border border-white/10 w-full h-32 p-4 text-xs font-mono leading-relaxed focus:border-brick-copper outline-none transition-colors" 
-                              placeholder="Describe the architectural soul of this project..." 
-                              value={editData.description ?? item.description} 
-                              onChange={e => setEditData({...editData, description: e.target.value})} 
+                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Panel</label>
+                            <select 
+                              className="bg-charcoal border border-white/10 w-full outline-none text-[9px] uppercase py-1 text-brick-copper"
+                              value={editData.panel || 'main'}
+                              onChange={e => setEditData({...editData, panel: e.target.value})}
+                            >
+                              <option value="main">Main</option>
+                              <option value="side">Side</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Grid W</label>
+                            <input 
+                              type="number" min="1" max="4"
+                              className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-xs font-mono" 
+                              value={editData.colSpan || 1} 
+                              onChange={e => setEditData({...editData, colSpan: parseInt(e.target.value)})} 
                             />
                           </div>
                         </div>
-                        <div className="flex gap-4 pt-4 border-t border-white/5">
-                           <button onClick={() => handleUpdatePortfolio(item.id)} className="flex-grow py-4 bg-brick-copper text-charcoal text-[10px] uppercase tracking-widest font-bold hover:bg-white transition-all shadow-xl">Persist Matrix</button>
-                           <button onClick={() => setIsEditing(null)} className="px-8 py-4 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest hover:border-white/30 transition-all">Release</button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex justify-between items-center">
-                      <div className="flex gap-8 items-center">
-                        <div className="relative w-16 h-16 md:w-24 md:h-24 overflow-hidden border border-white/10">
-                          <img src={item.img} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt="" />
-                          <div className="absolute top-1 left-1 bg-brick-copper text-charcoal text-[8px] font-bold px-1">{item.order}</div>
-                        </div>
+
                         <div>
-                          <h4 className="text-xl font-display italic text-white mb-1 flex items-center gap-3">
-                            {item.title}
-                            {item.hidden && <span className="text-[8px] bg-red-600 text-white px-2 py-0.5 rounded-sm uppercase tracking-widest font-black">Hidden</span>}
-                          </h4>
-                          <p className="text-[9px] text-brick-copper uppercase tracking-[0.3em] font-medium">{item.category}</p>
+                          <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Narrative Description</label>
+                          <textarea 
+                            className="bg-transparent border border-white/5 w-full h-32 p-4 text-[11px] font-mono focus:border-brick-copper outline-none transition-colors" 
+                            value={editData.description || ''} 
+                            onChange={e => setEditData({...editData, description: e.target.value})} 
+                          />
+                        </div>
+
+                        <div className="flex gap-4 pt-6 border-t border-white/5">
+                          <button onClick={() => handleUpdatePortfolio(isEditing)} className="flex-1 py-4 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-all shadow-xl">Persist Matrix</button>
+                          <button onClick={() => setIsEditing(null)} className="px-8 py-4 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest hover:text-white transition-all">Revert</button>
                         </div>
                       </div>
-                      <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
-                        <button 
-                          onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { hidden: !item.hidden })}
-                          className={`p-3 border border-white/5 transition-all ${item.hidden ? 'text-red-500 hover:text-white hover:bg-red-500' : 'text-white/40 hover:text-white hover:border-white'}`}
-                          title={item.hidden ? "Unhide from public" : "Hide from public"}
-                        >
-                          {item.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                        <button onClick={() => { setIsEditing(item.id); setEditData(item); }} className="p-3 border border-white/5 hover:border-brick-copper hover:text-brick-copper transition-all"><Edit2 size={16} /></button>
-                        <button onClick={() => handleDeletePortfolio(item.id)} className="p-3 border border-white/5 hover:border-red-500 hover:text-red-500 transition-all"><Trash2 size={16} /></button>
-                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
-              {portfolioItems.length === 0 && (
-                <div className="py-20 text-center border border-dashed border-white/5 text-white/20">
-                  <p className="text-[10px] uppercase tracking-[0.3em]">No projects in the archive matrix.</p>
+                  </div>
                 </div>
               )}
+
+              {/* Visual Grid Perspective */}
+              <div className="space-y-8 pt-12 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] uppercase tracking-[0.4em] text-white/40 italic">Visual Orchestration (Active Preview)</h4>
+                  <p className="text-[8px] font-mono text-white/20">EDITS_PERMITTED_DIRECTLY_IN_GRID</p>
+                </div>
+                
+                <div className="space-y-16">
+                  <div className="space-y-6">
+                    <h5 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper/60">Main Showcase Stream</h5>
+                    <div className="bg-white/[0.01] border border-white/5 p-6 md:p-12">
+                      <Portfolio panel="main" variant="grid" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <h5 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper/60">Side Narrative Channel</h5>
+                    <div className="bg-white/[0.01] border border-white/5 p-6 md:p-12">
+                      <Portfolio panel="side" variant="grid" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}

@@ -19,7 +19,7 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.token.email == 'jasonmurdy@gmail.com' || 
         request.auth.token.email == 'sherwin.131986@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
+        (request.auth.token.get('email_verified', false) == true && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)))
       );
     }
 
@@ -37,28 +37,29 @@ service cloud.firestore {
 
     // 2. Validation Blueprints
     function isValidPortfolioItem(data) {
-      return data.keys().hasAll(['title', 'category', 'img', 'order', 'createdAt', 'updatedAt'])
-        && data.title is string && data.title.size() <= 200
-        && data.category is string && data.category.size() <= 100
-        && data.img is string && data.img.size() <= 1000
-        && (data.get('url', null) == null || (data.url is string && data.url.size() <= 2000))
-        && (data.get('description', null) == null || (data.description is string && data.description.size() <= 2000))
+      return data.title is string && data.title.size() <= 500
+        && data.category is string && data.category.size() <= 200
+        && data.img is string && data.img.size() <= 5000
+        && (data.get('url', null) == null || (data.url is string && data.url.size() <= 5000))
+        && (data.get('description', null) == null || (data.description is string && data.description.size() <= 10000))
         && (data.get('gallery', null) == null || (data.gallery is list))
-        && (data.get('mlsNumber', null) == null || (data.mlsNumber is string && data.mlsNumber.size() <= 100))
+        && (data.get('mlsNumber', null) == null || (data.mlsNumber is string && data.mlsNumber.size() <= 200))
         && (data.get('listPrice', null) == null || (data.listPrice is string && data.listPrice.size() <= 100))
-        && (data.get('propertyType', null) == null || (data.propertyType is string && data.propertyType.size() <= 200))
-        && (data.get('beds', null) == null || (data.beds is string && data.beds.size() <= 20))
-        && (data.get('baths', null) == null || (data.baths is string && data.baths.size() <= 20))
-        && (data.get('sqft', null) == null || (data.sqft is string && data.sqft.size() <= 20))
-        && (data.get('status', null) == null || (data.status is string && data.status.size() <= 40))
+        && (data.get('propertyType', null) == null || (data.propertyType is string && data.propertyType.size() <= 300))
+        && (data.get('beds', null) == null || (data.beds is string && data.beds.size() <= 50))
+        && (data.get('baths', null) == null || (data.baths is string && data.baths.size() <= 50))
+        && (data.get('sqft', null) == null || (data.sqft is string && data.sqft.size() <= 50))
+        && (data.get('status', null) == null || (data.status is string && data.status.size() <= 100))
         && (data.get('daysOnMarket', null) == null || (data.daysOnMarket is number))
         && (data.get('colSpan', null) == null || (data.colSpan is number))
         && (data.get('rowSpan', null) == null || (data.rowSpan is number))
+        && (data.get('hidden', null) == null || (data.hidden is bool))
+        && (data.get('bannerText', null) == null || (data.bannerText is string && data.bannerText.size() <= 500))
+        && (data.get('bannerColor', null) == null || (data.bannerColor is string && data.bannerColor.size() <= 100))
+        && (data.get('bannerSize', null) == null || (data.bannerSize is string && data.bannerSize.size() <= 50))
         && (data.get('type', null) == null || (data.type is string && (data.type == 'item' || data.type == 'spacer')))
         && (data.get('panel', null) == null || (data.panel is string && (data.panel == 'main' || data.panel == 'side')))
-        && data.order is number
-        && data.createdAt == request.time
-        && data.updatedAt == request.time;
+        && data.order is number;
     }
 
     function isValidService(data) {
@@ -67,18 +68,14 @@ service cloud.firestore {
         && data.description is string && data.description.size() <= 2000
         && (data.get('price', null) == null || (data.price is string && data.price.size() <= 100))
         && (data.get('url', null) == null || (data.url is string && data.url.size() <= 1000))
-        && data.order is number
-        && data.createdAt == request.time
-        && data.updatedAt == request.time;
+        && data.order is number;
     }
 
     function isValidInquiry(data) {
       return data.keys().hasAll(['propertyAddress', 'realtorName', 'email', 'serviceType', 'createdAt'])
         && data.propertyAddress is string && data.propertyAddress.size() <= 500
         && data.realtorName is string && data.realtorName.size() <= 200
-        && data.email is string && data.email.size() <= 200
-        && data.serviceType is string && data.serviceType.size() <= 100
-        && data.createdAt == request.time;
+        && data.email is string && data.email.size() <= 200;
     }
 
     function isValidSiteSettings(data) {
@@ -104,8 +101,7 @@ service cloud.firestore {
         && (data.get('accentColor', null) == null || (data.accentColor is string))
         && (data.get('fontTitle', null) == null || (data.fontTitle is string))
         && (data.get('fontBody', null) == null || (data.fontBody is string))
-        && (data.get('layout', null) == null || (data.layout is map))
-        && data.updatedAt == request.time;
+        && (data.get('layout', null) == null || (data.layout is map));
     }
 
     function isValidPage(data) {
@@ -113,9 +109,7 @@ service cloud.firestore {
         && data.title is string && data.title.size() <= 200
         && data.slug is string && data.slug.size() <= 100
         && (data.get('description', null) == null || (data.description is string && data.description.size() <= 2000))
-        && (data.get('layout', null) == null || (data.layout is map))
-        && data.createdAt == request.time
-        && data.updatedAt == request.time;
+        && (data.get('layout', null) == null || (data.layout is map));
     }
 
     function isValidTestimonial(data) {
@@ -124,9 +118,7 @@ service cloud.firestore {
         && data.brokerage is string && data.brokerage.size() <= 200
         && data.quote is string && data.quote.size() <= 2000
         && data.headshotUrl is string && data.headshotUrl.size() <= 2000
-        && data.order is number
-        && data.createdAt == request.time
-        && data.updatedAt == request.time;
+        && data.order is number;
     }
 
     function isValidAdmin(data) {
@@ -143,20 +135,27 @@ service cloud.firestore {
     }
     match /portfolio_items/{itemId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidPortfolioItem(incoming()) && isValidId(itemId);
+      allow create: if isAdmin() && isValidPortfolioItem(incoming()) && isValidId(itemId)
+        && incoming().keys().hasAll(['title', 'category', 'img', 'order', 'createdAt', 'updatedAt'])
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
       allow update: if isAdmin() 
-        && incoming().createdAt == existing().createdAt
+        && isValidPortfolioItem(incoming())
+        && (existing().get('createdAt', null) == null || incoming().createdAt == existing().createdAt)
         && incoming().updatedAt == request.time
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'hidden', 'bannerText', 'bannerColor', 'bannerSize', 'updatedAt'])
         );
       allow delete: if isAdmin();
     }
 
     match /services/{serviceId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidService(incoming()) && isValidId(serviceId);
+      allow create: if isAdmin() && isValidService(incoming()) && isValidId(serviceId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
       allow update: if isAdmin()
+        && isValidService(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && (
@@ -166,14 +165,18 @@ service cloud.firestore {
     }
 
     match /inquiries/{inquiryId} {
-      allow create: if isValidInquiry(incoming()) && isValidId(inquiryId);
+      allow create: if isValidInquiry(incoming()) && isValidId(inquiryId)
+        && incoming().createdAt == request.time;
       allow read, delete: if isAdmin();
     }
 
     match /testimonials/{testimonialId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidTestimonial(incoming()) && isValidId(testimonialId);
+      allow create: if isAdmin() && isValidTestimonial(incoming()) && isValidId(testimonialId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
       allow update: if isAdmin()
+        && isValidTestimonial(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && (
@@ -184,13 +187,17 @@ service cloud.firestore {
 
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidSiteSettings(incoming());
+      allow write: if isAdmin() && isValidSiteSettings(incoming())
+        && incoming().updatedAt == request.time;
     }
 
     match /pages/{pageId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidPage(incoming());
+      allow create: if isAdmin() && isValidPage(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
       allow update: if isAdmin() 
+        && isValidPage(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && (

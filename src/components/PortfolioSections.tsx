@@ -205,6 +205,29 @@ const SortablePortfolioItem = ({
         </div>
       )}
 
+      {/* Custom Banner - Prominent Diagonal Sash */}
+      {item.bannerText && (
+        <div className={`absolute top-0 right-0 z-[25] pointer-events-none overflow-hidden ${
+          item.bannerSize === 'compact' ? 'w-24 h-24' : 
+          item.bannerSize === 'large' ? 'w-40 h-40' : 
+          item.bannerSize === 'extra' ? 'w-56 h-56' : 'w-32 h-32'
+        }`}>
+          <div 
+            className={`absolute text-center rotate-45 shadow-2xl border-y border-white/20 font-black uppercase tracking-[0.2em] px-2 transition-all duration-500 ${
+              item.bannerSize === 'compact' ? 'top-4 -right-12 text-[7px] py-1 w-[140px]' : 
+              item.bannerSize === 'large' ? 'top-10 -right-10 text-[10px] py-2 w-[200px]' : 
+              item.bannerSize === 'extra' ? 'top-16 -right-14 text-[14px] py-3 w-[280px]' : 'top-6 -right-10 text-[8px] py-1.5 w-[160px]'
+            }`}
+            style={{ 
+              backgroundColor: item.bannerColor || '#C57D5D',
+              color: item.bannerColor === '#FAFAFA' ? '#1a1a1a' : (item.bannerColor === '#1A1A1A' ? '#ffffff' : '#1a1a1a')
+            }}
+          >
+            {item.bannerText}
+          </div>
+        </div>
+      )}
+
       {getLinkContent()}
 
       {/* Admin Controls */}
@@ -221,7 +244,7 @@ const SortablePortfolioItem = ({
                 </button>
               )}
               <button 
-                onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { panel: panel === 'main' ? 'side' : 'main' })}
+                onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { panel: panel === 'main' ? 'side' : 'main', updatedAt: serverTimestamp() })}
                 className="p-2 bg-charcoal text-white rounded border border-white/20 hover:bg-white hover:text-charcoal transition-all flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest"
                 title={`Move to ${panel === 'main' ? 'Side' : 'Main'} Panel`}
               >
@@ -238,14 +261,14 @@ const SortablePortfolioItem = ({
                   <span className="text-[8px] uppercase tracking-widest text-white/40">Width</span>
                   <div className="flex gap-1">
                     <button 
-                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { colSpan: Math.max(1, colSpan - 1) })}
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { colSpan: Math.max(1, colSpan - 1), updatedAt: serverTimestamp() })}
                       className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
                     >
                       -
                     </button>
                     <span className="text-[10px] w-4 text-center font-mono">{colSpan}</span>
                     <button 
-                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { colSpan: Math.min(4, colSpan + 1) })}
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { colSpan: Math.min(4, colSpan + 1), updatedAt: serverTimestamp() })}
                       className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
                     >
                       +
@@ -256,14 +279,14 @@ const SortablePortfolioItem = ({
                   <span className="text-[8px] uppercase tracking-widest text-white/40">Height</span>
                   <div className="flex gap-1">
                     <button 
-                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { rowSpan: Math.max(1, rowSpan - 1) })}
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { rowSpan: Math.max(1, rowSpan - 1), updatedAt: serverTimestamp() })}
                       className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
                     >
                       -
                     </button>
                     <span className="text-[10px] w-4 text-center font-mono">{rowSpan}</span>
                     <button 
-                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { rowSpan: Math.min(4, rowSpan + 1) })}
+                      onClick={() => updateDoc(doc(db, 'portfolio_items', item.id), { rowSpan: Math.min(4, rowSpan + 1), updatedAt: serverTimestamp() })}
                       className="w-5 h-5 flex items-center justify-center bg-white/5 hover:bg-white/10 text-[10px] rounded"
                     >
                       +
@@ -635,23 +658,70 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Visibility & Narrative</label>
-                      <div className="flex items-center gap-4 mb-4 bg-charcoal/50 p-3 border border-border-subtle">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                          <input 
-                            type="checkbox" 
-                            className="hidden"
-                            checked={editFields.hidden || false}
-                            onChange={e => setEditFields({...editFields, hidden: e.target.checked})}
-                          />
-                          <div className={`w-4 h-4 border flex items-center justify-center transition-all ${editFields.hidden ? 'bg-red-500 border-red-500' : 'border-white/20 group-hover:border-brick-copper'}`}>
-                            {editFields.hidden && <Check size={10} className="text-white" />}
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Visibility & Narrative</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div className="flex items-center gap-4 bg-charcoal/50 p-3 border border-border-subtle">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <input 
+                                type="checkbox" 
+                                className="hidden"
+                                checked={editFields.hidden || false}
+                                onChange={e => setEditFields({...editFields, hidden: e.target.checked})}
+                              />
+                              <div className={`w-4 h-4 border flex items-center justify-center transition-all ${editFields.hidden ? 'bg-red-500 border-red-500' : 'border-white/20 group-hover:border-brick-copper'}`}>
+                                {editFields.hidden && <Check size={10} className="text-white" />}
+                              </div>
+                              <span className="text-[10px] uppercase tracking-widest text-white/60">Hide listing from public</span>
+                            </label>
                           </div>
-                          <span className="text-[10px] uppercase tracking-widest text-white/60">Hide listing from public</span>
-                        </label>
-                      </div>
-                      <textarea 
+                          <div className="bg-charcoal/50 p-3 border border-border-subtle space-y-4">
+                            <div>
+                              <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">Banner Ribbon Text</label>
+                              <input 
+                                className="w-full bg-transparent border-b border-white/10 p-1 text-[10px] outline-none focus:border-brick-copper transition-colors uppercase tracking-widest"
+                                placeholder="e.g. JUST LISTED"
+                                value={editFields.bannerText || ''}
+                                onChange={e => setEditFields({...editFields, bannerText: e.target.value})}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-[8px] uppercase tracking-widest text-white/40 mb-2 block">Color</label>
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {['#C57D5D', '#B5A48F', '#1A1A1A', '#FAFAFA', '#E53E3E', '#38A169'].map(c => (
+                                    <button 
+                                      key={c}
+                                      onClick={() => setEditFields({...editFields, bannerColor: c})}
+                                      className={`w-4 h-4 border transition-all ${editFields.bannerColor === c ? 'border-white scale-110 shadow-sm' : 'border-white/10 hover:scale-105'}`}
+                                      style={{ backgroundColor: c }}
+                                    />
+                                  ))}
+                                </div>
+                                <input 
+                                  className="w-full bg-transparent border-b border-white/10 p-1 text-[8px] outline-none focus:border-brick-copper transition-colors font-mono"
+                                  placeholder="#HEX"
+                                  value={editFields.bannerColor || ''}
+                                  onChange={e => setEditFields({...editFields, bannerColor: e.target.value})}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase tracking-widest text-white/40 mb-2 block">Size</label>
+                                <select 
+                                  className="w-full bg-transparent border-b border-white/10 p-1 text-[8px] outline-none focus:border-brick-copper transition-colors uppercase tracking-widest appearance-none bg-charcoal/50"
+                                  value={editFields.bannerSize || 'normal'}
+                                  onChange={e => setEditFields({...editFields, bannerSize: e.target.value})}
+                                >
+                                  <option value="compact">Compact</option>
+                                  <option value="normal">Normal</option>
+                                  <option value="large">Large</option>
+                                  <option value="extra">Extra</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <textarea 
                         className="w-full bg-transparent border border-border-subtle p-3 h-32 text-xs outline-none focus:border-brick-copper transition-colors resize-none custom-scrollbar"
                         placeholder="Project technical details and atmosphere..."
                         value={editFields.description}

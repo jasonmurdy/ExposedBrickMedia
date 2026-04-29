@@ -245,14 +245,14 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
         return (
           <div className="flex flex-col lg:flex-row min-h-screen bg-bg-primary overflow-hidden">
             {/* LEFT COLUMN: BRAND & SERVICES */}
-            <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-32 lg:pt-12 overflow-y-auto no-scrollbar">
+            <aside className="hidden lg:flex w-1/3 border-r border-border-subtle flex-col p-8 md:p-12 lg:p-16 pt-32 lg:pt-12 overflow-y-auto no-scrollbar">
               <div className="flex flex-col flex-wrap lg:flex-nowrap gap-y-4">
                 <DropZone zone="side" />
               </div>
             </aside>
 
             {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
-            <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth pt-8 lg:pt-0">
+            <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth pt-20 lg:pt-0">
               <div className="flex flex-wrap content-start">
                 <DropZone zone="main" />
               </div>

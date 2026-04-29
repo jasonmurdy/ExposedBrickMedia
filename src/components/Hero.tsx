@@ -257,7 +257,7 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
   return (
     <div className="lg:hidden">
       <div className="fixed top-0 left-0 right-0 z-[60] bg-bg-primary/80 backdrop-blur-md border-b border-border-subtle p-6 flex justify-between items-center transition-colors">
-        <Link to="/" onClick={closeMenu} className="group italic">
+        <Link to="/" onClick={closeMenu} className="group italic lg:block hidden">
           <span className="font-display text-xl text-text-primary whitespace-nowrap">
             The Exposed <span className="text-brick-copper">Brick</span>
           </span>
@@ -286,8 +286,17 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
           >
             <div className="flex flex-col gap-8 py-12">
               <Link to="/about" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/about' ? 'text-brick-copper' : 'text-text-primary/60'}`}>About</Link>
+              <Link to="/services" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/services' ? 'text-brick-copper' : 'text-text-primary/60'}`}>Services</Link>
               <Link to="/" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/' ? 'text-brick-copper' : 'text-text-primary/60'}`}>Portfolio</Link>
               
+              <Link 
+                to="/inquiry" 
+                onClick={closeMenu}
+                className={`text-2xl font-display italic ${location.pathname === '/inquiry' ? 'text-brick-copper' : 'text-text-primary/60'} mt-8`}
+              >
+                Inquire
+              </Link>
+
               {pages.filter(p => p.showInNav).map(page => (
                 <Link 
                   key={page.id} 
@@ -309,17 +318,6 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
                   {item.label}
                 </a>
               ))}
-              
-              <button 
-                onClick={() => {
-                  closeMenu();
-                  const el = document.getElementById('inquire');
-                  el?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="text-left text-2xl font-display italic text-brick-copper mt-8"
-              >
-                Inquire
-              </button>
             </div>
           </motion.div>
         )}
@@ -372,7 +370,7 @@ export const HeroVisual = ({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-transparent opacity-60" />
         <div className="absolute bottom-8 left-8 right-8 flex flex-wrap justify-between items-end gap-4">
-          <div>
+          <div className="hidden lg:block">
             <span className="text-[9px] uppercase tracking-[0.3em] bg-bg-primary/80 px-3 py-1 border border-border-subtle">01 / Site Identity</span>
             <h2 className="font-display text-2xl mt-3 text-text-primary/90 italic">{settings.brandName}</h2>
           </div>

@@ -9,6 +9,8 @@ import { Portfolio, Services } from './components/PortfolioSections';
 import { BookingForm, FooterContent } from './components/BookingAndFooter';
 import { ProjectDetailView } from './components/ProjectDetailView';
 import AboutPage from './pages/About';
+import ServicesPage from './pages/Services';
+import InquiryPage from './pages/Inquiry';
 // Lazy load the AdminDashboard to reduce initial bundle size
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const PuckEditor = lazy(() => import('./components/PuckEditor').then(m => ({ default: m.PuckEditor })));
@@ -77,6 +79,8 @@ function MainLayout() {
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<HomeView />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/inquiry" element={<InquiryPage />} />
           <Route path="/p/:slug" element={<DynamicPageView />} />
           <Route path="/listing/:id" element={<ProjectDetailView />} />
         </Routes>
@@ -130,23 +134,17 @@ function MainLayout() {
       ) : (
         <>
           {/* LEFT COLUMN: BRAND & SERVICES */}
-          <aside className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border-subtle flex flex-col p-8 md:p-12 lg:p-16 pt-20 lg:pt-12 lg:overflow-y-auto no-scrollbar">
+          <aside className="hidden lg:flex w-1/3 border-r border-border-subtle flex-col p-8 md:p-12 lg:p-16 pt-20 lg:pt-12 lg:overflow-y-auto no-scrollbar">
             <BrandHeader theme={isLight ? 'light' : 'dark'} />
-            <div className="pt-12 space-y-16 hidden lg:block">
+            <div className="pt-12 space-y-16">
               <Services />
               <BookingForm />
             </div>
           </aside>
 
           {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
-          <main className="w-full lg:w-2/3 flex flex-col lg:overflow-y-auto no-scrollbar scroll-smooth pt-8 lg:pt-0">
+          <main className="w-full lg:w-2/3 flex flex-col lg:overflow-y-auto no-scrollbar scroll-smooth pt-20 lg:pt-0">
             {renderContent()}
-
-            {/* Mobile-only sections for better flow */}
-            <div className="lg:hidden p-8 space-y-16 bg-bg-primary">
-              <Services />
-              <BookingForm />
-            </div>
 
             {/* BOTTOM: BOOKING & FOOTER */}
             <section className="mt-auto p-8 md:p-12 lg:p-16 border-t border-border-subtle bg-text-primary/[0.01]">
