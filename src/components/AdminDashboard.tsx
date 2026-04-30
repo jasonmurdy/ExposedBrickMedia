@@ -12,6 +12,7 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
+import { toast, Toaster } from 'react-hot-toast';
 import { 
   collection, 
   addDoc, 
@@ -22,7 +23,9 @@ import {
   query, 
   orderBy,
   serverTimestamp,
-  setDoc
+  setDoc,
+  limit,
+  Unsubscribe
 } from 'firebase/firestore';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { 
@@ -95,8 +98,16 @@ const SortablePortfolioRow = ({
       className={`group hover:bg-white/[0.02] transition-colors ${isDragging ? 'bg-white/5 border-y border-brick-copper/50 shadow-2xl relative' : ''}`}
     >
       <td className="p-4 w-10">
-        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-white/10 hover:text-brick-copper transition-colors">
-          <GripVertical size={16} />
+        <div className="flex items-center gap-3">
+          <input 
+            type="checkbox" 
+            checked={Boolean(item.selected)}
+            onChange={(e) => item.onSelect(item.id, e.target.checked)}
+            className="w-4 h-4 accent-brick-copper bg-transparent border-white/20"
+          />
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-white/10 hover:text-brick-copper transition-colors">
+            <GripVertical size={16} />
+          </div>
         </div>
       </td>
       <td className="p-4">
@@ -150,22 +161,22 @@ const SortablePortfolioRow = ({
         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
           <button 
             onClick={() => onEdit(item)}
-            className="p-2 text-white/40 hover:text-brick-copper hover:bg-white/5 transition-all"
-            title="Metadata Sculpting"
+            className="p-2 text-white/40 hover:text-brick-copper hover:bg-white/5 transition-all outline-none"
+            title="Edit Details"
           >
             <Edit2 size={14} />
           </button>
           <button 
             onClick={() => onToggleHidden(item.id, item.hidden)}
-            className={`p-2 transition-all ${item.hidden ? 'text-red-500 bg-red-500/5' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-            title={item.hidden ? "Restore to Public" : "Archive from Stream"}
+            className={`p-2 transition-all outline-none ${item.hidden ? 'text-red-500 bg-red-500/5' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+            title={item.hidden ? "Restore to Public" : "Archive"}
           >
             {item.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
           <button 
             onClick={() => onDelete(item.id)}
-            className="p-2 text-white/20 hover:text-red-500 hover:bg-red-500/5 transition-all"
-            title="Erase Record"
+            className="p-2 text-white/20 hover:text-red-500 hover:bg-red-500/5 transition-all outline-none"
+            title="Delete Item"
           >
             <Trash2 size={14} />
           </button>
@@ -187,7 +198,9 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [editData, setEditData] = useState<any>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFetchingMLS, setIsFetchingMLS] = useState(false);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'aesthetics' | 'journal' | 'services' | 'exchange' | 'narratives' | 'layout' | 'social_proof' | 'security'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins'>('architecture');
+  const [activeEditTab, setActiveEditTab] = useState<'media' | 'details' | 'narrative' | 'display'>('media');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showPuck, setShowPuck] = useState(false);
   const [puckPageId, setPuckPageId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'order', direction: 'asc' });
@@ -272,42 +285,47 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     return () => unsub();
   }, []);
 
+  const isAdmin = !!user?.email && (
+    ADMIN_EMAILS.includes(user.email) || 
+    admins.some(a => a.email === user.email)
+  );
+
   useEffect(() => {
-    if (!user || !ADMIN_EMAILS.includes(user.email)) return;
+    if (!user || !isAdmin) return;
 
-    const qPortfolio = query(collection(db, 'portfolio_items'), orderBy('order', 'asc'));
-    const unsubPortfolio = onSnapshot(qPortfolio, (snap) => {
-      setPortfolioItems(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    let unsub: Unsubscribe | null = null;
 
-    const qServices = query(collection(db, 'services'), orderBy('order', 'asc'));
-    const unsubServices = onSnapshot(qServices, (snap) => {
-      setServices(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    const qTestimonials = query(collection(db, 'testimonials'), orderBy('order', 'asc'));
-    const unsubTestimonials = onSnapshot(qTestimonials, (snap) => {
-      setTestimonials(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    const qInquiries = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'));
-    const unsubInquiries = onSnapshot(qInquiries, (snap) => {
-      setInquiries(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    const qAdmins = query(collection(db, 'admins'), orderBy('addedAt', 'desc'));
-    const unsubAdmins = onSnapshot(qAdmins, (snap) => {
-      setAdmins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    if (activeTab === 'portfolio' || activeTab === 'architecture') {
+      const q = query(collection(db, 'portfolio_items'), orderBy('order', 'asc'));
+      unsub = onSnapshot(q, (snap) => {
+        setPortfolioItems(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    } else if (activeTab === 'services') {
+      const q = query(collection(db, 'services'), orderBy('order', 'asc'));
+      unsub = onSnapshot(q, (snap) => {
+        setServices(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    } else if (activeTab === 'testimonials') {
+      const q = query(collection(db, 'testimonials'), orderBy('order', 'asc'));
+      unsub = onSnapshot(q, (snap) => {
+        setTestimonials(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    } else if (activeTab === 'inquiries') {
+      const q = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'), limit(50));
+      unsub = onSnapshot(q, (snap) => {
+        setInquiries(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    } else if (activeTab === 'admins') {
+      const q = query(collection(db, 'admins'), orderBy('addedAt', 'desc'));
+      unsub = onSnapshot(q, (snap) => {
+        setAdmins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    }
 
     return () => {
-      unsubPortfolio();
-      unsubServices();
-      unsubTestimonials();
-      unsubInquiries();
-      unsubAdmins();
+      if (unsub) unsub();
     };
-  }, [user]);
+  }, [user, isAdmin, activeTab]);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -317,20 +335,16 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     provider.setCustomParameters({ prompt: 'select_account' });
     
     try {
-      console.log("Initiating login with Popup...");
-      // Using result to log completion
-      const result = await signInWithPopup(auth, provider);
-      console.log("Login successful for:", result.user.email);
+      await signInWithPopup(auth, provider);
+      toast.success('Access Granted');
     } catch (err: any) {
       console.error("Login Error:", err);
       if (err.code === 'auth/popup-blocked') {
-        alert("The login popup was blocked. Please allow popups for this site.");
+        toast.error("Please allow popups for this site.");
       } else if (err.code === 'auth/popup-closed-by-user') {
-        console.warn("User closed the popup.");
-      } else if (err.code === 'auth/unauthorized-domain') {
-        alert(`Login failed: This domain (${window.location.hostname}) is not authorized in the Firebase Console. \n\nPlease go to Firebase Console > Authentication > Settings > Authorized Domains and add ${window.location.hostname}`);
+        // Silent
       } else {
-        alert(`Login failed: ${err.message}`);
+        toast.error(`Login failed: ${err.message}`);
       }
     } finally {
       setIsLoggingIn(false);
@@ -339,25 +353,21 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   const logout = () => signOut(auth);
 
-  const isAdmin = !!user?.email && (
-    ADMIN_EMAILS.includes(user.email) || 
-    admins.some(a => a.email === user.email)
-  );
-
   if (!user) {
     return (
       <div className="fixed inset-0 bg-charcoal z-[100] flex flex-col items-center justify-center p-6">
+        <Toaster position="bottom-right" />
         <Shield size={48} className="text-brick-copper mb-8" />
-        <h2 className="font-display text-4xl mb-8">Admin Gateway</h2>
+        <h2 className="font-display text-4xl mb-8">Admin Login</h2>
         <button 
           onClick={login}
           disabled={isLoggingIn}
-          className="px-12 py-4 bg-brick-copper text-charcoal font-semibold uppercase tracking-widest hover:bg-off-white transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
+          className="px-12 py-4 bg-brick-copper text-charcoal font-semibold uppercase tracking-widest hover:bg-off-white transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait font-sans"
         >
           {isLoggingIn ? <Loader2 size={20} className="animate-spin" /> : null}
-          {isLoggingIn ? 'Establishing Link...' : 'Identify as Admin'}
+          {isLoggingIn ? 'Verifying...' : 'Identify as Admin'}
         </button>
-        <button onClick={onClose} className="mt-8 text-off-white/40 uppercase text-[10px] tracking-widest hover:text-off-white">Return to Site</button>
+        <button onClick={onClose} className="mt-8 text-off-white/40 uppercase text-[10px] tracking-widest hover:text-off-white font-sans">Return to Site</button>
       </div>
     );
   }
@@ -365,10 +375,11 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   if (!isAdmin) {
     return (
       <div className="fixed inset-0 bg-charcoal z-[100] flex flex-col items-center justify-center p-6">
-        <h2 className="font-display text-2xl mb-4 text-error">Access Refused</h2>
-        <p className="text-off-white/60 mb-8">This portal is reserved for high-fidelity administrators.</p>
-        <button onClick={logout} className="px-8 py-3 bg-red-900/20 text-red-500 border border-red-500/30 uppercase tracking-widest text-[10px] hover:bg-red-500 hover:text-white transition-all">Sign Out</button>
-        <button onClick={onClose} className="mt-8 text-off-white/40 uppercase text-[10px] tracking-widest">Close</button>
+        <Toaster position="bottom-right" />
+        <h2 className="font-display text-2xl mb-4 text-red-500">Access Refused</h2>
+        <p className="text-off-white/60 mb-8 font-sans">This portal is reserved for authorized administrators.</p>
+        <button onClick={logout} className="px-8 py-3 bg-red-900/20 text-red-500 border border-red-500/30 uppercase tracking-widest text-[10px] hover:bg-red-500 hover:text-white transition-all font-sans font-bold">Sign Out</button>
+        <button onClick={onClose} className="mt-8 text-off-white/40 uppercase text-[10px] tracking-widest font-sans">Close</button>
       </div>
     );
   }
@@ -396,7 +407,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   const handleMLSLookup = async () => {
     if (!editData.mlsNumber) {
-      alert("Please enter an MLS number first.");
+      toast.error("Enter an MLS number first");
       return;
     }
     setIsFetchingMLS(true);
@@ -413,6 +424,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         throw new Error(listingData.error || "Lookup failed");
       }
 
+      toast.success('MLS Data Ingested');
       // Convert CREA dates if needed, or simple calculate DOM
       const timestamp = Date.parse(listingData.ListingDate);
       const dom = !isNaN(timestamp) ? Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24)) : 0;
@@ -431,7 +443,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       });
     } catch (error: any) {
       console.error("MLS Lookup failed", error);
-      alert(`MLS Lookup failed: ${error.message}`);
+      toast.error(`Lookup failed: ${error.message}`);
     } finally {
       setIsFetchingMLS(false);
     }
@@ -509,13 +521,13 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   };
 
   const handleDeleteService = async (id: string) => {
-    if (confirm('Erase this service tier?')) {
+    if (confirm('Delete this service?')) {
       try {
         await deleteDoc(doc(db, 'services', id));
         await logAction('DELETE_SERVICE', { id });
+        toast.success('Service Removed');
       } catch (err) {
-        console.error("Failed to delete service:", err);
-        alert("Action restricted: Service deletion failed.");
+        toast.error("Failed to delete service");
       }
     }
   };
@@ -529,6 +541,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         updatedAt: serverTimestamp()
       }, { merge: true });
       await logAction('UPDATE_SETTINGS', { localSettings });
+      toast.success('Configuration Saved');
       setSaveSuccess(true);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, 'settings/site');
@@ -664,23 +677,54 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     if (confirm('Erase this testimonial?')) {
       await deleteDoc(doc(db, 'testimonials', id));
       await logAction('DELETE_TESTIMONIAL', { id });
+      toast.success('Testimonial Removed');
+    }
+  };
+
+  const handleBulkAction = async (action: 'archive' | 'delete') => {
+    if (selectedIds.length === 0) return;
+    
+    const message = action === 'archive' 
+      ? `Archive ${selectedIds.length} items from public view?` 
+      : `PERMANENTLY delete ${selectedIds.length} items? This cannot be undone.`;
+      
+    if (!confirm(message)) return;
+
+    toast.loading(`${action === 'archive' ? 'Archiving' : 'Deleting'} items...`, { id: 'bulk' });
+    
+    try {
+      const promises = selectedIds.map(id => {
+        if (action === 'archive') {
+          return updateDoc(doc(db, 'portfolio_items', id), { hidden: true, updatedAt: serverTimestamp() });
+        } else {
+          return deleteDoc(doc(db, 'portfolio_items', id));
+        }
+      });
+      
+      await Promise.all(promises);
+      await logAction(`BULK_${action.toUpperCase()}`, { count: selectedIds.length });
+      setSelectedIds([]);
+      toast.success(`Action applied to ${selectedIds.length} records`, { id: 'bulk' });
+    } catch (err) {
+      toast.error("Bulk operation failed", { id: 'bulk' });
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-charcoal z-[100] flex flex-col p-8 md:p-16 overflow-y-auto no-scrollbar">
+    <div className="fixed inset-0 bg-charcoal z-[100] flex flex-col p-4 md:p-16 overflow-y-auto no-scrollbar font-sans">
+      <Toaster position="bottom-right" />
       {showPuck && <PuckEditor pageId={puckPageId || undefined} onClose={() => { setShowPuck(false); setPuckPageId(null); }} />}
       
       <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-8 mb-8 border-b border-white/10 pb-8">
         <div>
-          <h2 className="font-display text-3xl md:text-4xl mb-2 italic">Command Center</h2>
-          <p className="text-brick-copper text-[10px] uppercase tracking-[0.3em] font-medium">Administrator Panel: {user.email}</p>
+          <h2 className="font-display text-3xl md:text-4xl mb-2 italic">Admin Dashboard</h2>
+          <p className="text-brick-copper text-[10px] uppercase tracking-[0.3em] font-medium font-sans">User: {user.email}</p>
         </div>
         <div className="flex flex-wrap gap-4">
           <button 
             onClick={handleUpdateSettings} 
             disabled={isSaving}
-            className={`px-6 md:px-8 py-3 uppercase tracking-widest text-[10px] font-bold transition-all flex items-center gap-2 ${
+            className={`px-6 md:px-8 py-3 uppercase tracking-widest text-[10px] font-bold transition-all flex items-center gap-2 font-sans ${
               saveSuccess 
                 ? 'bg-green-500 text-white' 
                 : isSaving 
@@ -695,32 +739,39 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             ) : (
               <Save size={14} />
             )}
-            {isSaving ? 'Persisting...' : saveSuccess ? 'Changes Captured' : 'Commit Changes'}
+            {isSaving ? 'Saving...' : saveSuccess ? 'Saved' : 'Save Changes'}
           </button>
-          <button onClick={onClose} className="px-6 md:px-8 py-3 bg-white/5 border border-white/10 text-off-white/60 uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">Relinquish</button>
+          <button onClick={onClose} className="px-6 md:px-8 py-3 bg-white/5 border border-white/10 text-off-white/60 uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all font-sans font-bold">Close</button>
         </div>
       </div>
 
-      <nav className="flex flex-wrap gap-12 mb-12 border-b border-white/5 pb-4">
+      <nav className="flex items-center gap-x-8 overflow-x-auto no-scrollbar -mx-4 px-4 md:-mx-16 md:px-16 mb-12 border-b border-white/5 pt-4 pb-4">
         {[
-          { id: 'architecture', label: 'Architecture', icon: Compass },
-          { id: 'layout', label: 'Layout Engine', icon: Layout },
-          { id: 'journal', label: 'Journal', icon: Layout },
-          { id: 'services', label: 'Offerings', icon: Briefcase },
-          { id: 'social_proof', label: 'Social Proof', icon: Users },
-          { id: 'exchange', label: 'Exchange', icon: MessageSquare },
-          { id: 'narratives', label: 'Pages', icon: FileText },
-          { id: 'security', label: 'Guardians', icon: Shield }
+          { id: 'architecture', label: 'Home Meta', icon: Compass },
+          { id: 'layout', label: 'Visual Builder', icon: Layout },
+          { id: 'portfolio', label: 'Portfolio', icon: Layout },
+          { id: 'services', label: 'Services', icon: Briefcase },
+          { id: 'testimonials', label: 'Social Proof', icon: Users },
+          { id: 'inquiries', label: 'Inquiries', icon: MessageSquare },
+          { id: 'pages', label: 'Pages', icon: FileText },
+          { id: 'admins', label: 'Admins', icon: Shield }
         ].map(tab => (
           <button 
             key={tab.id}
             onClick={() => { setActiveTab(tab.id as any); setIsEditing(null); }}
-            className={`text-[10px] uppercase tracking-[0.4em] transition-all flex items-center gap-3 ${
-              activeTab === tab.id ? 'text-brick-copper border-b border-brick-copper pb-2 -mb-[17px]' : 'text-white/40 hover:text-white'
+            className={`text-[10px] uppercase tracking-[0.4em] transition-all flex items-center gap-3 whitespace-nowrap font-sans font-bold relative py-2 ${
+              activeTab === tab.id ? 'text-brick-copper' : 'text-white/40 hover:text-white'
             }`}
           >
             <tab.icon size={14} />
             {tab.label}
+            {activeTab === tab.id && (
+              <motion.div 
+                layoutId="activeTab"
+                className="absolute -bottom-4 left-0 right-0 h-0.5 bg-brick-copper"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
+            )}
           </button>
         ))}
       </nav>
@@ -1165,21 +1216,38 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                </div>
             </div>
           </section>
-        )}
-
-        {activeTab === 'journal' && (
-          <section className="space-y-12">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 border-b border-white/5 pb-6">
-              <div className="flex items-center gap-3 text-brick-copper">
-                <Box size={18} />
-                <h3 className="font-display text-2xl italic">Project Catalog Matrix</h3>
+        )}        {activeTab === 'portfolio' && (
+          <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
+              <div>
+                <h3 className="font-display text-4xl italic mb-2">Portfolio</h3>
+                <p className="text-white/40 text-[10px] uppercase tracking-widest">Manage your narrative stream and catalog artifacts.</p>
               </div>
-              <div className="flex flex-wrap gap-4 w-full md:w-auto">
-                <div className="flex-1 md:w-64 relative">
+              <div className="flex flex-wrap gap-4">
+                {selectedIds.length > 0 && (
+                   <div className="flex items-center gap-2 pr-4 border-r border-white/10">
+                     <span className="text-[10px] text-brick-copper font-bold uppercase tracking-widest">{selectedIds.length} Selected</span>
+                     <button 
+                       onClick={() => handleBulkAction('archive')}
+                       className="p-2 text-white/40 hover:text-white"
+                       title="Archive Selected"
+                     >
+                       <EyeOff size={16} />
+                     </button>
+                     <button 
+                       onClick={() => handleBulkAction('delete')}
+                       className="p-2 text-white/40 hover:text-red-500"
+                       title="Delete Selected"
+                     >
+                       <Trash2 size={16} />
+                     </button>
+                   </div>
+                )}
+                <div className="relative flex-1 md:flex-none">
+                  <Compass className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
                   <input 
-                    type="text" 
-                    placeholder="Search by Title, MLS, or Status..." 
-                    className="bg-white/5 border border-white/10 w-full outline-none py-2 px-4 text-[10px] uppercase tracking-widest focus:border-brick-copper transition-colors"
+                    placeholder="Search catalog..." 
+                    className="bg-white/5 border border-white/5 py-2 pl-10 pr-4 outline-none text-[10px] uppercase tracking-widest text-white/60 focus:border-brick-copper w-full"
                     value={editData.search || ''}
                     onChange={e => setEditData({...editData, search: e.target.value})}
                   />
@@ -1194,242 +1262,223 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 </div>
                 <button 
                   onClick={handleCreatePortfolio}
-                  className="px-6 py-2 bg-brick-copper text-charcoal border border-brick-copper/20 text-[10px] uppercase tracking-widest hover:bg-white transition-all font-bold"
+                  className="px-6 py-2 bg-brick-copper text-charcoal font-bold text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
                 >
-                  <Plus size={14} className="inline mr-2" /> New Catalog Entry
+                  <Plus size={14} /> Add Project
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-12">
-              {/* Registry Table View - The "Identifiers" list */}
-              <div className="bg-white/[0.01] border border-white/5 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <DndContext 
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 bg-white/5">
-                          <th className="p-4 w-10"></th>
-                          <th 
-                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
-                            onClick={() => requestSort('title')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Project / Address
-                              {sortConfig?.key === 'title' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
-                            </div>
-                          </th>
-                          <th 
-                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
-                            onClick={() => requestSort('bannerText')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Banner
-                              {sortConfig?.key === 'bannerText' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
-                            </div>
-                          </th>
-                          <th 
-                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
-                            onClick={() => requestSort('category')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Taxonomy
-                              {sortConfig?.key === 'category' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
-                            </div>
-                          </th>
-                          <th 
-                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
-                            onClick={() => requestSort('mlsNumber')}
-                          >
-                            <div className="flex items-center gap-2">
-                              MLS System
-                              {sortConfig?.key === 'mlsNumber' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
-                            </div>
-                          </th>
-                          <th 
-                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
-                            onClick={() => requestSort('status')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Condition
-                              {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
-                            </div>
-                          </th>
-                          <th 
-                            className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold cursor-pointer hover:text-brick-copper transition-colors"
-                            onClick={() => requestSort('order')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Registry
-                              {sortConfig?.key === 'order' && (sortConfig.direction === 'asc' ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
-                            </div>
-                          </th>
-                          <th className="p-4 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        <SortableContext 
-                          items={portfolioItems.map(i => i.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          {getSortedItems(portfolioItems)
-                            .filter(item => {
-                              const s = editData.search?.toLowerCase() || '';
-                              return !s || 
-                                item.title?.toLowerCase().includes(s) || 
-                                item.mlsNumber?.toLowerCase().includes(s) || 
-                                item.status?.toLowerCase().includes(s) ||
-                                item.category?.toLowerCase().includes(s) ||
-                                item.bannerText?.toLowerCase().includes(s);
-                            })
-                            .map(item => (
-                              <SortablePortfolioRow 
-                                key={item.id}
-                                item={item}
-                                onEdit={(it) => { setIsEditing(it.id); setEditData(it); }}
-                                onToggleHidden={(id, hidden) => updateDoc(doc(db, 'portfolio_items', id), { hidden: !hidden, updatedAt: serverTimestamp() })}
-                                onDelete={handleDeletePortfolio}
-                              />
-                            ))}
-                        </SortableContext>
-                      </tbody>
-                    </table>
-                  </DndContext>
-                </div>
+            <div className="border border-white/5 bg-white/[0.01]">
+              <div className="hidden md:block overflow-x-auto no-scrollbar">
+                <DndContext 
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[9px] uppercase tracking-[0.2em] text-white/20">
+                        <th className="p-4 w-10">
+                           <input 
+                              type="checkbox"
+                              checked={portfolioItems.length > 0 && selectedIds.length === portfolioItems.length}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedIds(portfolioItems.map(i => i.id));
+                                else setSelectedIds([]);
+                              }}
+                              className="w-4 h-4 accent-brick-copper bg-transparent border-white/20"
+                           />
+                        </th>
+                        <th className="p-4 cursor-pointer hover:text-brick-copper transition-colors" onClick={() => requestSort('title')}>Asset <ArrowUp size={8} className="inline ml-1" /></th>
+                        <th className="p-4 cursor-pointer hover:text-brick-copper transition-colors" onClick={() => requestSort('bannerText')}>Banner</th>
+                        <th className="p-4 cursor-pointer hover:text-brick-copper transition-colors" onClick={() => requestSort('category')}>Taxonomy</th>
+                        <th className="p-4 cursor-pointer hover:text-brick-copper transition-colors" onClick={() => requestSort('mlsNumber')}>MLS #</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Fidelity Config</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[11px]">
+                      <SortableContext 
+                        items={portfolioItems.map(i => i.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {getSortedItems(portfolioItems)
+                          .filter(item => {
+                            const s = editData.search?.toLowerCase() || '';
+                            return !s || 
+                              item.title?.toLowerCase().includes(s) || 
+                              item.mlsNumber?.toLowerCase().includes(s) || 
+                              item.status?.toLowerCase().includes(s) ||
+                              item.category?.toLowerCase().includes(s) ||
+                              item.bannerText?.toLowerCase().includes(s);
+                          })
+                          .map(item => (
+                          <SortablePortfolioRow 
+                            key={item.id} 
+                            item={{
+                              ...item, 
+                              selected: selectedIds.includes(item.id),
+                              onSelect: (id: string, checked: boolean) => {
+                                if (checked) setSelectedIds([...selectedIds, id]);
+                                else setSelectedIds(selectedIds.filter(sid => sid !== id));
+                              }
+                            }} 
+                            onEdit={(item) => {
+                              setIsEditing(item.id);
+                              setEditData(item);
+                            }}
+                            onToggleHidden={async (id, hidden) => {
+                              const docRef = doc(db, 'portfolio_items', id);
+                              await updateDoc(docRef, { hidden: !hidden, updatedAt: serverTimestamp() });
+                              toast.success(hidden ? 'Restored' : 'Archived');
+                            }}
+                            onDelete={handleDeletePortfolio}
+                          />
+                        ))}
+                      </SortableContext>
+                    </tbody>
+                  </table>
+                </DndContext>
               </div>
 
-              {/* Edit Modal (Portal) */}
-              {isEditing && portfolioItems.find(i => i.id === isEditing) && (
-                <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-6 backdrop-blur-sm">
-                  <div className="bg-charcoal border border-brick-copper/30 w-full max-w-4xl max-h-[90vh] overflow-y-auto no-scrollbar shadow-3xl">
-                    <div className="sticky top-0 bg-charcoal/80 backdrop-blur-md p-6 border-b border-white/5 flex justify-between items-center z-10">
-                      <div>
-                        <h4 className="text-xl font-display italic text-white">{editData.title}</h4>
-                        <p className="text-[9px] text-brick-copper uppercase tracking-widest">{editData.category}</p>
+              <div className="md:hidden divide-y divide-white/5">
+                {portfolioItems
+                  .filter(item => {
+                    const s = editData.search?.toLowerCase() || '';
+                    return !s || 
+                      item.title?.toLowerCase().includes(s) || 
+                      item.mlsNumber?.toLowerCase().includes(s) || 
+                      item.status?.toLowerCase().includes(s) ||
+                      item.category?.toLowerCase().includes(s) ||
+                      item.bannerText?.toLowerCase().includes(s);
+                  })
+                  .map(item => (
+                    <div key={item.id} className="p-4 flex gap-4 bg-white/[0.02]">
+                      <div className="w-20 h-20 bg-charcoal border border-white/10 overflow-hidden flex-shrink-0">
+                        <img src={item.img} className="w-full h-full object-cover" alt="" />
                       </div>
-                      <button onClick={() => setIsEditing(null)} className="text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="text-[10px] uppercase tracking-widest text-white font-bold truncate pr-2">{item.title}</h4>
+                          <input 
+                            type="checkbox"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedIds([...selectedIds, item.id]);
+                              else setSelectedIds(selectedIds.filter(sid => sid !== item.id));
+                            }}
+                            className="w-4 h-4 accent-brick-copper"
+                          />
+                        </div>
+                        <p className="text-[8px] text-white/40 uppercase tracking-widest mb-3">{item.category} • {item.status || 'Pending'}</p>
+                        <div className="flex gap-4">
+                          <button onClick={() => { setIsEditing(item.id); setEditData(item); }} className="text-brick-copper text-[8px] uppercase tracking-[0.2em] font-bold">Edit</button>
+                          <button 
+                            onClick={async () => {
+                              const docRef = doc(db, 'portfolio_items', item.id);
+                              await updateDoc(docRef, { hidden: !item.hidden, updatedAt: serverTimestamp() });
+                              toast.success(item.hidden ? 'Restored' : 'Archived');
+                            }} 
+                            className="text-white/40 text-[8px] uppercase tracking-[0.2em]"
+                          >
+                            {item.hidden ? 'Restore' : 'Archive'}
+                          </button>
+                          <button onClick={() => handleDeletePortfolio(item.id)} className="text-red-500/60 text-[8px] uppercase tracking-[0.2em]">Delete</button>
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-12">
-                      <div className="space-y-6">
+                  ))}
+              </div>
+            </div>
+
+            {isEditing && portfolioItems.find(i => i.id === isEditing) && (
+              <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-charcoal border border-brick-copper/30 w-full max-w-4xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl">
+                  <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80">
+                    <div>
+                      <h4 className="text-xl font-display italic text-white">{editData.title}</h4>
+                      <p className="text-[9px] text-brick-copper uppercase tracking-widest font-bold tracking-[0.2em]">{editData.category}</p>
+                    </div>
+                    <button onClick={() => setIsEditing(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
+                  </header>
+                  
+                  <nav className="flex overflow-x-auto no-scrollbar border-b border-white/5 bg-white/[0.02]">
+                    {[
+                      { id: 'media', label: 'Media Assets', icon: Palette },
+                      { id: 'details', label: 'Listing Details', icon: FileText },
+                      { id: 'narrative', label: 'Narrative', icon: Type },
+                      { id: 'display', label: 'Display Config', icon: Layout }
+                    ].map(tab => (
+                      <button 
+                        key={tab.id}
+                        onClick={() => setActiveEditTab(tab.id as any)}
+                        className={`flex-1 min-w-[100px] py-4 text-[9px] uppercase tracking-widest font-bold flex flex-col md:flex-row items-center justify-center gap-2 border-b-2 transition-all whitespace-nowrap ${
+                          activeEditTab === tab.id ? 'border-brick-copper text-brick-copper bg-brick-copper/5' : 'border-transparent text-white/30 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <tab.icon size={12} />
+                        <span className="hidden md:inline">{tab.label}</span>
+                      </button>
+                    ))}
+                  </nav>
+
+                  <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
+                    {activeEditTab === 'media' && (
+                      <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                         <FileUpload 
-                          label="Cinema Primary Asset"
+                          label="Primary Showcase Image"
                           path="portfolio"
                           onUploadComplete={(url) => setEditData({...editData, img: url})}
                         />
                         {editData.img && (
-                          <div className="aspect-video border border-white/10 overflow-hidden">
-                            <img src={editData.img} className="w-full h-full object-cover" alt="" />
+                          <div className="aspect-video border border-white/10 overflow-hidden bg-charcoal/50 flex items-center justify-center relative group">
+                            <img src={editData.img} className="w-full h-full object-contain" alt="" />
+                            <div className="absolute inset-0 bg-charcoal/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                               <p className="text-[10px] uppercase tracking-[0.4em] font-bold">Primary Asset</p>
+                            </div>
                           </div>
                         )}
-                        
-                          <div className="space-y-6">
-                             <div>
-                              <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Banner Overlay Text</label>
-                              <input 
-                                placeholder="e.g. RECORD BREAKING SALE"
-                                className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] uppercase tracking-[0.2em] text-brick-copper font-bold" 
-                                value={editData.bannerText || ''} 
-                                onChange={e => setEditData({...editData, bannerText: e.target.value})} 
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-2">Banner Color</label>
-                                <div className="flex flex-wrap gap-2 mb-3">
-                                  {['#C57D5D', '#B5A48F', '#1A1A1A', '#FAFAFA', '#E53E3E', '#38A169'].map(c => (
-                                    <button 
-                                      key={c}
-                                      onClick={() => setEditData({...editData, bannerColor: c})}
-                                      className={`w-6 h-6 border transition-all ${editData.bannerColor === c ? 'border-white scale-110 shadow-lg' : 'border-white/10 hover:scale-105'}`}
-                                      style={{ backgroundColor: c }}
-                                      title={c}
-                                    />
-                                  ))}
-                                </div>
-                                <input 
-                                  placeholder="Hex Code"
-                                  className="bg-white/5 border border-white/5 w-full outline-none py-2 px-3 text-[10px] font-mono text-white/60" 
-                                  value={editData.bannerColor || ''} 
-                                  onChange={e => setEditData({...editData, bannerColor: e.target.value})} 
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-2">Banner Size</label>
-                                <select 
-                                  className="bg-white/5 border border-white/5 w-full outline-none py-2 px-3 text-[10px] uppercase tracking-[0.1em] text-white/60 appearance-none"
-                                  value={editData.bannerSize || 'normal'}
-                                  onChange={e => setEditData({...editData, bannerSize: e.target.value})}
-                                >
-                                  <option value="compact">Compact / Minimal</option>
-                                  <option value="normal">Standard / Fidelity</option>
-                                  <option value="large">Expansive / Statement</option>
-                                  <option value="extra">Maximum / Impact</option>
-                                </select>
-                                <p className="text-[8px] text-white/20 mt-2 italic">Adjusts the scale of the sash narrative.</p>
-                              </div>
-                            </div>
-
-                            <p className="text-[8px] text-white/20 mt-1 italic">These attributes define the high-fidelity sash overlay on the catalog card.</p>
-                          </div>
                       </div>
+                    )}
 
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Title / Address</label>
-                            <input 
-                              className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-sm font-display italic" 
-                              value={editData.title || ''} 
-                              onChange={e => setEditData({...editData, title: e.target.value})} 
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Taxonomy</label>
-                            <input 
-                              className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] uppercase tracking-widest" 
-                              value={editData.category || ''} 
-                              onChange={e => setEditData({...editData, category: e.target.value})} 
-                            />
-                          </div>
-                        </div>
-
-                        <div className="bg-brick-copper/[0.03] p-6 border border-brick-copper/10 space-y-4">
-                           <div className="flex gap-4">
+                    {activeEditTab === 'details' && (
+                      <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="bg-brick-copper/[0.03] p-8 border border-brick-copper/10 space-y-6">
+                           <div className="flex flex-col md:flex-row gap-6">
                               <div className="flex-1">
-                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-1">MLS Number</label>
-                                <input 
-                                  className="bg-transparent border-b border-brick-copper/30 w-full outline-none py-1 text-[10px] font-mono" 
-                                  value={editData.mlsNumber || ''} 
-                                  onChange={e => setEditData({...editData, mlsNumber: e.target.value})} 
-                                />
+                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold">MLS Network Integration</label>
+                                <div className="flex gap-2">
+                                  <input 
+                                    placeholder="MLS Identification Number"
+                                    className="bg-charcoal/50 border border-brick-copper/20 flex-1 outline-none py-3 px-4 text-[10px] font-mono text-white" 
+                                    value={editData.mlsNumber || ''} 
+                                    onChange={e => setEditData({...editData, mlsNumber: e.target.value})} 
+                                  />
+                                  <button 
+                                    onClick={handleMLSLookup}
+                                    disabled={isFetchingMLS}
+                                    className="px-6 py-3 bg-brick-copper text-charcoal text-[9px] uppercase font-bold tracking-widest hover:bg-white transition-all disabled:opacity-50"
+                                  >
+                                    {isFetchingMLS ? <Loader2 size={12} className="animate-spin" /> : 'Fetch Metadata'}
+                                  </button>
+                                </div>
                               </div>
-                              <button 
-                                onClick={handleMLSLookup}
-                                disabled={isFetchingMLS}
-                                className="px-4 py-2 bg-brick-copper text-charcoal text-[9px] uppercase font-bold tracking-widest hover:bg-white transition-all disabled:opacity-50"
-                              >
-                                {isFetchingMLS ? 'Accessing...' : 'Fetch MLS'}
-                              </button>
                            </div>
-                           <div className="grid grid-cols-2 gap-4">
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               <div>
                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
                                 <input 
-                                  className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-[10px] font-mono" 
+                                  className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] font-mono text-white" 
                                   value={editData.listPrice || ''} 
                                   onChange={e => setEditData({...editData, listPrice: e.target.value})} 
                                 />
                               </div>
                               <div>
-                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Status</label>
+                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Commercial Status</label>
                                 <input 
-                                  className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-[10px] font-mono" 
+                                  className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] font-mono text-white" 
                                   value={editData.status || ''} 
                                   onChange={e => setEditData({...editData, status: e.target.value})} 
                                 />
@@ -1437,88 +1486,151 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                            </div>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-4 bg-white/5 p-4">
-                          <div>
-                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Order</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Project Title / Address</label>
                             <input 
-                              type="number"
-                              className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-xs font-mono" 
-                              value={editData.order || 0} 
-                              onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} 
+                              className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm font-display italic text-white" 
+                              value={editData.title || ''} 
+                              onChange={e => setEditData({...editData, title: e.target.value})} 
                             />
                           </div>
                           <div>
-                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Type</label>
-                            <select 
-                              className="bg-charcoal border border-white/10 w-full outline-none text-[9px] uppercase py-1"
-                              value={editData.type || 'item'}
-                              onChange={e => setEditData({...editData, type: e.target.value})}
-                            >
-                              <option value="item">Item</option>
-                              <option value="spacer">Spacer</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Panel</label>
-                            <select 
-                              className="bg-charcoal border border-white/10 w-full outline-none text-[9px] uppercase py-1 text-brick-copper"
-                              value={editData.panel || 'main'}
-                              onChange={e => setEditData({...editData, panel: e.target.value})}
-                            >
-                              <option value="main">Main</option>
-                              <option value="side">Side</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Grid W</label>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Narrative Category</label>
                             <input 
-                              type="number" min="1" max="4"
-                              className="bg-transparent border-b border-white/5 w-full outline-none py-1 text-xs font-mono" 
-                              value={editData.colSpan || 1} 
-                              onChange={e => setEditData({...editData, colSpan: parseInt(e.target.value)})} 
+                              className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] uppercase tracking-widest text-white" 
+                              value={editData.category || ''} 
+                              onChange={e => setEditData({...editData, category: e.target.value})} 
                             />
                           </div>
                         </div>
+                      </div>
+                    )}
 
+                    {activeEditTab === 'narrative' && (
+                      <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div>
-                          <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Narrative Description</label>
+                          <div className="flex justify-between items-center mb-2">
+                             <label className="text-[9px] uppercase tracking-widest text-white/30 block">Project Description</label>
+                             <button 
+                               onClick={async () => {
+                                 const sugg = await getAiSuggestion("Architectural narrative for:", editData.title);
+                                 setEditData({...editData, description: sugg});
+                               }}
+                               disabled={isGenerating}
+                               className="text-[9px] uppercase tracking-widest text-brick-copper flex items-center gap-2 hover:text-white transition-colors"
+                             >
+                               <Sparkles size={10} /> {isGenerating ? 'Drafting...' : 'AI Refinement'}
+                             </button>
+                          </div>
                           <textarea 
-                            className="bg-transparent border border-white/5 w-full h-32 p-4 text-[11px] font-mono focus:border-brick-copper outline-none transition-colors" 
+                            className="bg-white/5 border border-white/5 w-full h-64 p-6 text-[11px] font-mono focus:border-brick-copper outline-none transition-colors leading-relaxed no-scrollbar" 
                             value={editData.description || ''} 
                             onChange={e => setEditData({...editData, description: e.target.value})} 
                           />
                         </div>
+                      </div>
+                    )}
 
-                        <div className="flex gap-4 pt-6 border-t border-white/5">
-                          <button onClick={() => handleUpdatePortfolio(isEditing)} className="flex-1 py-4 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-all shadow-xl">Persist Matrix</button>
-                          <button onClick={() => setIsEditing(null)} className="px-8 py-4 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest hover:text-white transition-all">Revert</button>
+                    {activeEditTab === 'display' && (
+                      <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div className="space-y-4">
+                              <label className="text-[9px] uppercase tracking-widest text-white/30 block font-bold">Catalog Sash Configuration</label>
+                              <div className="bg-white/5 p-6 border border-white/5 space-y-4">
+                                <input 
+                                  placeholder="Banner Text (e.g. RECORD BREAKING)"
+                                  className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-[10px] uppercase tracking-widest text-brick-copper font-bold" 
+                                  value={editData.bannerText || ''} 
+                                  onChange={e => setEditData({...editData, bannerText: e.target.value})} 
+                                />
+                                <div className="grid grid-cols-2 gap-4">
+                                   <select 
+                                      className="bg-charcoal border border-white/10 w-full outline-none text-[9px] uppercase py-2 px-2"
+                                      value={editData.bannerSize || 'normal'}
+                                      onChange={e => setEditData({...editData, bannerSize: e.target.value})}
+                                    >
+                                      <option value="compact">Compact</option>
+                                      <option value="normal">Standard</option>
+                                      <option value="large">Large</option>
+                                      <option value="extra">Extra</option>
+                                    </select>
+                                    <input 
+                                      placeholder="Color Hex"
+                                      className="bg-charcoal/50 border border-white/10 w-full outline-none py-2 px-3 text-[10px] font-mono text-white/60" 
+                                      value={editData.bannerColor || '#C57D5D'} 
+                                      onChange={e => setEditData({...editData, bannerColor: e.target.value})} 
+                                    />
+                                </div>
+                              </div>
+                           </div>
+
+                           <div className="space-y-4">
+                              <label className="text-[9px] uppercase tracking-widest text-white/30 block font-bold">Grid Matrix Geometry</label>
+                              <div className="bg-white/5 p-6 border border-white/5 grid grid-cols-2 gap-4">
+                                 <div>
+                                    <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Column Span</label>
+                                    <input type="number" min="1" max="4" className="bg-charcoal/50 border border-white/10 w-full p-2 text-xs font-mono" value={editData.colSpan || 1} onChange={e => setEditData({...editData, colSpan: parseInt(e.target.value)})} />
+                                 </div>
+                                 <div>
+                                    <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Row Span</label>
+                                    <input type="number" min="1" max="4" className="bg-charcoal/50 border border-white/10 w-full p-2 text-xs font-mono" value={editData.rowSpan || 1} onChange={e => setEditData({...editData, rowSpan: parseInt(e.target.value)})} />
+                                 </div>
+                                 <div>
+                                    <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Panel Stage</label>
+                                    <select className="bg-charcoal border border-white/10 w-full p-2 text-[9px] uppercase text-brick-copper font-bold" value={editData.panel || 'main'} onChange={e => setEditData({...editData, panel: e.target.value})}>
+                                       <option value="main">Main Showcase</option>
+                                       <option value="side">Side Channel</option>
+                                    </select>
+                                 </div>
+                                 <div>
+                                    <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Display Rank</label>
+                                    <input type="number" className="bg-charcoal/50 border border-white/10 w-full p-2 text-xs font-mono" value={editData.order || 0} onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} />
+                                 </div>
+                              </div>
+                           </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Visual Grid Perspective */}
-              <div className="space-y-8 pt-12 border-t border-white/5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] uppercase tracking-[0.4em] text-white/40 italic">Visual Orchestration (Active Preview)</h4>
-                  <p className="text-[8px] font-mono text-white/20">EDITS_PERMITTED_DIRECTLY_IN_GRID</p>
-                </div>
-                
-                <div className="space-y-16">
-                  <div className="space-y-6">
-                    <h5 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper/60">Main Showcase Stream</h5>
-                    <div className="bg-white/[0.01] border border-white/5 p-6 md:p-12">
-                      <Portfolio panel="main" variant="grid" />
-                    </div>
+                    )}
                   </div>
 
-                  <div className="space-y-6">
-                    <h5 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper/60">Side Narrative Channel</h5>
-                    <div className="bg-white/[0.01] border border-white/5 p-6 md:p-12">
-                      <Portfolio panel="side" variant="grid" />
-                    </div>
+                  <footer className="p-6 border-t border-white/5 bg-charcoal/80 flex gap-4">
+                    <button 
+                      onClick={() => handleUpdatePortfolio(isEditing)} 
+                      className="flex-1 py-4 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-all shadow-xl font-sans"
+                    >
+                      Save Changes
+                    </button>
+                    <button 
+                      onClick={() => setIsEditing(null)} 
+                      className="px-8 py-4 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest hover:text-white transition-all font-sans font-bold"
+                    >
+                      Cancel
+                    </button>
+                  </footer>
+                </div>
+              </div>
+            )}
+
+            {/* Visual Grid Perspective */}
+            <div className="space-y-8 pt-12 border-t border-white/5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] uppercase tracking-[0.4em] text-white/40 italic">Visual Orchestration (Active Preview)</h4>
+                <p className="text-[8px] font-mono text-white/20">EDITS_PERMITTED_DIRECTLY_IN_GRID</p>
+              </div>
+              
+              <div className="space-y-16">
+                <div className="space-y-6">
+                  <h5 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper/60">Main Showcase Stream</h5>
+                  <div className="bg-white/[0.01] border border-white/5 p-6 md:p-12">
+                    <Portfolio panel="main" variant="grid" />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <h5 className="text-[9px] uppercase tracking-[0.3em] text-brick-copper/60">Side Narrative Channel</h5>
+                  <div className="bg-white/[0.01] border border-white/5 p-6 md:p-12">
+                    <Portfolio panel="side" variant="grid" />
                   </div>
                 </div>
               </div>
@@ -1526,14 +1638,14 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
-        {activeTab === 'narratives' && (
-          <section>
+        {activeTab === 'pages' && (
+          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
               <div className="flex items-center gap-3 text-brick-copper">
                 <FileText size={18} />
                 <h3 className="font-display text-2xl italic">Custom Pages</h3>
               </div>
-              <button onClick={handleCreatePage} className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-sand transition-colors font-bold">
+              <button onClick={handleCreatePage} className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-sand transition-colors font-bold font-sans">
                 <Plus size={14} /> New Page
               </button>
             </div>
@@ -1559,18 +1671,18 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           </button>
                         </div>
                         <div className="flex gap-4">
-                          <button onClick={() => handleUpdatePage(page.id)} className="text-green-500 text-[10px] uppercase tracking-widest">Persist</button>
-                          <button onClick={() => setIsEditing(null)} className="text-white/40 text-[10px] uppercase tracking-widest">Abandon</button>
+                          <button onClick={() => handleUpdatePage(page.id)} className="text-green-500 text-[10px] uppercase tracking-widest font-bold">Persist</button>
+                          <button onClick={() => setIsEditing(null)} className="text-white/40 text-[10px] uppercase tracking-widest font-bold">Abandon</button>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="flex justify-between items-center">
-                      <div><h4 className="text-sm font-semibold">{page.title}</h4><p className="text-[10px] text-white/40 font-mono">/p/{page.slug}</p></div>
+                      <div><h4 className="text-sm font-semibold text-white uppercase tracking-tight">{page.title}</h4><p className="text-[10px] text-white/40 font-mono">/p/{page.slug}</p></div>
                       <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
-                        <button onClick={() => { setPuckPageId(page.id); setShowPuck(true); }} className="text-white/20 hover:text-brick-copper" title="Launch Visual Editor"><Layout size={16} /></button>
-                        <button onClick={() => { setIsEditing(page.id); setEditData(page); }} className="text-white/20 hover:text-brick-copper"><Edit2 size={16} /></button>
-                        <button onClick={() => handleDeletePage(page.id)} className="text-white/20 hover:text-red-500"><Trash2 size={16} /></button>
+                        <button onClick={() => { setPuckPageId(page.id); setShowPuck(true); }} className="text-white/20 hover:text-brick-copper outline-none" title="Launch Visual Editor"><Layout size={16} /></button>
+                        <button onClick={() => { setIsEditing(page.id); setEditData(page); }} className="text-white/20 hover:text-brick-copper outline-none"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDeletePage(page.id)} className="text-white/20 hover:text-red-500 outline-none"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   )}
@@ -1580,7 +1692,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
-        {activeTab === 'social_proof' && (
+        {activeTab === 'testimonials' && (
           <section>
             <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
               <div className="flex items-center gap-3 text-brick-copper">
@@ -1648,7 +1760,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
-        {activeTab === 'exchange' && (
+        {activeTab === 'inquiries' && (
           <section className="space-y-8">
             <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4">
               <MessageSquare size={18} />
@@ -1695,7 +1807,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
-        {activeTab === 'security' && (
+        {activeTab === 'admins' && (
           <section className="max-w-4xl">
             <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4">
               <Shield size={18} />
