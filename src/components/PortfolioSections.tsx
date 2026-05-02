@@ -77,7 +77,8 @@ const SortablePortfolioItem = ({
         whileHover={!isEditMode ? { scale: 1.05 } : {}}
         src={optimizedUrl} 
         alt={item.title}
-        loading="lazy"
+        loading={index < 4 ? "eager" : "lazy"}
+        decoding="async"
         referrerPolicy="no-referrer"
         className={`w-full h-full object-cover transition-all duration-700 ${isGallery ? 'opacity-90 group-hover:opacity-100' : 'opacity-60 group-hover:opacity-100 grayscale group-hover:grayscale-0'}`}
       />
@@ -303,10 +304,13 @@ const SortablePortfolioItem = ({
 };
 
 export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'grid' | 'gallery', panel?: 'main' | 'side' }) => {
-  const { isEditMode, isAdmin, portfolioItems: rawItems } = useSiteContent();
+  const { isEditMode, isAdmin, portfolioItems: rawItems, settings } = useSiteContent();
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editFields, setEditFields] = useState<any>({});
   const [activeCategory, setActiveCategory] = useState('All');
+
+  const propertiesPerPage = settings.propertiesPerPage || 6;
+  const [visibleCount, setVisibleCount] = useState(propertiesPerPage);
 
   const items = useMemo(() => {
     let baseItems = rawItems.filter(item => (item.panel || 'main') === panel);
@@ -348,6 +352,11 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
   const [activePropertyType, setActivePropertyType] = useState('All Types');
   const [activeStatus, setActiveStatus] = useState('All Statuses');
 
+  // Reset pagination when active filters change
+  useEffect(() => {
+    setVisibleCount(propertiesPerPage);
+  }, [activeCategory, activePropertyType, activeStatus, propertiesPerPage]);
+
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const matchCategory = activeCategory === 'All' || item.category === activeCategory;
@@ -356,6 +365,19 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
       return matchCategory && matchPropertyType && matchStatus;
     });
   }, [items, activeCategory, activePropertyType, activeStatus]);
+
+  const displayedItems = useMemo(() => {
+    // In edit mode, we show all items to allow reordering the entire set.
+    // In public view, we use the visibleCount for pagination optimization.
+    if (isEditMode) return filteredItems;
+    return filteredItems.slice(0, visibleCount);
+  }, [filteredItems, visibleCount, isEditMode]);
+
+  const hasMore = !isEditMode && visibleCount < filteredItems.length;
+
+  const handleLoadMore = () => {
+    setVisibleCount(prev => prev + propertiesPerPage);
+  };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -436,7 +458,7 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
     setEditingItem(null);
   };
 
-  const itemIds = useMemo(() => filteredItems.map(i => i.id), [filteredItems]);
+  const itemIds = useMemo(() => displayedItems.map(i => i.id), [displayedItems]);
 
   return (
     <div className="relative w-full">
@@ -451,7 +473,7 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                 className={`text-[10px] uppercase tracking-[0.4em] transition-all whitespace-nowrap ${
                   activeCategory === cat 
                     ? 'text-brick-copper font-black border-b-2 border-brick-copper pb-1' 
-                    : 'text-text-primary/40 hover:text-text-primary'
+                    : 'text-text-primary/70 hover:text-text-primary'
                 }`}
               >
                 {cat}
@@ -762,7 +784,7 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
             items={itemIds}
             strategy={verticalListSortingStrategy}
           >
-            {filteredItems.map((item, index) => (
+            {displayedItems.map((item, index) => (
               <SortablePortfolioItem 
                 key={item.id}
                 item={item}
@@ -782,6 +804,19 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
         </div>
       </DndContext>
       
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="mt-12 flex justify-center pb-12">
+          <button
+            onClick={handleLoadMore}
+            className="px-12 py-4 bg-transparent border-2 border-brick-copper text-brick-copper hover:bg-brick-copper hover:text-charcoal transition-all uppercase text-[11px] tracking-[0.4em] font-black shadow-2xl relative group overflow-hidden"
+          >
+            <span className="relative z-10">Expand Archive</span>
+            <div className="absolute inset-0 bg-brick-copper translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
+          </button>
+        </div>
+      )}
+
       {filteredItems.length === 0 && (
         <div className="py-24 text-center border border-dashed border-border-subtle rounded m-4">
           <p className="text-[10px] uppercase tracking-[0.4em] text-text-primary/20 italic">No archive entries for this filter</p>

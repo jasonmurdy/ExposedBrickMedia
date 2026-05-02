@@ -8,6 +8,7 @@ import { BrandHeader, Navbar, HeroVisual, MobileNavbar } from './components/Hero
 import { Portfolio, Services } from './components/PortfolioSections';
 import { BookingForm, FooterContent } from './components/BookingAndFooter';
 import { ProjectDetailView } from './components/ProjectDetailView';
+import { ChatWidget } from './components/ChatWidget';
 import AboutPage from './pages/About';
 import ServicesPage from './pages/Services';
 import InquiryPage from './pages/Inquiry';
@@ -23,8 +24,22 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Render } from "@measured/puck";
 import { createConfig } from "./lib/puck.config";
 import { Helmet } from 'react-helmet-async';
+import { trackPageView } from './lib/analytics';
+
+function usePageTracking() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Send tracking after a short delay to allow Helmet to update document.title
+    const timer = setTimeout(() => {
+      trackPageView(location.pathname + location.search, document.title);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [location]);
+}
 
 function MainLayout() {
+  usePageTracking();
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPuck, setShowPuck] = useState(false);
   const { isAdmin, settings, isEditMode, setIsEditMode, pages } = useSiteContent();
@@ -153,6 +168,8 @@ function MainLayout() {
           </main>
         </>
       )}
+      
+      <ChatWidget />
     </div>
   );
 }

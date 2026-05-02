@@ -10,6 +10,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/fi
 import { db } from '../lib/firebase';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
+import { trackGenerateLead } from '../lib/analytics';
 
 const platformIcons: Record<string, any> = {
   instagram: Instagram,
@@ -50,6 +51,10 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
         createdAt: serverTimestamp()
       });
       setSubmitted(true);
+      trackGenerateLead({
+        form_name: override?.title || settings.inquiryTitle || "booking_request",
+        service_requested: formData.serviceType
+      });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
     } finally {
@@ -80,7 +85,7 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
       </h3>
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="border-b border-border-subtle pb-2">
-          <label className="block text-[9px] uppercase tracking-widest text-text-primary/30 mb-1">Property Address</label>
+          <label className="block text-[9px] uppercase tracking-widest text-text-primary/70 mb-1">Property Address</label>
           <input 
             required
             type="text" 
@@ -91,7 +96,7 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
           />
         </div>
         <div className="border-b border-border-subtle pb-2">
-          <label className="block text-[9px] uppercase tracking-widest text-text-primary/30 mb-1">Your Name</label>
+          <label className="block text-[9px] uppercase tracking-widest text-text-primary/70 mb-1">Your Name</label>
           <input 
             required
             type="text" 
@@ -102,7 +107,7 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
           />
         </div>
         <div className="border-b border-border-subtle pb-2">
-          <label className="block text-[9px] uppercase tracking-widest text-text-primary/30 mb-1">Email Coordinates</label>
+          <label className="block text-[9px] uppercase tracking-widest text-text-primary/70 mb-1">Email Coordinates</label>
           <input 
             required
             type="email" 
@@ -145,7 +150,7 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
         <motion.p 
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          className={`font-display text-2xl lg:text-3xl leading-snug italic text-text-primary/70 font-light outline-none ${isEditMode ? 'focus:ring-1 focus:ring-brick-copper/50 rounded px-1' : ''}`}
+          className={`font-display text-2xl lg:text-3xl leading-snug italic text-text-primary/90 font-light outline-none ${isEditMode ? 'focus:ring-1 focus:ring-brick-copper/50 rounded px-1' : ''}`}
           contentEditable={isEditMode}
           suppressContentEditableWarning
           onBlur={(e) => saveFooterQuote(e.currentTarget.textContent || '')}
@@ -161,7 +166,7 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
                 <motion.a 
                   href={`mailto:${settings.contactInfo.email}`}
                   whileHover={{ x: 4 }}
-                  className="group flex items-center gap-3 text-[11px] text-text-primary/50 hover:text-text-primary transition-colors w-fit"
+                  className="group flex items-center gap-3 text-[11px] text-text-primary/70 hover:text-text-primary transition-colors w-fit"
                 >
                   <span className="p-2 bg-text-primary/5 rounded-full group-hover:bg-brick-copper/10 group-hover:text-brick-copper transition-colors">
                     <Mail size={14} />
@@ -173,7 +178,7 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
                 <motion.a 
                   href={`tel:${settings.contactInfo.phone.replace(/[^0-9]/g, '')}`}
                   whileHover={{ x: 4 }}
-                  className="group flex items-center gap-3 text-[11px] text-text-primary/50 hover:text-text-primary transition-colors w-fit"
+                  className="group flex items-center gap-3 text-[11px] text-text-primary/70 hover:text-text-primary transition-colors w-fit"
                 >
                   <span className="p-2 bg-text-primary/5 rounded-full group-hover:bg-brick-copper/10 group-hover:text-brick-copper transition-colors">
                     <Phone size={14} />
@@ -184,7 +189,7 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
               {settings.contactInfo?.address && (
                 <motion.div 
                   whileHover={{ x: 4 }}
-                  className="group flex items-start gap-3 text-[11px] text-text-primary/50 w-fit"
+                  className="group flex items-start gap-3 text-[11px] text-text-primary/70 w-fit"
                 >
                   <span className="p-2 bg-text-primary/5 rounded-full">
                     <MapPin size={14} />
@@ -211,7 +216,7 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
                       rel="noopener noreferrer" 
                       whileHover={{ y: -4, scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
-                      className="p-3 bg-text-primary/5 rounded-xl text-text-primary/40 hover:text-brick-copper hover:bg-brick-copper/5 transition-all shadow-sm hover:shadow-md"
+                      className="p-3 bg-text-primary/5 rounded-xl text-text-primary/70 hover:text-brick-copper hover:bg-brick-copper/5 transition-all shadow-sm hover:shadow-md"
                       title={link.platform}
                     >
                       <Icon size={20} />
@@ -219,7 +224,7 @@ export const FooterContent = ({ override }: { override?: { quote: string } }) =>
                   );
                 })}
             </div>
-            <p className="text-[9px] text-text-primary/30 italic max-w-[180px] leading-relaxed">
+            <p className="text-[9px] text-text-primary/60 italic max-w-[180px] leading-relaxed">
               Connect with us across platforms for the latest property showcases and technical insights.
             </p>
           </div>

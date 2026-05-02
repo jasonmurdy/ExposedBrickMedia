@@ -13,6 +13,7 @@ import {
   ChevronRight, Camera, Grid, Info, CheckCircle2
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { trackMediaInteraction } from '../lib/analytics';
 
 export const ProjectDetailView = () => {
   const { id } = useParams();
@@ -24,6 +25,11 @@ export const ProjectDetailView = () => {
   useEffect(() => {
     if (project) {
       setActiveImage(project.img);
+      trackMediaInteraction({
+        property_id: project.id,
+        media_type: 'flambient_gallery',
+        action: 'view'
+      });
       window.scrollTo(0, 0);
     }
   }, [project]);
@@ -75,6 +81,13 @@ export const ProjectDetailView = () => {
                href={project.url} 
                target="_blank" 
                rel="noopener noreferrer"
+               onClick={() => {
+                 trackMediaInteraction({
+                   property_id: project.id,
+                   media_type: 'matterport_tour',
+                   action: 'view'
+                 });
+               }}
                className="text-[10px] uppercase tracking-widest text-brick-copper hover:text-white transition-colors flex items-center gap-2"
              >
                View Source Listing <ExternalLink size={12} />
@@ -169,6 +182,13 @@ export const ProjectDetailView = () => {
                  href={project.url}
                  target="_blank"
                  rel="noopener noreferrer"
+                 onClick={() => {
+                   trackMediaInteraction({
+                     property_id: project.id,
+                     media_type: 'matterport_tour',
+                     action: 'view'
+                   });
+                 }}
                  className="w-full py-5 border border-white/10 text-white uppercase tracking-[0.2em] font-bold text-[10px] hover:bg-white hover:text-charcoal transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
                >
                  View Full Listing <ExternalLink size={12} />
@@ -193,6 +213,8 @@ export const ProjectDetailView = () => {
                 src={activeImage || project.img} 
                 className="w-full h-full object-cover" 
                 alt={project.title}
+                loading="eager"
+                decoding="async"
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-bg-primary via-transparent to-transparent opacity-60 pointer-events-none" />
@@ -204,10 +226,17 @@ export const ProjectDetailView = () => {
              {allImages.map((img, idx) => (
                <button 
                  key={idx}
-                 onClick={() => setActiveImage(img)}
+                 onClick={() => {
+                   setActiveImage(img);
+                   trackMediaInteraction({
+                     property_id: project.id,
+                     media_type: 'flambient_gallery',
+                     action: 'play'
+                   });
+                 }}
                  className={`relative flex-shrink-0 w-24 h-24 border-2 transition-all overflow-hidden ${activeImage === img ? 'border-brick-copper scale-105 shadow-xl' : 'border-transparent opacity-40 hover:opacity-100'}`}
                >
-                 <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                 <img src={img} className="w-full h-full object-cover" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
                </button>
              ))}
           </div>

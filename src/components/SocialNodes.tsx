@@ -16,6 +16,8 @@ export const LogoCloud = ({ logos }: { logos: { url: string, alt: string }[] }) 
                 key={idx} 
                 src={logo.url} 
                 alt={logo.alt || `Brand ${idx}`} 
+                loading="lazy"
+                decoding="async"
                 className="h-8 md:h-12 object-contain grayscale hover:grayscale-0 transition-all duration-500 hover:scale-105 cursor-pointer" 
               />
             ) : null
@@ -95,6 +97,8 @@ export const InstagramFeed = ({ username = 'exposedbrickmedia' }: { username?: s
               src={`https://images.unsplash.com/photo-1600607687940-c52fb036999c?w=400&q=80&auto=format&fit=crop&sig=${idx}`} 
               className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-110" 
               alt="Real estate media placeholder" 
+              loading="lazy"
+              decoding="async"
             />
             <div className="absolute inset-0 bg-charcoal/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
               <span className="text-[10px] uppercase tracking-widest font-bold text-white border-b border-white pb-1">View Profile</span>
@@ -111,6 +115,7 @@ export const InstagramFeed = ({ username = 'exposedbrickmedia' }: { username?: s
               className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-110" 
               alt="Recent property shoot"
               loading="lazy"
+              decoding="async"
             />
             <div className="absolute inset-0 bg-charcoal/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
               <span className="text-[10px] uppercase tracking-widest font-bold text-white border-b border-white pb-1">View Post</span>

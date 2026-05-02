@@ -40,7 +40,7 @@ export const TestimonialCarousel = ({ maxItems = 5 }: { maxItems?: number }) => 
               "{testimonials[currentIndex]?.quote}"
             </p>
             <div className="flex items-center gap-4">
-              <img src={testimonials[currentIndex]?.headshotUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10" />
+              <img src={testimonials[currentIndex]?.headshotUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10" loading="lazy" decoding="async" />
               <div className="text-left">
                 <h4 className="text-xs uppercase tracking-widest text-brick-copper font-bold">{testimonials[currentIndex]?.name}</h4>
                 <p className="text-[9px] uppercase tracking-widest text-white/40">{testimonials[currentIndex]?.brokerage}</p>

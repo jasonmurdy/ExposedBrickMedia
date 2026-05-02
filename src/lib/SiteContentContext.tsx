@@ -28,6 +28,14 @@ interface SiteSettings {
   fontBody?: 'Montserrat' | 'Inter' | 'Open Sans';
   layout?: any;
   updatedAt?: any;
+  propertiesPerPage?: number;
+  chatbotEnabled?: boolean;
+  chatbotPersona?: string;
+  chatbotPricing?: {
+    flambient_base: number;
+    drone_addon: number;
+    turnaround_time: string;
+  };
 }
 
 interface CustomPage {
@@ -89,7 +97,15 @@ const DEFAULT_SETTINGS: SiteSettings = {
     address: '123 Archive St, Industrial District'
   },
   fontTitle: 'Prata',
-  fontBody: 'Montserrat'
+  fontBody: 'Montserrat',
+  propertiesPerPage: 6,
+  chatbotEnabled: false,
+  chatbotPersona: 'You are the Exposed Brick Media assistant. You help clients understand our services, pricing, and process. Use the pricing provided in your context to quote services. Always be polite and direct users to the booking page or inquiry form.',
+  chatbotPricing: {
+    flambient_base: 150,
+    drone_addon: 100,
+    turnaround_time: "24 hours"
+  }
 };
 
 const SiteContentContext = createContext<SiteContentContextType | undefined>(undefined);

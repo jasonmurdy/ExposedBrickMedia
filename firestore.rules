@@ -101,7 +101,17 @@ service cloud.firestore {
         && (data.get('accentColor', null) == null || (data.accentColor is string))
         && (data.get('fontTitle', null) == null || (data.fontTitle is string))
         && (data.get('fontBody', null) == null || (data.fontBody is string))
+        && (data.get('chatbotEnabled', null) == null || (data.chatbotEnabled is bool))
+        && (data.get('chatbotPersona', null) == null || (data.chatbotPersona is string && data.chatbotPersona.size() <= 10000))
+        && (data.get('chatbotPricing', null) == null || (data.chatbotPricing is map))
         && (data.get('layout', null) == null || (data.layout is map));
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['prompt', 'createTime'])
+        && data.prompt is string && data.prompt.size() <= 20000
+        && (data.get('displayPrompt', null) == null || (data.displayPrompt is string && data.displayPrompt.size() <= 10000))
+        && (data.get('response', null) == null || (data.response is string && data.response.size() <= 30000));
     }
 
     function isValidPage(data) {
@@ -204,6 +214,18 @@ service cloud.firestore {
           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'slug', 'content', 'showInNav', 'order', 'description', 'layout', 'updatedAt'])
         );
       allow delete: if isAdmin();
+    }
+
+    match /users/{userId}/chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidChat(incoming())
+        && incoming().createTime == request.time;
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidChat(incoming())
+        && incoming().createTime == existing().createTime
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['response'])
+        );
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
   }
 }

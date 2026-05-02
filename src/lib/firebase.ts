@@ -6,12 +6,26 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getStorage } from 'firebase/storage';
+import { getAnalytics, isSupported } from "firebase/analytics";
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+export const analyticsPromise = isSupported().then(yes => {
+  if (yes && firebaseConfig.measurementId) {
+    try {
+      return getAnalytics(app);
+    } catch (e) {
+      console.warn("Analytics initialization failed:", e);
+      return null;
+    }
+  }
+  return null;
+}).catch(() => null);
+
 
 // Defensive initialization for Storage
 let storageInstance: any = null;

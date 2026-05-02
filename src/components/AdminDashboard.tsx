@@ -906,6 +906,83 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 </div>
 
                 <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
+                  <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">Archive Optimization</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Properties Per Load</label>
+                      <div className="flex items-center gap-4">
+                        <input 
+                          type="number"
+                          min="1"
+                          max="24"
+                          className="bg-transparent border-b border-white/10 w-24 outline-none py-2 text-sm text-brick-copper font-mono" 
+                          value={localSettings.propertiesPerPage || 6} 
+                          onChange={e => setLocalSettings({...localSettings, propertiesPerPage: parseInt(e.target.value) || 6})} 
+                        />
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest">Items per batch</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60">Cognitive Layer</h4>
+                    <button 
+                      onClick={() => setLocalSettings({...localSettings, chatbotEnabled: !localSettings.chatbotEnabled})}
+                      className={`flex items-center gap-2 px-3 py-1 text-[8px] uppercase tracking-widest transition-all ${localSettings.chatbotEnabled ? 'bg-brick-copper text-charcoal' : 'bg-white/5 text-white/40 border border-white/10'}`}
+                    >
+                      {localSettings.chatbotEnabled ? <Eye size={10} /> : <EyeOff size={10} />}
+                      {localSettings.chatbotEnabled ? 'Live' : 'Deactivated'}
+                    </button>
+                  </div>
+                  
+                  {localSettings.chatbotEnabled && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-500">
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Master Persona</label>
+                        <textarea 
+                          rows={3}
+                          className="bg-white/5 border border-white/10 w-full outline-none p-3 text-[10px] leading-relaxed text-white/80 focus:border-brick-copper transition-colors no-scrollbar"
+                          value={localSettings.chatbotPersona}
+                          onChange={e => setLocalSettings({...localSettings, chatbotPersona: e.target.value})}
+                          placeholder="You are the Exposed Brick assistant..."
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Flambient Base ($)</label>
+                          <input 
+                            type="number"
+                            className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-sm text-brick-copper font-mono"
+                            value={localSettings.chatbotPricing?.flambient_base}
+                            onChange={e => setLocalSettings({...localSettings, chatbotPricing: {...(localSettings.chatbotPricing || {flambient_base:150, drone_addon:100, turnaround_time:'24 hours'}), flambient_base: parseInt(e.target.value) || 0}})}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Drone Add-on ($)</label>
+                          <input 
+                            type="number"
+                            className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-sm text-brick-copper font-mono"
+                            value={localSettings.chatbotPricing?.drone_addon}
+                            onChange={e => setLocalSettings({...localSettings, chatbotPricing: {...(localSettings.chatbotPricing || {flambient_base:150, drone_addon:100, turnaround_time:'24 hours'}), drone_addon: parseInt(e.target.value) || 0}})}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-[8px] uppercase tracking-widest text-white/20 block mb-1">Turnaround Narrative</label>
+                          <input 
+                            className="bg-transparent border-b border-white/10 w-full outline-none py-2 text-sm text-white/60"
+                            value={localSettings.chatbotPricing?.turnaround_time}
+                            onChange={e => setLocalSettings({...localSettings, chatbotPricing: {...(localSettings.chatbotPricing || {flambient_base:150, drone_addon:100, turnaround_time:'24 hours'}), turnaround_time: e.target.value}})}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
                   <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">Identity Specs</h4>
                   <div className="space-y-4">
                     <div>

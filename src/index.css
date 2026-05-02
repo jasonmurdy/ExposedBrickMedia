@@ -35,9 +35,21 @@
 
 @layer base {
   body {
-    @apply bg-bg-primary text-text-primary font-body antialiased transition-colors duration-500;
+    @apply bg-bg-primary text-text-primary font-body transition-colors duration-500 overflow-x-hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     margin: 0;
     padding: 0;
+  }
+
+  /* Sharpen all headings and paragraphs for better visibility */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-semibold;
+  }
+
+  p, span {
+    @apply leading-relaxed;
   }
 }
 

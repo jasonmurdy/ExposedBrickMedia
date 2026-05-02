@@ -109,6 +109,8 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
                   src={logoUrl} 
                   alt={settings.brandName || "Logo"} 
                   className="w-full h-auto object-contain transition-all hover:scale-[1.02]"
+                  loading="eager"
+                  decoding="sync"
                   referrerPolicy="no-referrer"
                 />
               ) : null}
@@ -141,7 +143,7 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="text-[10px] uppercase tracking-[0.4em] text-text-primary/40 mt-8"
+          className="text-[10px] uppercase tracking-[0.4em] text-text-primary/70 mt-8"
         >
           <EditableText field="tagline" value={displayTagline} className="inline-block" />
         </motion.p>
@@ -179,7 +181,7 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
       <div className="flex items-center gap-10">
         <button 
           onClick={onThemeToggle}
-          className="text-text-primary/60 hover:text-brick-copper transition-all p-2 rounded-full hover:bg-brick-copper/10"
+          className="text-text-primary/80 hover:text-brick-copper transition-all p-2 rounded-full hover:bg-brick-copper/10"
           aria-label="Toggle Theme"
         >
           {theme === 'light' ? <CloudMoon size={22} strokeWidth={2.5} /> : <CloudSun size={22} strokeWidth={2.5} />}
@@ -191,7 +193,7 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
             key={page.id}
             to={`/p/${page.slug}`}
             className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
-              location.pathname === `/p/${page.slug}` ? 'text-brick-copper' : 'text-text-primary/40 hover:text-brick-copper'
+              location.pathname === `/p/${page.slug}` ? 'text-brick-copper' : 'text-text-primary/70 hover:text-brick-copper'
             }`}
           >
             {page.title}
@@ -205,7 +207,7 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
             href={item.url}
             target={item.url.startsWith('http') ? '_blank' : '_self'}
             rel="noopener noreferrer"
-            className="transition-colors uppercase text-[10px] tracking-widest font-medium text-text-primary/40 hover:text-brick-copper"
+            className="transition-colors uppercase text-[10px] tracking-widest font-medium text-text-primary/70 hover:text-brick-copper"
           >
             {item.label}
           </a>
@@ -214,7 +216,7 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
         <Link 
           to="/about"
           className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
-            location.pathname === '/about' ? 'text-brick-copper' : 'text-text-primary/40 hover:text-brick-copper'
+            location.pathname === '/about' ? 'text-brick-copper' : 'text-text-primary/70 hover:text-brick-copper'
           }`}
         >
           About
@@ -223,7 +225,7 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
         <Link 
           to="/"
           className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
-            location.pathname === '/' ? 'text-brick-copper' : 'text-text-primary/40 hover:text-brick-copper'
+            location.pathname === '/' ? 'text-brick-copper' : 'text-text-primary/70 hover:text-brick-copper'
           }`}
         >
           Portfolio
@@ -366,6 +368,8 @@ export const HeroVisual = ({
           transition={{ duration: 2, ease: "easeOut" }}
           src={displayImage} 
           alt="Luxury Architecture"
+          loading="eager"
+          decoding="async"
           className="w-full h-full object-cover opacity-80"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-transparent opacity-60" />
