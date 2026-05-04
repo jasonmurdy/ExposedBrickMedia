@@ -59,7 +59,7 @@ import { GoogleGenAI } from '@google/genai';
 import { PuckEditor } from './PuckEditor';
 import { Portfolio } from './PortfolioSections';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
-import { ADMIN_EMAILS } from '../constants';
+import { ADMIN_EMAILS, PROPERTY_TYPES, PROPERTY_STATUSES, PORTFOLIO_CATEGORIES } from '../constants';
 
 // Initialize Gemini on the frontend as per system instructions
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -184,6 +184,23 @@ const SortablePortfolioRow = ({
       </td>
     </tr>
   );
+};
+
+// Clean object for Firestore (remove functions and non-serializable fields)
+const cleanObject = (obj: any): any => {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result: any = Array.isArray(obj) ? [] : {};
+  for (const key in obj) {
+    const value = obj[key];
+    if (typeof value === 'function') continue;
+    if (value === undefined) continue;
+    if (value !== null && typeof value === 'object') {
+      result[key] = cleanObject(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
 };
 
 export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
@@ -452,7 +469,9 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const handleCreatePortfolio = async () => {
     const newItem = {
       title: 'New Project',
-      category: 'Residential',
+      category: PORTFOLIO_CATEGORIES[0],
+      propertyType: PROPERTY_TYPES[0],
+      status: PROPERTY_STATUSES[0],
       description: 'A study in light and space.',
       img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c',
       gallery: [],
@@ -475,10 +494,12 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   async function handleUpdatePortfolio(id: string) {
     const docRef = doc(db, 'portfolio_items', id);
-    const { id: _, createdAt: __, daysOnMarket: ___, ...dataToUpdate } = editData;
+    // Exclude UI-only properties and immutable fields
+    const { id: _, createdAt: __, daysOnMarket: ___, onSelect: ____, selected: _____, ...dataToUpdate } = editData;
+    
     try {
       await updateDoc(docRef, {
-        ...dataToUpdate,
+        ...cleanObject(dataToUpdate),
         updatedAt: serverTimestamp()
       });
       await logAction('UPDATE_PORTFOLIO', { id, title: editData.title });
@@ -493,6 +514,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       title: 'New Offering',
       description: 'Describe the value proposition...',
       price: '$500+',
+      url: '',
       order: services.length,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -1263,6 +1285,14 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           <input className="bg-transparent border-b border-white/10 w-full outline-none py-1 text-[10px] font-mono text-brick-copper" value={editData.price} onChange={e => setEditData({...editData, price: e.target.value})} placeholder="Project Pricing (e.g. $500)" />
                         </div>
                         <textarea className="bg-transparent border border-white/5 w-full h-24 p-4 text-xs font-mono" value={editData.description} onChange={e => setEditData({...editData, description: e.target.value})} placeholder="Detailed value proposition..." />
+                        <div className="py-2">
+                          <LinkSelector 
+                            label="Link (Optional)"
+                            value={editData.url || ''}
+                            allowListing={false}
+                            onChange={(val) => setEditData({...editData, url: val})}
+                          />
+                        </div>
                         <div className="flex gap-4 pt-4">
                           <button onClick={() => handleUpdateService(tier.id)} className="text-green-500 text-[10px] uppercase tracking-widest">Seal</button>
                           <button onClick={() => setIsEditing(null)} className="text-white/40 text-[10px] uppercase tracking-widest">Revert</button>
@@ -1543,7 +1573,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                 </div>
                               </div>
                            </div>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                               <div>
                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
                                 <input 
@@ -1553,12 +1583,30 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                 />
                               </div>
                               <div>
+                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Property Type</label>
+                                <select 
+                                  className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] font-mono text-white" 
+                                  value={editData.propertyType || ''} 
+                                  onChange={e => setEditData({...editData, propertyType: e.target.value})} 
+                                >
+                                  <option value="" className="bg-charcoal">Select Type</option>
+                                  {PROPERTY_TYPES.map(type => (
+                                    <option key={type} value={type} className="bg-charcoal">{type}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Commercial Status</label>
-                                <input 
+                                <select 
                                   className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] font-mono text-white" 
                                   value={editData.status || ''} 
                                   onChange={e => setEditData({...editData, status: e.target.value})} 
-                                />
+                                >
+                                  <option value="" className="bg-charcoal">Select Status</option>
+                                  {PROPERTY_STATUSES.map(status => (
+                                    <option key={status} value={status} className="bg-charcoal">{status}</option>
+                                  ))}
+                                </select>
                               </div>
                            </div>
                         </div>
@@ -1574,11 +1622,16 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           </div>
                           <div>
                             <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Narrative Category</label>
-                            <input 
+                            <select 
                               className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] uppercase tracking-widest text-white" 
                               value={editData.category || ''} 
                               onChange={e => setEditData({...editData, category: e.target.value})} 
-                            />
+                            >
+                              <option value="" className="bg-charcoal">Select Category</option>
+                              {PORTFOLIO_CATEGORIES.map(cat => (
+                                <option key={cat} value={cat} className="bg-charcoal">{cat}</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       </div>

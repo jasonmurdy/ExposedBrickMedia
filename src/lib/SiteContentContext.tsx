@@ -67,6 +67,8 @@ interface SiteContentContextType {
   isAdmin: boolean;
   isEditMode: boolean;
   setIsEditMode: (val: boolean) => void;
+  isLight: boolean;
+  setIsLight: (val: boolean) => void;
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -118,6 +120,21 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isLight, setIsLight] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'light';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    if (isLight) {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+  }, [isLight]);
 
   useEffect(() => {
     let currentIsAdmin = false;
@@ -187,7 +204,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   return (
-    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, loading, isAdmin, isEditMode, setIsEditMode }}>
+    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, loading, isAdmin, isEditMode, setIsEditMode, isLight, setIsLight }}>
       {children}
     </SiteContentContext.Provider>
   );

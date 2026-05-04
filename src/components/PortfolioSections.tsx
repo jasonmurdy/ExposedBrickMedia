@@ -6,6 +6,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Video, Box, Edit3, Trash2, ChevronUp, ChevronDown, Plus, Check, X, GripVertical, Image as ImageIcon, LayoutGrid, Grid3X3 } from 'lucide-react';
+import { PROPERTY_TYPES, PROPERTY_STATUSES, PORTFOLIO_CATEGORIES } from '../constants';
 import { useState, useEffect, useMemo } from 'react';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
@@ -303,6 +304,23 @@ const SortablePortfolioItem = ({
   );
 };
 
+// Clean object for Firestore (remove functions and non-serializable fields)
+const cleanObject = (obj: any): any => {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result: any = Array.isArray(obj) ? [] : {};
+  for (const key in obj) {
+    const value = obj[key];
+    if (typeof value === 'function') continue;
+    if (value === undefined) continue;
+    if (value !== null && typeof value === 'object') {
+      result[key] = cleanObject(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+};
+
 export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'grid' | 'gallery', panel?: 'main' | 'side' }) => {
   const { isEditMode, isAdmin, portfolioItems: rawItems, settings } = useSiteContent();
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -400,7 +418,9 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
   const addItem = async () => {
     const newDoc = await addDoc(collection(db, 'portfolio_items'), {
       title: 'New Project',
-      category: 'Detail',
+      category: PORTFOLIO_CATEGORIES[0],
+      propertyType: PROPERTY_TYPES[0],
+      status: PROPERTY_STATUSES[0],
       img: 'https://images.unsplash.com/photo-1600607687940-c52fb036999c',
       description: 'Short project story...',
       url: '',
@@ -416,7 +436,9 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
     const itemData = { 
       id: newDoc.id, 
       title: 'New Project', 
-      category: 'Detail', 
+      category: PORTFOLIO_CATEGORIES[0], 
+      propertyType: PROPERTY_TYPES[0],
+      status: PROPERTY_STATUSES[0],
       description: 'Short project story...', 
       img: 'https://images.unsplash.com/photo-1600607687940-c52fb036999c',
       url: '',
@@ -451,8 +473,9 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
 
   const saveEdit = async () => {
     if (!editingItem) return;
+    const { id: _, ...dataToUpdate } = editFields;
     await updateDoc(doc(db, 'portfolio_items', editingItem.id), {
-      ...editFields,
+      ...cleanObject(dataToUpdate),
       updatedAt: serverTimestamp()
     });
     setEditingItem(null);
@@ -611,18 +634,26 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                     <div>
                       <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">Taxonomy & Technicals</label>
                       <div className="grid grid-cols-2 gap-4">
-                        <input 
-                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
-                          placeholder="Category (e.g. Interior)"
-                          value={editFields.category}
+                        <select 
+                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors appearance-none bg-charcoal"
+                          value={editFields.category || ''}
                           onChange={e => setEditFields({...editFields, category: e.target.value})}
-                        />
-                        <input 
-                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
-                          placeholder="Property Type"
+                        >
+                          <option value="">Select Category</option>
+                          {PORTFOLIO_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                        <select 
+                          className="w-full bg-transparent border-b border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors appearance-none bg-charcoal"
                           value={editFields.propertyType || ''}
                           onChange={e => setEditFields({...editFields, propertyType: e.target.value})}
-                        />
+                        >
+                          <option value="">Select Property Type</option>
+                          {PROPERTY_TYPES.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -645,11 +676,16 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                       </div>
                       <div>
                         <label className="text-[8px] uppercase tracking-widest text-white/40 mb-1 block">Status</label>
-                        <input 
-                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper"
+                        <select 
+                          className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper appearance-none bg-charcoal"
                           value={editFields.status || ''}
                           onChange={e => setEditFields({...editFields, status: e.target.value})}
-                        />
+                        >
+                          <option value="">Status</option>
+                          {PROPERTY_STATUSES.map(status => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -863,7 +899,8 @@ const SortableServiceItem = ({
     if (isEditMode) return;
     if (targetUrl) {
       if (targetUrl.startsWith('http')) {
-        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        // Handled by anchor tag if we use one, but keeping for compatibility
+        return; 
       } else {
         navigate(targetUrl);
       }
@@ -880,10 +917,9 @@ const SortableServiceItem = ({
       whileHover={!isEditMode && targetUrl ? { 
         x: 5, 
         backgroundColor: 'rgba(255,255,255,0.04)',
-        borderColor: 'var(--color-brick-copper)',
+        borderColor: 'rgba(184, 115, 51, 0.5)',
       } : {}}
-      whileTap={!isEditMode && targetUrl ? { scale: 0.96 } : {}}
-      onClick={handleClick}
+      whileTap={!isEditMode && targetUrl ? { scale: 0.98 } : {}}
       className={`group relative border border-border-subtle p-5 transition-all bg-text-primary/[0.02] ${
         isEditMode 
           ? 'hover:border-brick-copper/50' 
@@ -912,7 +948,7 @@ const SortableServiceItem = ({
           />
           <div className="py-2">
             <LinkSelector 
-              label="Service Narrative Page"
+              label="Service URL / Destination"
               value={editFields.url || ''}
               allowListing={false}
               onChange={val => setEditFields({...editFields, url: val})}
@@ -942,7 +978,7 @@ const SortableServiceItem = ({
 
           {!isEditMode && targetUrl && (
             <div className="pl-6 mt-3">
-               <span className="text-[8px] uppercase tracking-[0.2em] text-brick-copper border-b border-brick-copper/20 pb-0.5 group-hover:border-brick-copper transition-colors">Explore Narrative &rarr;</span>
+               <span className="text-[8px] uppercase tracking-[0.2em] text-brick-copper border-b border-brick-copper/20 pb-0.5 group-hover:border-brick-copper transition-colors">Explore Potential &rarr;</span>
             </div>
           )}
 
@@ -956,6 +992,33 @@ const SortableServiceItem = ({
       )}
     </motion.div>
   );
+
+  if (!isEditMode && targetUrl) {
+    if (targetUrl.startsWith('http')) {
+      return (
+        <a 
+          ref={setNodeRef} 
+          href={targetUrl} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style={style}
+          className="block no-underline"
+        >
+          {cardContent}
+        </a>
+      );
+    }
+    return (
+      <Link 
+        ref={setNodeRef} 
+        to={targetUrl} 
+        style={style}
+        className="block no-underline"
+      >
+        {cardContent}
+      </Link>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -1018,6 +1081,7 @@ export const Services = ({ override }: { override?: { title: string, subtitle: s
         title: 'New Service',
         description: 'Refined media solution...',
         price: '$—',
+        url: '',
         order: services.length,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()

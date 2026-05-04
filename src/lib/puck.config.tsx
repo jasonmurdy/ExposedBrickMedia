@@ -4,7 +4,8 @@
  */
 
 import React, { useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { motion } from "motion/react";
 import { MoveUpRight } from "lucide-react";
 import { Config, DropZone } from "@measured/puck";
 import { HeroVisual, BrandHeader } from "../components/Hero";
@@ -14,6 +15,70 @@ import { TestimonialCarousel } from "../components/TestimonialCarousel";
 import { PropertyHighlight, TourEmbed } from "../components/PropertyFeatures";
 import { LogoCloud, InstagramFeed } from "../components/SocialNodes";
 import { LinkButton } from "../components/LinkButton";
+import { Button as ShadcnButton } from "../components/ui/button";
+
+// Reusable Elementor-style Spacing Control
+const SpacingControl = {
+  type: "custom" as const,
+  render: ({ name, value, onChange }: any) => {
+    const val = value || { pt: "0", pb: "0", mt: "0", mb: "0" };
+    return (
+      <div className="grid grid-cols-2 gap-3 text-[10px] p-3 bg-charcoal/80 border border-white/5 rounded-sm">
+        <div className="space-y-1">
+          <label className="text-white/40 uppercase tracking-tighter block font-black">Pad Top (px)</label>
+          <input 
+            className="w-full bg-[#151515] border border-white/5 p-2 text-white outline-none focus:border-brick-copper transition-colors font-mono" 
+            type="number"
+            value={val.pt} 
+            onChange={(e) => onChange({ ...val, pt: e.target.value })} 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-white/40 uppercase tracking-tighter block font-black">Pad Bot (px)</label>
+          <input 
+            className="w-full bg-[#151515] border border-white/5 p-2 text-white outline-none focus:border-brick-copper transition-colors font-mono" 
+            type="number"
+            value={val.pb} 
+            onChange={(e) => onChange({ ...val, pb: e.target.value })} 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-white/40 uppercase tracking-tighter block font-black">Mar Top (px)</label>
+          <input 
+            className="w-full bg-[#151515] border border-white/5 p-2 text-white outline-none focus:border-brick-copper transition-colors font-mono" 
+            type="number"
+            value={val.mt} 
+            onChange={(e) => onChange({ ...val, mt: e.target.value })} 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-white/40 uppercase tracking-tighter block font-black">Mar Bot (px)</label>
+          <input 
+            className="w-full bg-[#151515] border border-white/5 p-2 text-white outline-none focus:border-brick-copper transition-colors font-mono" 
+            type="number"
+            value={val.mb} 
+            onChange={(e) => onChange({ ...val, mb: e.target.value })} 
+          />
+        </div>
+      </div>
+    );
+  }
+};
+
+// Helper component to wrap elements with the spacing
+const SpacingWrapper = ({ spacing, children, className = "" }: { spacing: any, children: React.ReactNode, className?: string }) => (
+  <div 
+    style={{
+      paddingTop: spacing?.pt ? `${spacing.pt}px` : undefined,
+      paddingBottom: spacing?.pb ? `${spacing.pb}px` : undefined,
+      marginTop: spacing?.mt ? `${spacing.mt}px` : undefined,
+      marginBottom: spacing?.mb ? `${spacing.mb}px` : undefined,
+    }} 
+    className={className}
+  >
+    {children}
+  </div>
+);
 
 const InlineHTML = ({ html, height }: { html: string, height?: number }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,10 +122,25 @@ const InlineHTML = ({ html, height }: { html: string, height?: number }) => {
 
 export type PuckConfig = {
   Section: {
-    paddingTop: number;
-    paddingBottom: number;
-    background: "primary" | "secondary" | "accent";
+    spacing: any;
+    background: "bg-transparent" | "bg-bg-primary" | "bg-bg-secondary" | "bg-charcoal text-white";
+    bgImage?: string;
+    overlayOpacity: number;
+    layout: "boxed" | "full";
     children?: React.ReactNode;
+  };
+  DynamicGrid: {
+    collection: "portfolio" | "pages";
+    limit: number;
+    columns: 2 | 3 | 4;
+  };
+  CinematicHero: {
+    title: string;
+    subtitle: string;
+    mediaUrl: string;
+    mediaType: "video" | "image";
+    ctaText: string;
+    ctaUrl: string;
   };
   Columns: {
     leftColumnWidth: number;
@@ -173,7 +253,7 @@ export type PuckConfig = {
   };
 };
 
-export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
+export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Config<PuckConfig> => {
   const pageOptions = pages.map(p => ({ label: p.title || p.slug, value: p.slug }));
   
   const LinkField = {
@@ -298,43 +378,173 @@ export const createConfig = (pages: any[] = []): Config<PuckConfig> => {
       },
     Section: {
       fields: {
-        children: { type: "slot" },
-        paddingTop: {
-          type: "number",
-          min: 0,
-          max: 400
-        },
-        paddingBottom: {
-          type: "number",
-          min: 0,
-          max: 400
-        },
+        spacing: SpacingControl as any,
         background: {
           type: "select",
           options: [
-            { label: "White (Primary)", value: "primary" },
-            { label: "Off-White (Secondary)", value: "secondary" },
-            { label: "Charcoal (Accent)", value: "accent" },
+            { label: "Transparent", value: "bg-transparent" },
+            { label: "Primary Base", value: "bg-bg-primary" },
+            { label: "Secondary Base", value: "bg-bg-secondary" },
+            { label: "Charcoal Dark", value: "bg-charcoal text-white" },
           ],
         },
+        bgImage: { type: "text" },
+        overlayOpacity: { type: "number", min: 0, max: 100 },
+        layout: {
+          type: "radio",
+          options: [
+            { label: "Boxed", value: "boxed" },
+            { label: "Full Width", value: "full" },
+          ],
+        },
+        children: { type: "slot" },
       },
       defaultProps: {
-        paddingTop: 80,
-        paddingBottom: 80,
-        background: "primary",
+        spacing: { pt: "80", pb: "80", mt: "0", mb: "0" },
+        background: "bg-bg-primary",
+        overlayOpacity: 50,
+        layout: "boxed",
       },
-      render: ({ paddingTop, paddingBottom, background }) => {
-        const bgClass = {
-          primary: "bg-bg-primary",
-          secondary: "bg-bg-secondary",
-          accent: "bg-charcoal text-white",
-        }[background];
+      render: ({ spacing, background, bgImage, overlayOpacity, layout }) => (
+        <SpacingWrapper spacing={spacing} className={`relative ${background} overflow-hidden`}>
+          {bgImage && (
+            <>
+              <div 
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${bgImage})` }}
+              />
+              <div 
+                className="absolute inset-0 bg-black" 
+                style={{ opacity: overlayOpacity / 100 }} 
+              />
+            </>
+          )}
+          <div className={`relative z-10 ${layout === 'boxed' ? 'max-w-7xl mx-auto px-8 md:px-16' : 'w-full px-8 md:px-16'}`}>
+            <DropZone zone="children" />
+          </div>
+        </SpacingWrapper>
+      ),
+    },
+    CinematicHero: {
+      fields: {
+        title: { type: "text" },
+        subtitle: { type: "textarea" },
+        mediaUrl: { type: "text" }, // Can be .mp4 or .jpg
+        mediaType: { 
+          type: "radio", 
+          options: [
+            { label: "Video", value: "video" }, 
+            { label: "Image", value: "image" }
+          ] 
+        },
+        ctaText: { type: "text" },
+        ctaUrl: { type: "text" }
+      },
+      defaultProps: {
+        title: "Architectural Narratives",
+        subtitle: "Immersive 8K visual storytelling for luxury real estate.",
+        mediaUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
+        mediaType: "video",
+        ctaText: "View Portfolio",
+        ctaUrl: "/"
+      },
+      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl }) => (
+        <div className="relative h-[80vh] min-h-[600px] w-full flex items-center justify-center overflow-hidden">
+          {mediaType === 'video' ? (
+            <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
+              <source src={mediaUrl} type="video/mp4" />
+            </video>
+          ) : (
+            <img src={mediaUrl} className="absolute inset-0 w-full h-full object-cover" alt="Hero" />
+          )}
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative z-10 text-center text-white px-4 max-w-4xl flex flex-col items-center">
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6"
+            >
+              {title}
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-xl md:text-2xl text-white/80 mb-8 max-w-2xl font-light"
+            >
+              {subtitle}
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Link 
+                to={ctaUrl}
+                className="inline-block bg-brick-copper text-charcoal hover:bg-white transition-all duration-500 rounded-none px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-black"
+              >
+                {ctaText}
+              </Link>
+            </motion.div>
+          </div>
+        </div>
+      )
+    },
+    DynamicGrid: {
+      fields: {
+        collection: {
+          type: "select",
+          options: [
+            { label: "Portfolio Items", value: "portfolio" },
+            { label: "CMS Pages", value: "pages" }
+          ]
+        },
+        limit: { type: "number" },
+        columns: {
+          type: "radio",
+          options: [
+            { label: "2", value: 2 },
+            { label: "3", value: 3 },
+            { label: "4", value: 4 }
+          ]
+        }
+      },
+      defaultProps: {
+        collection: "portfolio",
+        limit: 6,
+        columns: 3
+      },
+      render: ({ collection: coll, limit, columns }) => {
+        const items = coll === 'portfolio' ? portfolioItems : pages;
+        const displayItems = items.slice(0, limit);
+        const gridCols = {
+          2: "grid-cols-1 md:grid-cols-2",
+          3: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+          4: "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+        }[columns];
+
         return (
-          <section className={`${bgClass} px-8 md:px-16`} style={{ paddingTop: `${paddingTop}px`, paddingBottom: `${paddingBottom}px` }}>
-            <div className="max-w-7xl mx-auto"><DropZone zone="children" /></div>
-          </section>
-        );
-      },
+          <div className={`grid ${gridCols} gap-8 p-8`}>
+            {displayItems.map((item: any) => (
+              <motion.div 
+                key={item.id}
+                whileHover={{ y: -10 }}
+                className="group relative h-80 bg-charcoal overflow-hidden border border-white/5"
+              >
+                <img 
+                  src={item.img || item.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c"} 
+                  className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-700" 
+                  alt={item.title} 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex flex-col justify-end">
+                  <span className="text-[9px] uppercase tracking-widest text-brick-copper font-black mb-2">{item.propertyType || item.category || 'PROJECT'}</span>
+                  <h4 className="text-xl font-display italic text-white">{item.title}</h4>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )
+      }
     },
     Columns: {
       fields: {

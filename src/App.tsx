@@ -42,13 +42,7 @@ function MainLayout() {
   usePageTracking();
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPuck, setShowPuck] = useState(false);
-  const { isAdmin, settings, isEditMode, setIsEditMode, pages } = useSiteContent();
-  const [isLight, setIsLight] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'light';
-    }
-    return false;
-  });
+  const { isAdmin, settings, isEditMode, setIsEditMode, pages, isLight, setIsLight } = useSiteContent();
 
   const location = useLocation();
   const slugFromPath = location.pathname.startsWith('/p/') ? location.pathname.split('/p/')[1] : null;
@@ -59,19 +53,10 @@ function MainLayout() {
   const hasPuckLayout = (location.pathname === '/' && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones)) || 
                        (currentPage?.layout && (currentPage.layout.content?.length > 0 || currentPage.layout.zones));
 
-  useEffect(() => {
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
-    if (isLight) {
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-    }
-  }, [isLight]);
-
-  // Hidden keyboard shortcut to open admin: Shift + A
+  // Hidden keyboard shortcut to open admin: Ctrl + Shift + A
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.shiftKey && e.key === 'A') {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
         setShowAdmin(prev => !prev);
       }
     };
@@ -175,10 +160,10 @@ function MainLayout() {
 }
 
 function HomeView() {
-  const { settings, pages } = useSiteContent();
+  const { settings, pages, portfolioItems } = useSiteContent();
   
   if (settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones)) {
-    return <Render config={createConfig(pages)} data={settings.layout} />;
+    return <Render config={createConfig(pages, portfolioItems)} data={settings.layout} />;
   }
 
   const sections = settings.homeSectionsOrder || ['portfolio', 'services'];
@@ -202,7 +187,7 @@ function HomeView() {
 
 function DynamicPageView() {
   const { slug } = useParams();
-  const { pages } = useSiteContent();
+  const { pages, portfolioItems } = useSiteContent();
   const page = pages.find(p => p.slug === slug);
 
   if (!page) return <div className="p-16 text-center">Narrative not found.</div>;
@@ -221,7 +206,7 @@ function DynamicPageView() {
       </div>
       <div className="flex-1">
         {page.layout && (page.layout.content?.length > 0 || page.layout.zones) ? (
-          <Render config={createConfig(pages)} data={page.layout} />
+          <Render config={createConfig(pages, portfolioItems)} data={page.layout} />
         ) : (
           <motion.section 
             initial={{ opacity: 0 }}

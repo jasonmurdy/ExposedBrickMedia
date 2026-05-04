@@ -26,14 +26,22 @@ export const ChatWidget = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!settings.chatbotEnabled) return;
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (!u) {
-        signInAnonymously(auth).catch(err => console.error("Anon auth failed:", err));
+        signInAnonymously(auth).catch(err => {
+          if (err.code === 'auth/admin-restricted-operation') {
+            console.warn("Anonymous auth is disabled in Firebase Console. Please enable it to use the chatbot.");
+          } else {
+            console.error("Anon auth failed:", err);
+          }
+        });
       }
     });
     return () => unsub();
-  }, []);
+  }, [settings.chatbotEnabled]);
 
   useEffect(() => {
     if (!user || !isOpen) return;

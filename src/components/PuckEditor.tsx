@@ -14,11 +14,11 @@ import { Save, X, Loader2, RotateCcw } from "lucide-react";
 import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 
 export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () => void }) => {
-  const { settings, pages } = useSiteContent();
+  const { settings, pages, isLight, portfolioItems } = useSiteContent();
   const [isSaving, setIsSaving] = useState(false);
   const [currentPageId, setCurrentPageId] = useState(pageId);
 
-  const config = useMemo(() => createConfig(pages), [pages]);
+  const config = useMemo(() => createConfig(pages, portfolioItems), [pages, portfolioItems]);
 
   // Define cleanObject before usage or as a helper
   const cleanObject = (obj: any): any => {
@@ -103,14 +103,14 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
           </button>
         </div>
       </div>
-      <div className="flex-grow overflow-hidden relative puck-container">
+      <div className={`flex-grow overflow-hidden relative puck-container bg-bg-primary text-text-primary ${isLight ? 'light' : ''}`}>
         <Puck
           key={currentPageId || 'home'}
           config={config}
           data={initialData}
           onPublish={handleSave}
           headerPath="EB Editor"
-          iframe={{ enabled: true }}
+          iframe={{ enabled: false }}
         />
       </div>
       
