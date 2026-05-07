@@ -36,6 +36,11 @@ interface SiteSettings {
     drone_addon: number;
     turnaround_time: string;
   };
+  portalTitle?: string;
+  portalDescription?: string;
+  portalImg?: string;
+  portalSupportEmail?: string;
+  portalNotifyEmail?: string;
 }
 
 interface CustomPage {
@@ -107,7 +112,10 @@ const DEFAULT_SETTINGS: SiteSettings = {
     flambient_base: 150,
     drone_addon: 100,
     turnaround_time: "24 hours"
-  }
+  },
+  portalTitle: 'The Brand Hub',
+  portalDescription: 'A dedicated ecosystem for our real estate partners. Access your brand assets, track referrals in real-time, and manage your property media history.',
+  portalImg: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800'
 };
 
 const SiteContentContext = createContext<SiteContentContextType | undefined>(undefined);

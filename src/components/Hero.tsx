@@ -178,7 +178,13 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
         </span>
       </Link>
 
-      <div className="flex items-center gap-10">
+      <div className="flex items-center gap-6">
+        <Link 
+          to="/portal" 
+          className="text-[10px] uppercase tracking-widest font-bold text-text-primary/70 hover:text-brick-copper transition-colors"
+        >
+          Sign In
+        </Link>
         <button 
           onClick={onThemeToggle}
           className="text-text-primary/80 hover:text-brick-copper transition-all p-2 rounded-full hover:bg-brick-copper/10"
@@ -275,7 +281,10 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
             The Exposed <span className="text-brick-copper">Brick</span>
           </span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Link to="/portal" className="text-[10px] uppercase tracking-widest font-bold text-text-primary/70 mr-2">
+            Sign In
+          </Link>
           <button 
             onClick={onThemeToggle} 
             className="text-text-primary/60 p-2 rounded-full hover:bg-brick-copper/10 transition-all"

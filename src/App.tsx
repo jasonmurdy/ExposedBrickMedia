@@ -9,6 +9,7 @@ import { Portfolio, Services } from './components/PortfolioSections';
 import { BookingForm, FooterContent } from './components/BookingAndFooter';
 import { ProjectDetailView } from './components/ProjectDetailView';
 import { ChatWidget } from './components/ChatWidget';
+import { ClientDashboard } from './components/ClientDashboard';
 import AboutPage from './pages/About';
 import ServicesPage from './pages/Services';
 import InquiryPage from './pages/Inquiry';
@@ -45,10 +46,10 @@ function MainLayout() {
   const { isAdmin, settings, isEditMode, setIsEditMode, pages, isLight, setIsLight } = useSiteContent();
 
   const location = useLocation();
+  const isPortal = location.pathname.startsWith('/portal');
   const slugFromPath = location.pathname.startsWith('/p/') ? location.pathname.split('/p/')[1] : null;
   const currentPage = slugFromPath ? pages.find(p => p.slug === slugFromPath) : null;
 
-  
   // Check if we are on a page that uses a Puck layout
   const hasPuckLayout = (location.pathname === '/' && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones)) || 
                        (currentPage?.layout && (currentPage.layout.content?.length > 0 || currentPage.layout.zones));
@@ -63,6 +64,16 @@ function MainLayout() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Handle deep linking to admin dashboard
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('admin') === 'true' && isAdmin) {
+      setShowAdmin(true);
+      // Optional: Clean up the URL
+      window.history.replaceState({}, '', location.pathname);
+    }
+  }, [location.search, isAdmin, location.pathname]);
 
   useEffect(() => {
     // Attempt to scroll main area to top on route change
@@ -83,10 +94,20 @@ function MainLayout() {
           <Route path="/inquiry" element={<InquiryPage />} />
           <Route path="/p/:slug" element={<DynamicPageView />} />
           <Route path="/listing/:id" element={<ProjectDetailView />} />
+          <Route path="/portal" element={<ClientDashboard />} />
         </Routes>
       </AnimatePresence>
     );
   };
+
+  if (isPortal) {
+    return (
+      <div className={`min-h-screen bg-bg-primary text-text-primary transition-colors duration-500 ${isLight ? 'light' : ''}`}>
+        {renderContent()}
+        <ChatWidget />
+      </div>
+    );
+  }
 
   return (
     <div className={`${hasPuckLayout ? 'min-h-screen overflow-x-hidden' : 'flex flex-col lg:flex-row min-h-screen lg:h-screen w-screen overflow-x-hidden lg:overflow-hidden'} bg-bg-primary text-text-primary selection:bg-brick-copper selection:text-charcoal relative transition-colors duration-500 ${isLight ? 'light' : ''}`}>

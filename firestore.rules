@@ -60,6 +60,8 @@ service cloud.firestore {
         && (data.get('bannerSize', null) == null || (data.bannerSize is string && data.bannerSize.size() <= 50))
         && (data.get('type', null) == null || (data.type is string && (data.type == 'item' || data.type == 'spacer')))
         && (data.get('panel', null) == null || (data.panel is string && (data.panel == 'main' || data.panel == 'side')))
+        && (data.get('partnerUid', null) == null || (data.partnerUid is string && data.partnerUid.size() <= 128))
+        && (data.get('partnerUids', null) == null || (data.partnerUids is list))
         && data.order is number;
     }
 
@@ -139,6 +141,33 @@ service cloud.firestore {
         && data.addedAt == request.time;
     }
 
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'createdAt'])
+        && data.email is string && data.email.size() <= 200
+        && (data.get('displayName', null) == null || (data.displayName is string && data.displayName.size() <= 200))
+        && (data.get('headshotUrl', null) == null || (data.headshotUrl is string && data.headshotUrl.size() <= 2000))
+        && (data.get('logoUrl', null) == null || (data.logoUrl is string && data.logoUrl.size() <= 2000))
+        && (data.get('instagram', null) == null || (data.instagram is string && data.instagram.size() <= 200))
+        && (data.get('facebook', null) == null || (data.facebook is string && data.facebook.size() <= 200))
+        && (data.get('linkedin', null) == null || (data.linkedin is string && data.linkedin.size() <= 200))
+        && (data.get('bio', null) == null || (data.bio is string && data.bio.size() <= 5000))
+        && (data.get('role', null) == null || (data.role is string && (data.role == 'client' || data.role == 'partner' || data.role == 'admin')))
+        && (data.get('updatedAt', null) == null || true);
+    }
+
+    function isValidReferral(data) {
+      return data.keys().hasAll(['referrerUid', 'referralName', 'status', 'createdAt'])
+        && data.referrerUid is string && data.referrerUid.size() <= 128
+        && data.referralName is string && data.referralName.size() <= 200
+        && data.status is string && (data.status == 'Contacting...' || data.status == 'Pending' || data.status == 'Booked' || data.status == 'Completed')
+        && (data.get('email', null) == null || (data.email is string && data.email.size() <= 200))
+        && (data.get('phone', null) == null || (data.phone is string && data.phone.size() <= 50))
+        && (data.get('notes', null) == null || (data.notes is string && data.notes.size() <= 5000))
+        && (data.get('rewardEarned', null) == null || (data.rewardEarned is string && data.rewardEarned.size() <= 200))
+        && (data.get('value', null) == null || (data.value is number))
+        && (data.get('updatedAt', null) == null || true);
+    }
+
     // 3. Collection Rules
     match /admins/{adminId} {
       allow read: if isAdmin();
@@ -155,7 +184,7 @@ service cloud.firestore {
         && (existing().get('createdAt', null) == null || incoming().createdAt == existing().createdAt)
         && incoming().updatedAt == request.time
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'externalLink', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'hidden', 'bannerText', 'bannerColor', 'bannerSize', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'externalLink', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'hidden', 'bannerText', 'bannerColor', 'bannerSize', 'updatedAt', 'partnerUid', 'partnerUids'])
         );
       allow delete: if isAdmin();
     }
@@ -227,6 +256,35 @@ service cloud.firestore {
           incoming().diff(existing()).affectedKeys().hasOnly(['response'])
         );
       allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId 
+        && isValidUser(incoming())
+        && isValidId(userId)
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+        && isValidUser(incoming())
+        && incoming().createdAt == existing().createdAt
+        && (incoming().get('updatedAt', null) == null || incoming().updatedAt == request.time)
+        && (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'headshotUrl', 'logoUrl', 'instagram', 'facebook', 'linkedin', 'bio', 'updatedAt']))
+        && (isAdmin() || incoming().get('role', existing().get('role', 'client')) == existing().get('role', 'client'));
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.referrerUid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().referrerUid
+        && isValidReferral(incoming())
+        && isValidId(referralId)
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin() 
+        && isValidReferral(incoming())
+        && incoming().createdAt == existing().createdAt
+        && (incoming().get('updatedAt', null) == null || incoming().updatedAt == request.time)
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'rewardEarned', 'value', 'updatedAt'])
+        );
     }
   }
 }

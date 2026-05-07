@@ -105,6 +105,43 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
+    "User": {
+      "title": "User Profile",
+      "description": "User profile containing brand assets and roles",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "headshotUrl": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "instagram": { "type": "string" },
+        "facebook": { "type": "string" },
+        "linkedin": { "type": "string" },
+        "bio": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "partner", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "A lead submitted by a client/partner",
+      "type": "object",
+      "properties": {
+        "referrerUid": { "type": "string" },
+        "referralName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Contacting...", "Pending", "Booked", "Completed"] },
+        "rewardEarned": { "type": "string" },
+        "value": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["referrerUid", "referralName", "status", "createdAt"]
+    },
     "AdminUser": {
       "title": "Admin User",
       "description": "A user with administrative privileges.",
@@ -141,6 +178,14 @@
     "admins": {
       "schema": "AdminUser",
       "description": "Authorized administrators."
+    },
+    "users": {
+      "schema": "User",
+      "description": "User profiles including brand assets."
+    },
+    "referrals": {
+      "schema": "Referral",
+      "description": "Referrals submitted by users."
     }
   }
 }

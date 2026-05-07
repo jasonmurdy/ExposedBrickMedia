@@ -144,12 +144,14 @@ const SortablePortfolioRow = ({
   item, 
   onEdit, 
   onToggleHidden, 
-  onDelete 
+  onDelete,
+  users
 }: { 
   item: any; 
   onEdit: (item: any) => void; 
   onToggleHidden: (id: string, hidden: boolean) => void;
   onDelete: (id: string) => void;
+  users?: any[];
 }) => {
   const {
     attributes,
@@ -231,6 +233,22 @@ const SortablePortfolioRow = ({
         </span>
       </td>
       <td className="p-4">
+        {(item.partnerUids?.length > 0 || item.partnerUid) ? (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Shield size={10} className="text-brick-copper" />
+              <span className="text-[9px] uppercase tracking-widest text-white/50 font-bold truncate max-w-[100px]">
+                {item.partnerUid ? (users?.find(u => u.id === item.partnerUid)?.displayName || 'Assigned') : (
+                  item.partnerUids?.length === 1 ? (users?.find(u => u.id === item.partnerUids[0])?.displayName || item.partnerUids[0].substring(0, 8)) : `${item.partnerUids.length} Elements`
+                )}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <span className="text-[9px] uppercase tracking-widest text-white/10 italic">Global</span>
+        )}
+      </td>
+      <td className="p-4">
          <div className="flex flex-col gap-1">
            <span className="text-[8px] uppercase tracking-tighter text-white/20">Panel: {item.panel || 'main'}</span>
            <span className="text-[8px] uppercase tracking-tighter text-white/20">Order: {item.order}</span>
@@ -290,10 +308,17 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [testimonials, setTestimonials] = useState<any[]>([]);
   const [admins, setAdmins] = useState<any[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
-  const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [editData, setEditData] = useState<any>({});
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins'>('architecture');
+  const [users, setUsers] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners'>('architecture');
+
+  // Load registered partners
+  useEffect(() => {
+    const unSub = onSnapshot(collection(db, 'users'), (snapshot) => {
+       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+       setUsers(list);
+    });
+    return () => unSub();
+  }, []);
   const [activeEditTab, setActiveEditTab] = useState<'media' | 'details' | 'narrative' | 'display'>('media');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showPuck, setShowPuck] = useState(false);
@@ -304,6 +329,9 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [localSettings, setLocalSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [editData, setEditData] = useState<any>({});
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -826,6 +854,8 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           { id: 'testimonials', label: 'Social Proof', icon: Users },
           { id: 'inquiries', label: 'Inquiries', icon: MessageSquare },
           { id: 'pages', label: 'Pages', icon: FileText },
+          { id: 'portal', label: 'Portal', icon: Shield },
+          { id: 'partners', label: 'Partners', icon: Users },
           { id: 'admins', label: 'Admins', icon: Shield }
         ].map(tab => (
           <button 
@@ -1492,6 +1522,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                         <th className="p-4 cursor-pointer hover:text-brick-copper transition-colors" onClick={() => requestSort('category')}>Taxonomy</th>
                         <th className="p-4 cursor-pointer hover:text-brick-copper transition-colors" onClick={() => requestSort('mlsNumber')}>MLS #</th>
                         <th className="p-4">Status</th>
+                        <th className="p-4">Partner</th>
                         <th className="p-4">Fidelity Config</th>
                         <th className="p-4 text-right">Actions</th>
                       </tr>
@@ -1514,6 +1545,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           .map(item => (
                           <SortablePortfolioRow 
                             key={item.id} 
+                            users={users}
                             item={{
                               ...item, 
                               selected: selectedIds.includes(item.id),
@@ -1851,7 +1883,155 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                               </div>
                            </div>
                         </div>
-                      </div>
+                        <div className="pt-8 border-t border-white/5 bg-brick-copper/[0.02] p-8 border border-brick-copper/10">
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center gap-3">
+                                <Shield size={16} className="text-brick-copper" />
+                                <h3 className="text-[11px] uppercase tracking-[0.4em] font-black text-brick-copper">Partner Allocation</h3>
+                              </div>
+                              <span className="text-[9px] uppercase tracking-widest text-white/20 font-mono">Multi-Agent Protocol</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                               <div className="space-y-6">
+                                 <div className="space-y-4">
+                                   <label className="text-[9px] uppercase tracking-widest text-white/40 block font-bold">Assigned Identities</label>
+                                   <div className="flex flex-wrap gap-2 min-h-[48px] p-2 bg-charcoal border border-white/10 rounded-sm">
+                                      {(!editData.partnerUids || editData.partnerUids.length === 0) && !editData.partnerUid && (
+                                        <p className="text-[9px] text-white/10 italic p-2 uppercase">No agents assigned to this narrative.</p>
+                                      )}
+                                      
+                                      {/* Backwards compatibility helper display */}
+                                      {editData.partnerUid && (
+                                        <div className="bg-brick-copper/20 border border-brick-copper/30 px-3 py-1 flex items-center gap-2 rounded-sm group relative">
+                                          <Shield size={10} className="text-brick-copper" />
+                                          <span className="text-[9px] font-bold text-white uppercase tracking-tight">
+                                            {users.find(u => u.id === editData.partnerUid)?.displayName || 'Legacy Assignment'}
+                                          </span>
+                                          <button 
+                                            onClick={() => {
+                                              const currentUids = editData.partnerUids || [];
+                                              if (!currentUids.includes(editData.partnerUid)) {
+                                                setEditData({...editData, partnerUids: [...currentUids, editData.partnerUid], partnerUid: null});
+                                              } else {
+                                                setEditData({...editData, partnerUid: null});
+                                              }
+                                            }}
+                                            className="ml-1 text-white/20 hover:text-white"
+                                          >
+                                            <ArrowDown size={10} />
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {editData.partnerUids?.map((uid: string) => {
+                                        const registeredUser = users.find(u => u.id === uid);
+                                        return (
+                                          <div key={uid} className="bg-white/5 border border-white/10 px-3 py-1.5 flex items-center gap-3 rounded-sm group">
+                                            <div className="flex flex-col">
+                                              <span className="text-[9px] font-bold text-white uppercase tracking-tight">
+                                                {registeredUser?.displayName || (uid.includes('@') ? uid : `ID: ${uid.substring(0, 8)}`)}
+                                              </span>
+                                              {registeredUser && <span className="text-[7px] text-white/30 uppercase tracking-tighter">Registered Partner</span>}
+                                              {!registeredUser && <span className="text-[7px] text-brick-copper/60 uppercase tracking-tighter italic">External/Custom</span>}
+                                            </div>
+                                            <button 
+                                              onClick={() => setEditData({...editData, partnerUids: editData.partnerUids.filter((id: string) => id !== uid)})}
+                                              className="text-white/20 hover:text-red-500 transition-colors"
+                                            >
+                                              <X size={10} />
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                   </div>
+                                 </div>
+
+                                 <div className="space-y-4 pt-4 border-t border-white/5">
+                                   <label className="text-[9px] uppercase tracking-widest text-white/40 block font-bold">Add Custom Agent / UID</label>
+                                   <div className="flex gap-2">
+                                     <input 
+                                       id="custom-agent-input"
+                                       className="flex-1 bg-charcoal border border-white/10 p-4 text-xs font-mono text-white outline-none focus:border-brick-copper"
+                                       placeholder="Enter UID or Manual Identifier"
+                                       onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            const val = e.currentTarget.value.trim();
+                                            if (val) {
+                                              const currentUids = editData.partnerUids || [];
+                                              if (!currentUids.includes(val)) {
+                                                setEditData({...editData, partnerUids: [...currentUids, val]});
+                                              }
+                                              e.currentTarget.value = '';
+                                            }
+                                          }
+                                       }}
+                                     />
+                                     <button 
+                                       onClick={() => {
+                                         const input = document.getElementById('custom-agent-input') as HTMLInputElement;
+                                         const val = input.value.trim();
+                                         if (val) {
+                                           const currentUids = editData.partnerUids || [];
+                                           if (!currentUids.includes(val)) {
+                                             setEditData({...editData, partnerUids: [...currentUids, val]});
+                                           }
+                                           input.value = '';
+                                         }
+                                       }}
+                                       className="px-6 bg-white/5 border border-white/10 text-[9px] uppercase tracking-widest font-bold hover:bg-brick-copper hover:text-charcoal transition-all"
+                                     >
+                                       Assign
+                                     </button>
+                                   </div>
+                                   <p className="text-[8px] text-white/20 uppercase tracking-widest text-balance border-l border-brick-copper/20 pl-2">Assigning UIDs restricts this listing to those specific partners' portal views. Manual strings are stored but don't trigger portal filtering.</p>
+                                 </div>
+                               </div>
+
+                               <div className="space-y-4">
+                                 <label className="text-[9px] uppercase tracking-widest text-white/40 block font-bold">Registered Partner Directory</label>
+                                 <div className="bg-charcoal border border-white/10 max-h-[340px] overflow-y-auto no-scrollbar rounded-sm">
+                                    {users.length === 0 ? (
+                                      <p className="p-8 text-[9px] text-white/20 italic uppercase tracking-widest text-center">No partners registered in network.</p>
+                                    ) : (
+                                      <div className="divide-y divide-white/5">
+                                        {users.map(u => {
+                                          const isActive = editData.partnerUids?.includes(u.id) || editData.partnerUid === u.id;
+                                          return (
+                                            <button 
+                                              key={u.id}
+                                              onClick={() => {
+                                                const currentUids = editData.partnerUids || [];
+                                                if (currentUids.includes(u.id)) {
+                                                  setEditData({...editData, partnerUids: currentUids.filter((id: string) => id !== u.id)});
+                                                } else {
+                                                  setEditData({...editData, partnerUids: [...currentUids, u.id]});
+                                                }
+                                              }}
+                                              className={`w-full text-left p-4 hover:bg-white/5 transition-all flex items-center justify-between group ${isActive ? 'bg-brick-copper/10 border-l-2 border-brick-copper' : 'border-l-2 border-transparent'}`}
+                                            >
+                                              <div className="flex items-center gap-4 min-w-0">
+                                                <div className="w-10 h-10 border border-white/5 flex items-center justify-center text-[10px] font-bold bg-white/[0.02]">
+                                                  {u.displayName?.charAt(0) || u.email?.charAt(0)}
+                                                </div>
+                                                <div className="min-w-0">
+                                                  <p className={`text-[10px] font-bold truncate ${isActive ? 'text-brick-copper' : 'text-white'}`}>{u.displayName || 'Unnamed Partner'}</p>
+                                                  <p className="text-[8px] text-white/30 truncate uppercase tracking-tighter">{u.email}</p>
+                                                </div>
+                                              </div>
+                                              <div className={`p-1.5 rounded-sm border transition-colors ${isActive ? 'bg-brick-copper border-brick-copper text-charcoal' : 'border-white/10 text-white/10'}`}>
+                                                {isActive ? <Check size={10} strokeWidth={4} /> : <Plus size={10} />}
+                                              </div>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                 </div>
+                               </div>
+                            </div>
+                         </div>
+                       </div>
                     )}
                   </div>
 
@@ -2021,6 +2201,135 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
+        {activeTab === 'portal' && (
+          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4">
+              <Shield size={18} />
+              <h3 className="font-display text-2xl italic">Portal Hub Configuration</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+               <div className="lg:col-span-2 space-y-8">
+                  <div className="bg-white/5 border border-white/10 p-8 space-y-6">
+                    <h4 className="text-[10px] uppercase tracking-widest text-brick-copper font-bold mb-4">Auth Landing Content</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/40 block mb-2">Display Title</label>
+                        <input 
+                          className="w-full bg-white/5 border border-white/10 p-4 text-xl font-display italic text-white focus:border-brick-copper outline-none"
+                          value={localSettings.portalTitle || ''}
+                          onChange={e => setLocalSettings({...localSettings, portalTitle: e.target.value})}
+                          placeholder="e.g. The Brand Hub"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/40 block mb-2">Description / Value Prop</label>
+                        <textarea 
+                          className="w-full bg-white/5 border border-white/10 p-4 text-xs h-32 focus:border-brick-copper outline-none resize-none leading-relaxed"
+                          value={localSettings.portalDescription || ''}
+                          onChange={e => setLocalSettings({...localSettings, portalDescription: e.target.value})}
+                          placeholder="Explain what partners get access to..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 p-8 space-y-6">
+                    <h4 className="text-[10px] uppercase tracking-widest text-brick-copper font-bold">Portal Communication</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/40 block mb-2">Support Email</label>
+                        <input 
+                          className="w-full bg-white/5 border border-white/10 p-3 text-xs outline-none"
+                          value={localSettings.portalSupportEmail || ''}
+                          onChange={e => setLocalSettings({...localSettings, portalSupportEmail: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/40 block mb-2">Inquiry Notifications</label>
+                        <input 
+                          className="w-full bg-white/5 border border-white/10 p-3 text-xs outline-none"
+                          value={localSettings.portalNotifyEmail || ''}
+                          onChange={e => setLocalSettings({...localSettings, portalNotifyEmail: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+               </div>
+
+               <div className="space-y-8">
+                  <div className="bg-white/5 border border-white/10 p-8">
+                    <h4 className="text-[10px] uppercase tracking-widest text-brick-copper font-bold mb-6">Visual Identity</h4>
+                    <ImageSelector 
+                      label="Landing Splash Image"
+                      path="portal"
+                      value={localSettings.portalImg || ''}
+                      onChange={url => setLocalSettings({...localSettings, portalImg: url})}
+                    />
+                  </div>
+
+                  <div className="bg-brick-copper/5 border border-brick-copper/20 p-8">
+                    <h4 className="text-[10px] uppercase tracking-widest text-brick-copper font-bold mb-3">Live Preview</h4>
+                    <p className="text-[9px] text-white/40 uppercase mb-6">As seen by partners</p>
+                    <div className="border border-white/10 p-4 bg-charcoal scale-90 origin-top">
+                       <h5 className="font-display italic text-lg mb-2">{localSettings.portalTitle || 'The Brand Hub'}</h5>
+                       <p className="text-[10px] text-white/40 leading-relaxed truncate">{localSettings.portalDescription || 'A dedicated ecosystem...'}</p>
+                    </div>
+                  </div>
+               </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'partners' && (
+          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+              <div className="flex items-center gap-3 text-brick-copper">
+                <Users size={18} />
+                <h3 className="font-display text-2xl italic">Partner Ecosystem</h3>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 overflow-hidden">
+               <table className="w-full text-left">
+                  <thead className="bg-white/5 text-[10px] uppercase tracking-[0.2em] text-white/40">
+                    <tr>
+                      <th className="p-6 font-normal">Partner</th>
+                      <th className="p-6 font-normal">Team / Agency</th>
+                      <th className="p-6 font-normal">Registered</th>
+                      <th className="p-6 font-normal text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {users.map(user => (
+                      <tr key={user.id} className="hover:bg-white/5 transition-colors group">
+                        <td className="p-6">
+                           <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 bg-brick-copper/20 rounded-full flex items-center justify-center overflow-hidden">
+                                 {user.headshotUrl ? <img src={user.headshotUrl} className="w-full h-full object-cover" /> : <Shield size={16} className="text-brick-copper" />}
+                              </div>
+                              <div>
+                                <p className="font-bold text-sm">{user.displayName || 'Unnamed Partner'}</p>
+                                <p className="text-xs text-white/40">{user.email}</p>
+                              </div>
+                           </div>
+                        </td>
+                        <td className="p-6">
+                           <span className="text-xs uppercase tracking-widest text-brick-copper">{user.teamName || 'Independent'}</span>
+                        </td>
+                        <td className="p-6 text-xs text-white/40 font-mono">
+                           {user.createdAt?.seconds ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : '---'}
+                        </td>
+                        <td className="p-6 text-right">
+                           <button className="p-2 text-white/20 hover:text-white transition-colors"><MessageSquare size={14} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+               </table>
+            </div>
+          </section>
+        )}
         {activeTab === 'inquiries' && (
           <section className="space-y-8">
             <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4">
