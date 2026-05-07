@@ -21,7 +21,7 @@ interface SiteSettings {
   servicesTitle?: string;
   servicesSubtitle?: string;
   homeSectionsOrder?: string[]; 
-  navigationItems?: { id: string; label: string; url: string; order: number }[];
+  navigationItems?: { id: string; label: string; url: string; order: number; hidden?: boolean }[];
   socialLinks?: { id: string; platform: 'instagram' | 'twitter' | 'linkedin' | 'facebook'; url: string }[];
   contactInfo?: { email: string; phone: string; address: string };
   fontTitle?: 'Prata' | 'Montserrat' | 'Inter' | 'Playfair Display';

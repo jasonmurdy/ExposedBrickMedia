@@ -50,6 +50,7 @@ service cloud.firestore {
         && (data.get('baths', null) == null || (data.baths is string && data.baths.size() <= 50))
         && (data.get('sqft', null) == null || (data.sqft is string && data.sqft.size() <= 50))
         && (data.get('status', null) == null || (data.status is string && data.status.size() <= 100))
+        && (data.get('externalLink', null) == null || (data.externalLink is string && data.externalLink.size() <= 5000))
         && (data.get('daysOnMarket', null) == null || (data.daysOnMarket is number))
         && (data.get('colSpan', null) == null || (data.colSpan is number))
         && (data.get('rowSpan', null) == null || (data.rowSpan is number))
@@ -154,7 +155,7 @@ service cloud.firestore {
         && (existing().get('createdAt', null) == null || incoming().createdAt == existing().createdAt)
         && incoming().updatedAt == request.time
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'hidden', 'bannerText', 'bannerColor', 'bannerSize', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'externalLink', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'hidden', 'bannerText', 'bannerColor', 'bannerSize', 'updatedAt'])
         );
       allow delete: if isAdmin();
     }

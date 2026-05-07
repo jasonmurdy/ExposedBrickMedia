@@ -7,9 +7,17 @@ interface FileUploadProps {
   onUploadComplete: (url: string) => void;
   path: string;
   label: string;
+  accept?: string;
+  maxSizeMB?: number;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, path, label }) => {
+export const FileUpload: React.FC<FileUploadProps> = ({ 
+  onUploadComplete, 
+  path, 
+  label, 
+  accept = "image/*", 
+  maxSizeMB = 50 // Increased to 50MB for video support
+}) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -19,15 +27,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, path, 
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type (images only)
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file.');
-      return;
-    }
-
-    // Validate size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be under 5MB.');
+    // Validate size
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      setError(`File size must be under ${maxSizeMB}MB.`);
       return;
     }
 
@@ -86,7 +88,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, path, 
           ref={fileInputRef} 
           onChange={handleFileChange} 
           className="hidden" 
-          accept="image/*"
+          accept={accept}
         />
         
         {uploading ? (
@@ -107,7 +109,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete, path, 
           </>
         )}
       </div>
-      {error && <p className="text-[10px] text-red-500 font-mono mt-1">{error}</p>}
+      {error && (
+        <div className="flex flex-col gap-1 mt-1">
+          <p className="text-[10px] text-red-500 font-mono">{error}</p>
+          <button 
+            onClick={() => { setError(null); setUploading(false); }}
+            className="text-[9px] uppercase tracking-widest text-white/40 hover:text-white underline text-left w-fit"
+          >
+            Clear Error & Try Again
+          </button>
+        </div>
+      )}
     </div>
   );
 };

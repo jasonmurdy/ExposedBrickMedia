@@ -32,9 +32,9 @@ let storageInstance: any = null;
 try {
   if (firebaseConfig.storageBucket) {
     storageInstance = getStorage(app);
-    // Set a shorter retry time (e.g. 30 seconds) so users don't wait 10 minutes for a fail
-    storageInstance.maxUploadRetryTime = 30000;
-    storageInstance.maxOperationRetryTime = 30000;
+    // Set a longer retry time (e.g. 2 minutes) for larger media files
+    storageInstance.maxUploadRetryTime = 120000;
+    storageInstance.maxOperationRetryTime = 120000;
   } else {
     console.warn("No storageBucket found in firebase-applet-config.json");
   }

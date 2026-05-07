@@ -17,12 +17,13 @@ export const PROPERTY_TYPES = [
 ];
 
 export const PROPERTY_STATUSES = [
-  'Completed',
-  'In Progress',
-  'Featured',
-  'Archived',
+  'Active',
+  'Pending',
+  'Sold',
+  'Coming Soon',
   'Under Contract',
-  'Sold'
+  'Expired',
+  'Withdrawn'
 ];
 
 export const PORTFOLIO_CATEGORIES = [

@@ -17,6 +17,8 @@ import { LogoCloud, InstagramFeed } from "../components/SocialNodes";
 import { LinkButton } from "../components/LinkButton";
 import { Button as ShadcnButton } from "../components/ui/button";
 
+import { FileUpload } from "../components/FileUpload";
+
 // Reusable Elementor-style Spacing Control
 const SpacingControl = {
   type: "custom" as const,
@@ -121,135 +123,142 @@ const InlineHTML = ({ html, height }: { html: string, height?: number }) => {
 };
 
 export type PuckConfig = {
-  Section: {
-    spacing: any;
-    background: "bg-transparent" | "bg-bg-primary" | "bg-bg-secondary" | "bg-charcoal text-white";
-    bgImage?: string;
-    overlayOpacity: number;
-    layout: "boxed" | "full";
-    children?: React.ReactNode;
-  };
-  DynamicGrid: {
-    collection: "portfolio" | "pages";
-    limit: number;
-    columns: 2 | 3 | 4;
-  };
-  CinematicHero: {
-    title: string;
-    subtitle: string;
-    mediaUrl: string;
-    mediaType: "video" | "image";
-    ctaText: string;
-    ctaUrl: string;
-  };
-  Columns: {
-    leftColumnWidth: number;
-    gap: number;
-    left?: React.ReactNode;
-    right?: React.ReactNode;
-  };
-  Heading: {
-    text: string;
-    level: 1 | 2 | 3 | 4;
-    align: "left" | "center" | "right";
-    accent: boolean;
-    width: "full" | "half";
-  };
-  RichText: {
-    content: string;
-    size: "sm" | "base" | "lg";
-    width: "full" | "half";
-  };
-  Hero: {
-    imageUrl?: string;
-    height: "short" | "medium" | "tall";
-    width: "full" | "half";
-    cta: {
-      type: "internal" | "external";
-      url: string;
-      label: string;
-    };
-  };
-  TextContent: {
-    title1: string;
-    title2: string;
-    accent: string;
-    tagline: string;
-    width: "full" | "half";
-  };
-  Portfolio: {
-    variant: "grid" | "gallery";
-    panel?: "main" | "side";
-    limit?: number;
-    showFilter: boolean;
-    width: "full" | "half";
-  };
-  Services: {
-    title: string;
-    subtitle: string;
-    width: "full" | "half";
-  };
-  Contact: {
-    title: string;
-    description?: string;
-    width: "full" | "half";
-  };
-  Footer: {
-    quote: string;
-    width: "full" | "half";
-  };
-  Spacer: {
-    size: number;
-    width: "full" | "half";
-  };
-  Testimonials: {
-    maxItems: number;
-    width: "full" | "half";
-  };
-  MediaEmbed: {
-    url: string;
-    mediaType: "image" | "video";
-    widthPercentage: number;
-    aspectRatio: "16/9" | "4/3" | "1/1" | "9/16";
-    width: "full" | "half";
-  };
-  PropertyHighlight: {
-    mediaUrl: string;
-    mediaType: "image" | "video";
-    daysOnMarket: number;
-    salePrice: string;
-    listPrice: string;
-    packageUsed: string;
-    width: "full" | "half";
-  };
-  TourEmbed: {
-    url: string;
-    height: number;
-    width: "full" | "half";
-  };
-  LogoCloud: {
-    logos: { url: string; alt: string }[];
-    width: "full" | "half";
-  };
-  InstagramFeed: {
-    username: string;
-    width: "full" | "half";
-  };
-  HTMLEmbed: {
-    html: string;
-    height?: number;
+  root: {
     title?: string;
-    wrapInIframe?: boolean;
-    width: "full" | "half";
+    description?: string;
+    ogImage?: string;
   };
-  Button: {
-    link: {
-      type: "internal" | "external";
-      url: string;
-      label: string;
+  components: {
+    Section: {
+      spacing: any;
+      background: "bg-transparent" | "bg-bg-primary" | "bg-bg-secondary" | "bg-charcoal text-white";
+      bgImage?: string;
+      overlayOpacity: number;
+      layout: "boxed" | "full";
+      children?: React.ReactNode;
     };
-    align: "left" | "center" | "right";
-    width: "full" | "half";
+    DynamicGrid: {
+      collection: "portfolio" | "pages";
+      limit: number;
+      columns: 2 | 3 | 4;
+    };
+    CinematicHero: {
+      title: string;
+      subtitle: string;
+      mediaUrl: string;
+      mediaType: "video" | "image";
+      ctaText: string;
+      ctaUrl: string;
+    };
+    Columns: {
+      leftColumnWidth: number;
+      gap: number;
+      left?: React.ReactNode;
+      right?: React.ReactNode;
+    };
+    Heading: {
+      text: string;
+      level: 1 | 2 | 3 | 4;
+      align: "left" | "center" | "right";
+      accent: boolean;
+      width: "full" | "half";
+    };
+    RichText: {
+      content: string;
+      size: "sm" | "base" | "lg";
+      width: "full" | "half";
+    };
+    Hero: {
+      imageUrl?: string;
+      height: "short" | "medium" | "tall";
+      width: "full" | "half";
+      cta: {
+        type: "internal" | "external";
+        url: string;
+        label: string;
+      };
+    };
+    TextContent: {
+      title1: string;
+      title2: string;
+      accent: string;
+      tagline: string;
+      width: "full" | "half";
+    };
+    Portfolio: {
+      variant: "grid" | "gallery";
+      panel?: "main" | "side";
+      limit?: number;
+      showFilter: boolean;
+      width: "full" | "half";
+    };
+    Services: {
+      title: string;
+      subtitle: string;
+      width: "full" | "half";
+    };
+    Contact: {
+      title: string;
+      description?: string;
+      width: "full" | "half";
+    };
+    Footer: {
+      quote: string;
+      width: "full" | "half";
+    };
+    Spacer: {
+      size: number;
+      width: "full" | "half";
+    };
+    Testimonials: {
+      maxItems: number;
+      width: "full" | "half";
+    };
+    MediaEmbed: {
+      url: string;
+      mediaType: "image" | "video";
+      widthPercentage: number;
+      aspectRatio: "16/9" | "4/3" | "1/1" | "9/16";
+      width: "full" | "half";
+    };
+    PropertyHighlight: {
+      mediaUrl: string;
+      mediaType: "image" | "video";
+      daysOnMarket: number;
+      salePrice: string;
+      listPrice: string;
+      packageUsed: string;
+      width: "full" | "half";
+    };
+    TourEmbed: {
+      url: string;
+      height: number;
+      width: "full" | "half";
+    };
+    LogoCloud: {
+      logos: { url: string; alt: string }[];
+      width: "full" | "half";
+    };
+    InstagramFeed: {
+      username: string;
+      width: "full" | "half";
+    };
+    HTMLEmbed: {
+      html: string;
+      height?: number;
+      title?: string;
+      wrapInIframe?: boolean;
+      width: "full" | "half";
+    };
+    Button: {
+      link: {
+        type: "internal" | "external";
+        url: string;
+        label: string;
+      };
+      align: "left" | "center" | "right";
+      width: "full" | "half";
+    };
   };
 };
 
@@ -311,6 +320,69 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
     ]
   };
 
+  const MediaField = (label: string, type: "image/*" | "video/*" = "image/*", storagePath: string = "uploads") => ({
+    type: "custom" as const,
+    render: ({ name, value, onChange }: any) => {
+      const [useUrl, setUseUrl] = React.useState(true);
+      return (
+        <div className="space-y-3 bg-[#181818] p-3 border border-white/5">
+          <div className="flex justify-between items-center bg-black/40 p-1 rounded-sm">
+            <button 
+              onClick={() => setUseUrl(true)}
+              className={`flex-1 py-1 text-[9px] uppercase tracking-widest transition-all ${useUrl ? 'bg-brick-copper text-charcoal font-bold' : 'text-white/40 hover:text-white'}`}
+            >
+              URL Link
+            </button>
+            <button 
+              onClick={() => setUseUrl(false)}
+              className={`flex-1 py-1 text-[9px] uppercase tracking-widest transition-all ${!useUrl ? 'bg-brick-copper text-charcoal font-bold' : 'text-white/40 hover:text-white'}`}
+            >
+              File Upload
+            </button>
+          </div>
+
+          {useUrl ? (
+            <div className="space-y-1">
+              <label className="text-[8px] uppercase tracking-widest text-white/40 block">{label} URL</label>
+              <input 
+                className="w-full bg-[#101010] border border-white/5 p-2 text-xs text-white transition-all focus:border-brick-copper outline-none"
+                value={value || ""}
+                placeholder="https://..."
+                onChange={(e) => onChange(e.target.value)}
+              />
+            </div>
+          ) : (
+            <FileUpload 
+              label={`${label} Upload`}
+              path={storagePath}
+              accept={type}
+              onUploadComplete={onChange}
+            />
+          )}
+
+          {value && (
+            <div className="mt-2 group relative">
+              <p className="text-[8px] uppercase tracking-tighter text-white/30 truncate mb-1">Previewing: {value}</p>
+              <div className="aspect-video bg-black/60 border border-white/5 overflow-hidden flex items-center justify-center">
+                {type === "video/*" ? (
+                  <video src={value} className="max-w-full max-h-full" controls={false} />
+                ) : (
+                  <img src={value} className="max-w-full max-h-full object-contain" alt="Preview" />
+                )}
+              </div>
+              <button 
+                onClick={() => onChange("")}
+                className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <MoveUpRight size={8} className="rotate-45" /> 
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+  });
+
   const ComponentWrapper = ({ width, children }: { width?: "full" | "half", children: React.ReactNode }) => {
     return (
       <div className={`${width === 'half' ? 'w-full lg:w-1/2' : 'w-full'}`}>
@@ -321,7 +393,19 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
   
   return {
     root: {
-      render: ({ children }) => {
+      fields: {
+        title: { type: "text" },
+        description: { type: "textarea" },
+        ogImage: MediaField("OG Image"),
+      },
+      render: ({ children, title, description, ogImage }) => {
+        // Sync with document head
+        useEffect(() => {
+          if (title) document.title = `${title} | Exposed Brick Media`;
+          const metaDesc = document.querySelector('meta[name="description"]');
+          if (metaDesc && description) metaDesc.setAttribute('content', description);
+        }, [title, description]);
+
         return (
           <div className="flex flex-col lg:flex-row min-h-screen bg-bg-primary overflow-hidden">
             {/* LEFT COLUMN: BRAND & SERVICES */}
@@ -388,7 +472,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
             { label: "Charcoal Dark", value: "bg-charcoal text-white" },
           ],
         },
-        bgImage: { type: "text" },
+        bgImage: MediaField("Background Image"),
         overlayOpacity: { type: "number", min: 0, max: 100 },
         layout: {
           type: "radio",
@@ -406,7 +490,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
         layout: "boxed",
       },
       render: ({ spacing, background, bgImage, overlayOpacity, layout }) => (
-        <SpacingWrapper spacing={spacing} className={`relative ${background} overflow-hidden`}>
+        <SpacingWrapper spacing={spacing} className={`relative ${background} overflow-hidden group/section`}>
           {bgImage && (
             <>
               <div 
@@ -419,8 +503,10 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
               />
             </>
           )}
-          <div className={`relative z-10 ${layout === 'boxed' ? 'max-w-7xl mx-auto px-8 md:px-16' : 'w-full px-8 md:px-16'}`}>
-            <DropZone zone="children" />
+          <div className={`relative z-10 transition-all ${layout === 'boxed' ? 'max-w-7xl mx-auto px-8 md:px-16' : 'w-full px-8 md:px-16'}`}>
+            <div className="min-h-[100px] w-full">
+              <DropZone zone="children" />
+            </div>
           </div>
         </SpacingWrapper>
       ),
@@ -429,7 +515,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
       fields: {
         title: { type: "text" },
         subtitle: { type: "textarea" },
-        mediaUrl: { type: "text" }, // Can be .mp4 or .jpg
+        mediaUrl: MediaField("Background Media", "image/*", "hero"),
         mediaType: { 
           type: "radio", 
           options: [
@@ -563,9 +649,13 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
       },
       render: ({ leftColumnWidth, gap }) => {
         return (
-          <div className="flex flex-col md:grid" style={{ gap: `${gap}px`, gridTemplateColumns: `${leftColumnWidth}% ${100 - leftColumnWidth}%` }}>
-            <div className="w-full"><DropZone zone="left" /></div>
-            <div className="w-full"><DropZone zone="right" /></div>
+          <div className="flex flex-col md:grid" style={{ gap: `${gap}px`, gridTemplateColumns: `${leftColumnWidth}% calc(${100 - leftColumnWidth}% - ${gap}px)` }}>
+            <div className="w-full min-h-[50px] transition-all border border-transparent hover:border-white/5">
+              <DropZone zone="left" />
+            </div>
+            <div className="w-full min-h-[50px] transition-all border border-transparent hover:border-white/5">
+              <DropZone zone="right" />
+            </div>
           </div>
         );
       },
@@ -657,7 +747,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
     },
     Hero: {
       fields: {
-        imageUrl: { type: "text" },
+        imageUrl: MediaField("Hero Image"),
         height: {
           type: "select",
           options: [
@@ -837,7 +927,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
     },
     PropertyHighlight: {
       fields: {
-        mediaUrl: { type: "text" },
+        mediaUrl: MediaField("Highlight Media", "video/*", "properties"),
         mediaType: { 
           type: "select", 
           options: [{label: "Image", value: "image"}, {label: "Video", value: "video"}] 
@@ -922,7 +1012,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
     },
     MediaEmbed: {
       fields: {
-        url: { type: "text" },
+        url: MediaField("Media Source", "image/*", "embeds"),
         mediaType: { 
           type: "select", 
           options: [{label: "Image", value: "image"}, {label: "Video", value: "video"}] 

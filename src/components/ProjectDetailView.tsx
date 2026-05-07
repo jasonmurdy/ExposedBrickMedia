@@ -76,21 +76,21 @@ export const ProjectDetailView = () => {
           <span className="text-white/30 truncate max-w-[150px]">{project.title}</span>
         </div>
         <div className="flex gap-4">
-           {project.url && (
+           {(project.externalLink || project.url) && (
              <a 
-               href={project.url} 
+               href={project.externalLink || project.url} 
                target="_blank" 
                rel="noopener noreferrer"
                onClick={() => {
                  trackMediaInteraction({
                    property_id: project.id,
-                   media_type: 'matterport_tour',
+                   media_type: project.externalLink ? 'agent_listing' : 'matterport_tour',
                    action: 'view'
                  });
                }}
                className="text-[10px] uppercase tracking-widest text-brick-copper hover:text-white transition-colors flex items-center gap-2"
              >
-               View Source Listing <ExternalLink size={12} />
+               {project.externalLink ? 'Listing Agent Page' : 'View Source Listing'} <ExternalLink size={12} />
              </a>
            )}
         </div>
@@ -177,21 +177,21 @@ export const ProjectDetailView = () => {
              >
                Inquire for Documentation
              </button>
-             {project.url && (
+             {(project.externalLink || project.url) && (
                <a 
-                 href={project.url}
+                 href={project.externalLink || project.url}
                  target="_blank"
                  rel="noopener noreferrer"
                  onClick={() => {
                    trackMediaInteraction({
                      property_id: project.id,
-                     media_type: 'matterport_tour',
+                     media_type: project.externalLink ? 'agent_listing' : 'matterport_tour',
                      action: 'view'
                    });
                  }}
                  className="w-full py-5 border border-white/10 text-white uppercase tracking-[0.2em] font-bold text-[10px] hover:bg-white hover:text-charcoal transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
                >
-                 View Full Listing <ExternalLink size={12} />
+                 {project.externalLink ? 'Agency Listing Details' : 'View Full Listing'} <ExternalLink size={12} />
                </a>
              )}
              <p className="mt-4 text-[9px] text-white/20 text-center uppercase tracking-widest">Confidential technical dossiers available upon request.</p>

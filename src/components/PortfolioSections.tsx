@@ -12,6 +12,7 @@ import { useSiteContent } from '../lib/SiteContentContext';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { FileUpload } from './FileUpload';
+import { ImageSelector } from './ImageSelector';
 import { LinkSelector } from './LinkSelector';
 import {
   DndContext, 
@@ -144,8 +145,19 @@ const SortablePortfolioItem = ({
              </p>
            )}
 
-           <div className="mt-8 transform translate-y-6 group-hover:translate-y-0 transition-all duration-700 delay-100">
-              <span className="px-10 py-3.5 border-2 border-brick-copper text-brick-copper text-[11px] uppercase tracking-[0.3em] bg-brick-copper/10 shadow-[0_0_40px_rgba(184,115,51,0.25)] drop-shadow-2xl font-black">Open Archive</span>
+           <div className="mt-8 transform translate-y-6 group-hover:translate-y-0 transition-all duration-700 delay-100 flex gap-3">
+              <span className="px-6 py-3.5 border-2 border-brick-copper text-brick-copper text-[11px] uppercase tracking-[0.3em] bg-brick-copper/10 shadow-[0_0_40px_rgba(184,115,51,0.25)] drop-shadow-2xl font-black">Open Archive</span>
+              {item.externalLink && (
+                <a 
+                  href={item.externalLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="px-6 py-3.5 border-2 border-white/20 text-white text-[11px] uppercase tracking-[0.3em] bg-white/5 hover:bg-white/10 transition-all font-black pointer-events-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View Listing
+                </a>
+              )}
            </div>
         </div>
       )}
@@ -584,17 +596,12 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                 <div className="space-y-6">
                   <h2 className="font-display text-2xl tracking-tight text-white italic">Project Matrix</h2>
                   
-                  <FileUpload 
+                  <ImageSelector 
                     label="Cover Image"
                     path="portfolio"
-                    onUploadComplete={(url) => setEditFields({...editFields, img: url})}
+                    value={editFields.img || ''}
+                    onChange={(url) => setEditFields({...editFields, img: url})}
                   />
-
-                  {editFields.img && (
-                    <div className="aspect-[4/3] rounded border border-border-subtle overflow-hidden">
-                      <img src={editFields.img} className="w-full h-full object-cover" alt="Preview" />
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-6">
@@ -679,7 +686,7 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                         <select 
                           className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper appearance-none bg-charcoal"
                           value={editFields.status || ''}
-                          onChange={e => setEditFields({...editFields, status: e.target.value})}
+                          onChange={e => setEditFields({...editFields, status: e.target.value})} 
                         >
                           <option value="">Status</option>
                           {PROPERTY_STATUSES.map(status => (
@@ -687,6 +694,16 @@ export const Portfolio = ({ variant = 'grid', panel = 'main' }: { variant?: 'gri
                           ))}
                         </select>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[8px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">External Listing Agents Link</label>
+                      <input 
+                        className="w-full bg-transparent border-b border-border-subtle p-1 text-xs outline-none focus:border-brick-copper placeholder:text-white/10"
+                        placeholder="https://listing-agent.com/property"
+                        value={editFields.externalLink || ''}
+                        onChange={e => setEditFields({...editFields, externalLink: e.target.value})}
+                      />
                     </div>
 
                     <div className="grid grid-cols-3 gap-4 pb-4">

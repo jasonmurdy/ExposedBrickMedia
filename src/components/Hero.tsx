@@ -200,46 +200,57 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
           </Link>
         ))}
 
-        {/* Custom Navigation Items */}
-        {navItems.sort((a,b) => a.order - b.order).map(item => (
-          <a 
-            key={item.id}
-            href={item.url}
-            target={item.url.startsWith('http') ? '_blank' : '_self'}
-            rel="noopener noreferrer"
-            className="transition-colors uppercase text-[10px] tracking-widest font-medium text-text-primary/70 hover:text-brick-copper"
-          >
-            {item.label}
-          </a>
-        ))}
+        {/* Custom Navigation Items (Now including defaults) */}
+        {navItems
+          .filter(item => !item.hidden)
+          .sort((a,b) => a.order - b.order)
+          .map(item => {
+            if (item.label.toLowerCase() === 'inquire') {
+              return (
+                <button 
+                  key={item.id}
+                  onClick={() => {
+                    if (item.url.startsWith('#')) {
+                      const el = document.getElementById(item.url.substring(1));
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                      window.location.href = item.url;
+                    }
+                  }}
+                  className="px-6 py-2 bg-brick-copper text-charcoal transition-all duration-300 hover:bg-white hover:-translate-y-0.5 active:scale-95 active:translate-y-0 uppercase text-[10px] tracking-widest font-bold shadow-sm hover:shadow-md ml-4"
+                >
+                  {item.label}
+                </button>
+              );
+            }
+            
+            const isInternal = !item.url.startsWith('http');
+            if (isInternal) {
+              return (
+                <Link 
+                  key={item.id}
+                  to={item.url}
+                  className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
+                    location.pathname === item.url ? 'text-brick-copper' : 'text-text-primary/70 hover:text-brick-copper'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
 
-        <Link 
-          to="/about"
-          className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
-            location.pathname === '/about' ? 'text-brick-copper' : 'text-text-primary/70 hover:text-brick-copper'
-          }`}
-        >
-          About
-        </Link>
-
-        <Link 
-          to="/"
-          className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
-            location.pathname === '/' ? 'text-brick-copper' : 'text-text-primary/70 hover:text-brick-copper'
-          }`}
-        >
-          Portfolio
-        </Link>
-        
-        <button 
-          onClick={() => {
-            const el = document.getElementById('inquire');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          }}
-          className="px-6 py-2 bg-brick-copper text-charcoal transition-all duration-300 hover:bg-white hover:-translate-y-0.5 active:scale-95 active:translate-y-0 uppercase text-[10px] tracking-widest font-bold shadow-sm hover:shadow-md"
-        >
-          Inquire
-        </button>
+            return (
+              <a 
+                key={item.id}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors uppercase text-[10px] tracking-widest font-medium text-text-primary/70 hover:text-brick-copper"
+              >
+                {item.label}
+              </a>
+            );
+          })}
       </div>
     </nav>
   );
@@ -287,17 +298,36 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
             className="fixed inset-0 z-[55] bg-bg-primary pt-24 px-8 overflow-y-auto"
           >
             <div className="flex flex-col gap-8 py-12">
-              <Link to="/about" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/about' ? 'text-brick-copper' : 'text-text-primary/60'}`}>About</Link>
-              <Link to="/services" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/services' ? 'text-brick-copper' : 'text-text-primary/60'}`}>Services</Link>
-              <Link to="/" onClick={closeMenu} className={`text-2xl font-display italic ${location.pathname === '/' ? 'text-brick-copper' : 'text-text-primary/60'}`}>Portfolio</Link>
-              
-              <Link 
-                to="/inquiry" 
-                onClick={closeMenu}
-                className={`text-2xl font-display italic ${location.pathname === '/inquiry' ? 'text-brick-copper' : 'text-text-primary/60'} mt-8`}
-              >
-                Inquire
-              </Link>
+              {navItems
+                .filter(item => !item.hidden)
+                .sort((a,b) => a.order - b.order)
+                .map(item => {
+                  const isInternal = !item.url.startsWith('http');
+                  if (isInternal) {
+                    return (
+                      <Link 
+                        key={item.id} 
+                        to={item.url} 
+                        onClick={closeMenu}
+                        className={`text-2xl font-display italic ${location.pathname === item.url ? 'text-brick-copper' : 'text-text-primary/60'}`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <a 
+                      key={item.id} 
+                      href={item.url} 
+                      className="text-2xl font-display italic text-text-primary/60"
+                      onClick={closeMenu}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {item.label}
+                    </a>
+                  );
+                })}
 
               {pages.filter(p => p.showInNav).map(page => (
                 <Link 
@@ -308,17 +338,6 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
                 >
                   {page.title}
                 </Link>
-              ))}
-
-              {navItems.sort((a,b) => a.order - b.order).map(item => (
-                <a 
-                  key={item.id} 
-                  href={item.url} 
-                  className="text-2xl font-display italic text-text-primary/60"
-                  onClick={closeMenu}
-                >
-                  {item.label}
-                </a>
               ))}
             </div>
           </motion.div>

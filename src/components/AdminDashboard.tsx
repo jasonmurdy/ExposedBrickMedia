@@ -33,7 +33,7 @@ import {
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square
 } from 'lucide-react';
 import {
   DndContext, 
@@ -55,6 +55,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { FileUpload } from './FileUpload';
 import { LinkSelector } from './LinkSelector';
+import { ImageSelector } from './ImageSelector';
 import { GoogleGenAI } from '@google/genai';
 import { PuckEditor } from './PuckEditor';
 import { Portfolio } from './PortfolioSections';
@@ -63,6 +64,81 @@ import { ADMIN_EMAILS, PROPERTY_TYPES, PROPERTY_STATUSES, PORTFOLIO_CATEGORIES }
 
 // Initialize Gemini on the frontend as per system instructions
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const SortableNavItem = ({ 
+  item, 
+  onDelete, 
+  onToggleHidden,
+  onChangeLabel, 
+  onChangeUrl 
+}: { 
+  item: any; 
+  onDelete: (id: string) => void;
+  onToggleHidden: (id: string) => void;
+  onChangeLabel: (val: string) => void;
+  onChangeUrl: (val: string) => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+    opacity: item.hidden ? 0.4 : (isDragging ? 0.6 : 1),
+    filter: item.hidden ? 'grayscale(0.5)' : 'none'
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className={`bg-white/5 border border-white/5 p-4 flex flex-col gap-3 relative group ${isDragging ? 'border-brick-copper bg-white/10 z-50' : ''} ${item.hidden ? 'border-red-500/10' : ''}`}
+    >
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3 flex-1">
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-white/10 hover:text-brick-copper transition-colors">
+            <GripVertical size={16} />
+          </div>
+          <input 
+            className={`bg-transparent border-b border-white/10 text-[10px] uppercase tracking-widest outline-none w-full p-1 focus:border-brick-copper transition-colors font-bold ${item.hidden ? 'text-white/20' : 'text-white'}`} 
+            value={item.label}
+            placeholder="Link Label"
+            onChange={e => onChangeLabel(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => onToggleHidden(item.id)}
+            className={`p-1.5 transition-colors ${item.hidden ? 'text-red-500 hover:text-red-400' : 'text-white/10 hover:text-white'}`}
+            title={item.hidden ? "Show in Navigation" : "Hide from Navigation"}
+          >
+            {item.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+          <button 
+            onClick={() => onDelete(item.id)}
+            className="text-white/10 hover:text-red-500 transition-colors p-1.5"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+      <div className={item.hidden ? 'opacity-20 pointer-events-none' : ''}>
+        <LinkSelector 
+          value={item.url}
+          allowListing={false}
+          onChange={onChangeUrl}
+        />
+      </div>
+    </div>
+  );
+};
 
 const SortablePortfolioRow = ({ 
   item, 
@@ -145,7 +221,10 @@ const SortablePortfolioRow = ({
       <td className="p-4">
         <span className={`text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm border ${
           item.status?.toLowerCase().includes('sold') ? 'border-red-500/30 text-red-500 bg-red-500/5' : 
-          item.status?.toLowerCase().includes('sale') ? 'border-green-500/30 text-green-500 bg-green-500/5' : 
+          item.status?.toLowerCase().includes('active') ? 'border-green-500/30 text-green-500 bg-green-500/5' : 
+          item.status?.toLowerCase().includes('pending') ? 'border-yellow-500/30 text-yellow-500 bg-yellow-500/5' :
+          item.status?.toLowerCase().includes('contract') ? 'border-blue-500/30 text-blue-500 bg-blue-500/5' :
+          item.status?.toLowerCase().includes('soon') ? 'border-purple-500/30 text-purple-500 bg-purple-500/5' :
           'border-white/10 text-white/40'
         }`}>
           {item.status || 'Pending'}
@@ -214,7 +293,6 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isFetchingMLS, setIsFetchingMLS] = useState(false);
   const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins'>('architecture');
   const [activeEditTab, setActiveEditTab] = useState<'media' | 'details' | 'narrative' | 'display'>('media');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -267,6 +345,22 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       } catch (err) {
         console.error("Failed to persist new order", err);
       }
+    }
+  };
+
+  const handleNavDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const items = localSettings.navigationItems || [];
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+
+      const newItems = arrayMove(items, oldIndex, newIndex).map((item, index) => ({
+        ...item,
+        order: index
+      }));
+      
+      setLocalSettings({ ...localSettings, navigationItems: newItems });
     }
   };
 
@@ -419,50 +513,6 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       });
     } catch (err) {
       console.error('Failed to log action:', err);
-    }
-  };
-
-  const handleMLSLookup = async () => {
-    if (!editData.mlsNumber) {
-      toast.error("Enter an MLS number first");
-      return;
-    }
-    setIsFetchingMLS(true);
-    try {
-      const result = await fetch('/api/ddf/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mlsNumber: editData.mlsNumber })
-      });
-      
-      const listingData = await result.json();
-
-      if (!result.ok) {
-        throw new Error(listingData.error || "Lookup failed");
-      }
-
-      toast.success('MLS Data Ingested');
-      // Convert CREA dates if needed, or simple calculate DOM
-      const timestamp = Date.parse(listingData.ListingDate);
-      const dom = !isNaN(timestamp) ? Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24)) : 0;
-
-      setEditData({
-        ...editData,
-        title: listingData.Address?.AddressLine1 || editData.title,
-        description: listingData.PublicRemarks || editData.description,
-        img: listingData.Property?.Photo?.[0]?.SequenceId ? `https://cdn.realtor.ca/listing/CREA/${listingData.ListingID}/highres/${listingData.Property.Photo[0].SequenceId}.jpg` : editData.img, // Or whatever is provided by DDF
-        listPrice: listingData.ListPrice || editData.listPrice,
-        propertyType: listingData.Property?.Type || editData.propertyType,
-        beds: listingData.Building?.BedroomsTotal || editData.beds,
-        baths: listingData.Building?.BathroomTotal || editData.baths,
-        sqft: listingData.Building?.SizeInterior || editData.sqft,
-        status: listingData.TransactionType || editData.status
-      });
-    } catch (error: any) {
-      console.error("MLS Lookup failed", error);
-      toast.error(`Lookup failed: ${error.message}`);
-    } finally {
-      setIsFetchingMLS(false);
     }
   };
 
@@ -1191,52 +1241,92 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 </div>
                 
                 <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
-                  <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">Header Links</h4>
-                  <div className="space-y-4">
-                    {(localSettings.navigationItems || []).sort((a,b) => a.order - b.order).map((item, idx) => (
-                      <div key={item.id} className="bg-white/5 border border-white/5 p-4 flex flex-col gap-3 relative group">
-                        <div className="flex justify-between items-center">
-                          <input 
-                            className="bg-transparent border-b border-white/10 text-[10px] uppercase tracking-widest outline-none w-1/2 p-1 focus:border-brick-copper transition-colors" 
-                            value={item.label}
-                            placeholder="Link Label"
-                            onChange={e => {
-                              const newItems = [...(localSettings.navigationItems || [])];
-                              newItems[idx].label = e.target.value;
-                              setLocalSettings({...localSettings, navigationItems: newItems});
-                            }}
-                          />
-                          <button 
-                            onClick={() => {
-                              const newItems = (localSettings.navigationItems || []).filter(i => i.id !== item.id);
-                              setLocalSettings({...localSettings, navigationItems: newItems});
-                            }}
-                            className="text-white/20 hover:text-red-500 transition-opacity"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        <LinkSelector 
-                          value={item.url}
-                          allowListing={false}
-                          onChange={(val) => {
-                            const newItems = [...(localSettings.navigationItems || [])];
-                            newItems[idx].url = val;
-                            setLocalSettings({...localSettings, navigationItems: newItems});
+                  <div className="flex justify-between items-center mb-6">
+                    <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 font-bold">Header Navigation Nodes</h4>
+                    <div className="flex gap-4">
+                      {(localSettings.navigationItems?.length || 0) === 0 && (
+                        <button 
+                          onClick={() => {
+                            const defaultItems = [
+                              { id: 'nav-about', label: 'About', url: '/about', order: 0, hidden: false },
+                              { id: 'nav-services', label: 'Services', url: '/services', order: 1, hidden: false },
+                              { id: 'nav-portfolio', label: 'Portfolio', url: '/', order: 2, hidden: false },
+                              { id: 'nav-inquire', label: 'Inquire', url: '#inquire', order: 3, hidden: false },
+                            ];
+                            setLocalSettings({...localSettings, navigationItems: defaultItems});
                           }}
-                        />
-                      </div>
-                    ))}
-                    <button 
-                      onClick={() => {
-                        const newItems = [...(localSettings.navigationItems || [])];
-                        newItems.push({ id: Date.now().toString(), label: 'New Exploration', url: '#', order: newItems.length });
-                        setLocalSettings({...localSettings, navigationItems: newItems});
-                      }}
-                      className="w-full py-4 border border-dashed border-white/10 text-[9px] uppercase tracking-widest text-white/20 hover:border-brick-copper/50 hover:text-brick-copper transition-all flex items-center justify-center gap-2"
+                          className="text-white/40 hover:text-white flex items-center gap-2 text-[9px] uppercase tracking-widest transition-colors font-bold"
+                        >
+                          Populate Defaults
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => {
+                          const newItems = [...(localSettings.navigationItems || [])];
+                          newItems.push({ id: Date.now().toString(), label: 'New Exploration', url: '#', order: newItems.length, hidden: false });
+                          setLocalSettings({...localSettings, navigationItems: newItems});
+                        }}
+                        className="text-brick-copper hover:text-white flex items-center gap-2 text-[9px] uppercase tracking-widest transition-colors font-bold"
+                      >
+                        <Plus size={12} /> Add Node
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <DndContext 
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleNavDragEnd}
                     >
-                      <Plus size={14} /> Add Navigation Node
-                    </button>
+                      <SortableContext 
+                        items={(localSettings.navigationItems || []).map(i => i.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-3">
+                          {(localSettings.navigationItems || []).sort((a,b) => a.order - b.order).map((item, idx) => (
+                            <SortableNavItem 
+                              key={item.id}
+                              item={item}
+                              onDelete={(id) => {
+                                const newItems = (localSettings.navigationItems || []).filter(i => i.id !== id);
+                                setLocalSettings({...localSettings, navigationItems: newItems});
+                              }}
+                              onToggleHidden={(id) => {
+                                const newItems = [...(localSettings.navigationItems || [])];
+                                const index = newItems.findIndex(i => i.id === id);
+                                if (index !== -1) {
+                                  newItems[index].hidden = !newItems[index].hidden;
+                                  setLocalSettings({...localSettings, navigationItems: newItems});
+                                }
+                              }}
+                              onChangeLabel={(val) => {
+                                const newItems = [...(localSettings.navigationItems || [])];
+                                const index = newItems.findIndex(i => i.id === item.id);
+                                if (index !== -1) {
+                                  newItems[index].label = val;
+                                  setLocalSettings({...localSettings, navigationItems: newItems});
+                                }
+                              }}
+                              onChangeUrl={(val) => {
+                                const newItems = [...(localSettings.navigationItems || [])];
+                                const index = newItems.findIndex(i => i.id === item.id);
+                                if (index !== -1) {
+                                  newItems[index].url = val;
+                                  setLocalSettings({...localSettings, navigationItems: newItems});
+                                }
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                    
+                    {(localSettings.navigationItems?.length || 0) === 0 && (
+                      <div className="py-12 text-center border border-dashed border-white/10 text-white/20">
+                        <p className="text-[9px] uppercase tracking-widest italic">No navigation nodes established.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1534,51 +1624,52 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
                     {activeEditTab === 'media' && (
                       <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <FileUpload 
+                        <ImageSelector 
                           label="Primary Showcase Image"
                           path="portfolio"
-                          onUploadComplete={(url) => setEditData({...editData, img: url})}
+                          value={editData.img || ''}
+                          onChange={(url) => setEditData({...editData, img: url})}
                         />
-                        {editData.img && (
-                          <div className="aspect-video border border-white/10 overflow-hidden bg-charcoal/50 flex items-center justify-center relative group">
-                            <img src={editData.img} className="w-full h-full object-contain" alt="" />
-                            <div className="absolute inset-0 bg-charcoal/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                               <p className="text-[10px] uppercase tracking-[0.4em] font-bold">Primary Asset</p>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
 
                     {activeEditTab === 'details' && (
                       <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="bg-brick-copper/[0.03] p-8 border border-brick-copper/10 space-y-6">
-                           <div className="flex flex-col md:flex-row gap-6">
-                              <div className="flex-1">
-                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold">MLS Network Integration</label>
-                                <div className="flex gap-2">
-                                  <input 
-                                    placeholder="MLS Identification Number"
-                                    className="bg-charcoal/50 border border-brick-copper/20 flex-1 outline-none py-3 px-4 text-[10px] font-mono text-white" 
-                                    value={editData.mlsNumber || ''} 
-                                    onChange={e => setEditData({...editData, mlsNumber: e.target.value})} 
-                                  />
-                                  <button 
-                                    onClick={handleMLSLookup}
-                                    disabled={isFetchingMLS}
-                                    className="px-6 py-3 bg-brick-copper text-charcoal text-[9px] uppercase font-bold tracking-widest hover:bg-white transition-all disabled:opacity-50"
-                                  >
-                                    {isFetchingMLS ? <Loader2 size={12} className="animate-spin" /> : 'Fetch Metadata'}
-                                  </button>
-                                </div>
-                              </div>
-                           </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold">MLS Network Integration</label>
+                                 <div className="flex gap-2">
+                                   <input 
+                                     placeholder="MLS Identification Number"
+                                     className="bg-charcoal/50 border border-brick-copper/20 flex-1 outline-none py-3 px-4 text-[10px] font-mono text-white" 
+                                     value={editData.mlsNumber || ''} 
+                                     onChange={e => setEditData({...editData, mlsNumber: e.target.value})} 
+                                   />
+                                 </div>
+                               </div>
+                               <div className="flex-1">
+                                 <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold">Listing Agent Page</label>
+                                 <div className="flex gap-2">
+                                   <div className="relative flex-1">
+                                     <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={12} />
+                                     <input 
+                                       placeholder="External Listing URL (https://...)"
+                                       className="bg-charcoal/50 border border-brick-copper/20 w-full outline-none py-3 pl-10 pr-4 text-[10px] text-white" 
+                                       value={editData.externalLink || ''} 
+                                       onChange={e => setEditData({...editData, externalLink: e.target.value})} 
+                                     />
+                                   </div>
+                                 </div>
+                               </div>
+                            </div>
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                               <div>
                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
                                 <input 
                                   className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] font-mono text-white" 
                                   value={editData.listPrice || ''} 
+                                  placeholder="$0,000,000"
                                   onChange={e => setEditData({...editData, listPrice: e.target.value})} 
                                 />
                               </div>
@@ -1596,7 +1687,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                 </select>
                               </div>
                               <div>
-                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Commercial Status</label>
+                                <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Listing Status</label>
                                 <select 
                                   className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-[10px] font-mono text-white" 
                                   value={editData.status || ''} 
@@ -1607,6 +1698,46 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                     <option key={status} value={status} className="bg-charcoal">{status}</option>
                                   ))}
                                 </select>
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-3 gap-6 bg-white/[0.02] p-6 border border-white/5 shadow-inner">
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                  <Bed size={10} /> Beds
+                                </label>
+                                <input 
+                                  type="number"
+                                  className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-xs text-white" 
+                                  value={editData.beds || ''} 
+                                  placeholder="0"
+                                  onChange={e => setEditData({...editData, beds: e.target.value})} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                  <Bath size={10} /> Baths
+                                </label>
+                                <input 
+                                  type="number"
+                                  step="0.5"
+                                  className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-xs text-white" 
+                                  value={editData.baths || ''} 
+                                  placeholder="0.0"
+                                  onChange={e => setEditData({...editData, baths: e.target.value})} 
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                  <Square size={10} /> Sqft
+                                </label>
+                                <input 
+                                  type="number"
+                                  className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-xs text-white font-mono" 
+                                  value={editData.sqft || ''} 
+                                  placeholder="0"
+                                  onChange={e => setEditData({...editData, sqft: e.target.value})} 
+                                />
                               </div>
                            </div>
                         </div>
