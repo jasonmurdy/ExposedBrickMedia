@@ -56,14 +56,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { FileUpload } from './FileUpload';
 import { LinkSelector } from './LinkSelector';
 import { ImageSelector } from './ImageSelector';
-import { GoogleGenAI } from '@google/genai';
 import { PuckEditor } from './PuckEditor';
 import { Portfolio } from './PortfolioSections';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import { ADMIN_EMAILS, PROPERTY_TYPES, PROPERTY_STATUSES, PORTFOLIO_CATEGORIES } from '../constants';
-
-// Initialize Gemini on the frontend as per system instructions
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const SortableNavItem = ({ 
   item, 
@@ -766,11 +762,19 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const getAiSuggestion = async (prompt: string, context?: string) => {
     setIsGenerating(true);
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `${prompt}\nContext: ${context || 'None'}\n\nStrict Tone: High-end, minimalist architectural media agency.`,
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          context,
+          systemInstruction: "You are a high-end, minimalist architectural media agency creative director. Respond with polished, aspirational copy."
+        })
       });
-      return response.text || 'No suggestion received.';
+
+      if (!response.ok) throw new Error('AI request failed');
+      const data = await response.json();
+      return data.text || 'No suggestion received.';
     } catch (err) {
       console.error(err);
       return 'AI suggestion unavailable.';
@@ -816,6 +820,29 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       };
       // Use email as doc ID to make rules checking easier
       await setDoc(doc(db, 'admins', email), newAdmin);
+      
+      // TRIGGER EMAIL NOTIFICATION TO NEW ADMIN
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: email,
+            subject: `Administrative Access Granted - ${settings.brandName}`,
+            body: `
+              <div style="font-family: sans-serif; color: #1a1a1a;">
+                <p>Hello,</p>
+                <p>You have been granted administrative privileges for the <strong>${settings.brandName}</strong> digital platform.</p>
+                <p>You can now access the admin dashboard by signing in with your Google account at <strong>${window.location.origin}/?admin=true</strong></p>
+                <p style="margin-top: 20px; font-style: italic;">Welcome to the guardians of the narrative.</p>
+              </div>
+            `
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send admin notification email", e);
+      }
+
       await logAction('ADD_ADMIN', { email });
       setNewAdminEmail('');
     } catch (err) {
@@ -969,6 +996,29 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      // TRIGGER EMAIL NOTIFICATION TO NEW PARTNER
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: email,
+            subject: `Partner Identity Pre-Synchronized - ${settings.brandName}`,
+            body: `
+              <div style="font-family: sans-serif; color: #1a1a1a;">
+                <p>Hello ${displayName},</p>
+                <p>An account has been prepared for you on the <strong>${settings.brandName} Partner Portal</strong>.</p>
+                <p>You can access your brand assets, track referrals, and view your media history by signing in with this email at <strong>${window.location.origin}/portal</strong></p>
+                <p style="margin-top: 20px; color: #c43b2a; font-weight: bold;">We look forward to defining light together.</p>
+              </div>
+            `
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send partner notification email", e);
+      }
+
       toast.success("Partner profile designated");
       await logAction('CREATE_PARTNER', { email, displayName });
     } catch (error) {
@@ -1956,6 +2006,49 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                  </div>
                                </div>
                             </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-white/5">
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                   <ExternalLink size={10} /> Fotello Package
+                                 </label>
+                                 <input 
+                                   placeholder="Fotello direct link"
+                                   className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-[10px] text-white font-mono" 
+                                   value={editData.fotelloUrl || ''} 
+                                   onChange={e => setEditData({...editData, fotelloUrl: e.target.value})} 
+                                 />
+                               </div>
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                   <ExternalLink size={10} /> Matterport Tour
+                                 </label>
+                                 <input 
+                                   placeholder="Matterport scan link"
+                                   className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-[10px] text-white font-mono" 
+                                   value={editData.matterportUrl || ''} 
+                                   onChange={e => setEditData({...editData, matterportUrl: e.target.value})} 
+                                 />
+                               </div>
+                               <div>
+                                 <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                   <FileText size={10} /> Technical Specs (PDF)
+                                 </label>
+                                 <div className="space-y-4">
+                                   <input 
+                                     placeholder="PDF Technical Sheet Link"
+                                     className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-[10px] text-white font-mono" 
+                                     value={editData.specsUrl || ''} 
+                                     onChange={e => setEditData({...editData, specsUrl: e.target.value})} 
+                                   />
+                                   <FileUpload 
+                                      label="Upload Data Sheet" 
+                                      path={`portfolio/${isEditing}/specs`} 
+                                      accept="application/pdf"
+                                      onUploadComplete={(url) => setEditData({...editData, specsUrl: url})}
+                                   />
+                                 </div>
+                               </div>
+                            </div>
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                               <div>
                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
@@ -2582,6 +2675,11 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                   <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full font-black ${user.role === 'preferred' ? 'bg-sand text-charcoal' : 'bg-white/10 text-white/40'}`}>
                                     {user.role || 'client'}
                                   </span>
+                                  {user.isInvitation && (
+                                    <span className="text-[8px] uppercase px-1.5 py-0.5 rounded-full font-black bg-brick-copper/20 text-brick-copper">
+                                      Invitation
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                            </div>

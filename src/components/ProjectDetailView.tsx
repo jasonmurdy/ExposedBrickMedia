@@ -10,10 +10,14 @@ import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, MapPin, Home, Bed, Bath, Square, 
   DollarSign, Clock, ExternalLink, Share2, 
-  ChevronRight, Camera, Grid, Info, CheckCircle2
+  ChevronRight, Camera, Grid, Info, CheckCircle2, Shield, Download, FileText
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { trackMediaInteraction } from '../lib/analytics';
+import { auth, db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+
+import { PDFViewer } from './PDFViewer';
 
 export const ProjectDetailView = () => {
   const { id } = useParams();
@@ -21,6 +25,7 @@ export const ProjectDetailView = () => {
   const { portfolioItems, loading } = useSiteContent();
   const project = portfolioItems?.find(p => p.id === id || p.mlsNumber === id);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [selectedPdf, setSelectedPdf] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     if (project) {
@@ -158,6 +163,72 @@ export const ProjectDetailView = () => {
             </div>
           </motion.div>
 
+          {/* Partner Exclusive Content */}
+          {(project.partnerUids?.includes(auth.currentUser?.uid) || project.teamId === (window as any).currentUserProfile?.teamId) && (
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="pt-8 border-t border-brick-copper/20 space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] uppercase tracking-[0.3em] font-black text-brick-copper">Partner Fulfillment Assets</h4>
+                <div className="flex items-center gap-2 px-2 py-1 bg-brick-copper/10 border border-brick-copper/20 rounded-full">
+                   <Shield size={8} className="text-brick-copper" />
+                   <span className="text-[7px] uppercase tracking-widest text-brick-copper font-bold">Confidential Access</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {project.fotelloUrl && (
+                  <a 
+                    href={project.fotelloUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-brick-copper transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Download size={14} className="text-brick-copper" />
+                      <span className="text-[10px] uppercase tracking-widest font-bold">Fotello Content Package</span>
+                    </div>
+                    <ExternalLink size={12} className="opacity-20 group-hover:opacity-100" />
+                  </a>
+                )}
+                {project.matterportUrl && (
+                  <a 
+                    href={project.matterportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-brick-copper transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Camera size={14} className="text-brick-copper" />
+                      <span className="text-[10px] uppercase tracking-widest font-bold">Unbranded Matterport Tour</span>
+                    </div>
+                    <ExternalLink size={12} className="opacity-20 group-hover:opacity-100" />
+                  </a>
+                )}
+                {project.specsUrl && (
+                  <button 
+                    onClick={() => setSelectedPdf({ url: project.specsUrl, title: `${project.title} - Technical Sheet` })}
+                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-brick-copper transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText size={14} className="text-brick-copper" />
+                      <span className="text-[10px] uppercase tracking-widest font-bold">Quick Specs Technical Sheet</span>
+                    </div>
+                    <ExternalLink size={12} className="opacity-20 group-hover:opacity-100" />
+                  </button>
+                )}
+              </div>
+              
+              <div className="p-4 bg-brick-copper/5 border border-brick-copper/10 rounded-sm">
+                <p className="text-[9px] text-white/40 leading-relaxed italic">
+                  Disclaimer: These assets are provided under our non-exclusive license. Commercial use is restricted to active listing engagement for the specified subject property.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -255,6 +326,34 @@ export const ProjectDetailView = () => {
           )}
         </div>
       </div>
+
+      {/* PDF MODAL REVEAL */}
+      <AnimatePresence>
+        {selectedPdf && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col p-4 md:p-12 lg:p-24"
+          >
+            <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
+               <div className="space-y-1">
+                 <h2 className="font-display text-4xl italic text-white">{selectedPdf.title}</h2>
+                 <p className="text-[10px] uppercase tracking-[0.3em] text-brick-copper font-black">Strategic Partner Document</p>
+               </div>
+               <button 
+                 onClick={() => setSelectedPdf(null)}
+                 className="w-12 h-12 bg-white/5 border border-white/10 flex items-center justify-center hover:bg-brick-copper hover:text-charcoal transition-all"
+               >
+                 <Shield size={20} className="rotate-45" />
+               </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+               <PDFViewer fileUrl={selectedPdf.url} title={selectedPdf.title} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

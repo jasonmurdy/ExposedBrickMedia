@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, auth, storage } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
-import { collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, addDoc, serverTimestamp, deleteDoc, getDocs, limit } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, addDoc, serverTimestamp, deleteDoc, getDocs, limit, or } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { Link } from 'react-router-dom';
@@ -15,9 +15,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 import { useSiteContent } from '../lib/SiteContentContext';
 
+import { PDFViewer } from './PDFViewer';
+
 export function ClientDashboard() {
   const { settings, isAdmin } = useSiteContent();
   const [activeTab, setActiveTab] = useState<'profile' | 'referrals' | 'listings' | 'resources' | 'team'>('profile');
+  const [selectedPdf, setSelectedPdf] = useState<{ url: string; title: string } | null>(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [referrals, setReferrals] = useState<any[]>([]);
@@ -115,10 +118,16 @@ export function ClientDashboard() {
       setReferrals(refs);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'referrals'));
 
-    // Load Associated Listings (where the partner UID is present in the assignment array)
+    // Load Associated Listings (where the partner UID is present in the assignment array OR teamId matches)
     const listingsQuery = currentUser.uid === auth.currentUser?.uid && (isAdmin || userProfile?.role === 'admin') 
       ? query(collection(db, 'portfolio_items')) // Admins see all
-      : query(collection(db, 'portfolio_items'), where('partnerUids', 'array-contains', currentUser.uid));
+      : query(
+          collection(db, 'portfolio_items'), 
+          or(
+            where('partnerUids', 'array-contains', currentUser.uid),
+            where('teamId', '==', userProfile?.teamId || 'NONE')
+          )
+        );
     
     const unSubListings = onSnapshot(listingsQuery, (snapshot) => {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -214,6 +223,33 @@ export function ClientDashboard() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      // TRIGGER EMAIL NOTIFICATION
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: settings.contactInfo?.email || 'jasonmurdy@gmail.com', // Admin email
+            subject: `New Referral Activation from ${userProfile?.displayName || currentUser?.email}`,
+            body: `
+              <div style="font-family: sans-serif; color: #1a1a1a;">
+                <p><strong>Referrer:</strong> ${userProfile?.displayName || currentUser?.email}</p>
+                <div style="margin: 20px 0; padding: 15px; border-left: 4px solid #c43b2a; background: #f9f9f9;">
+                  <p><strong>Target Agent:</strong> ${newReferral.name}</p>
+                  <p><strong>Email:</strong> ${newReferral.email || 'N/A'}</p>
+                  <p><strong>Phone:</strong> ${newReferral.phone || 'N/A'}</p>
+                  <p><strong>Strategic Notes:</strong> ${newReferral.notes || 'No additional notes provided.'}</p>
+                </div>
+                <p style="font-size: 11px; color: #666;">This referral was dispatched via the Brand Hub Partner Portal.</p>
+              </div>
+            `
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send referral notification email", e);
+      }
+
       toast.success("Referral submitted successfully!");
       setNewReferral({ name: '', phone: '', email: '', notes: '' });
       setShowReferralForm(false);
@@ -732,12 +768,19 @@ export function ClientDashboard() {
                           <h4 className="text-[10px] uppercase tracking-[0.3em] font-black text-brick-copper mb-6">Strategic Guides</h4>
                           <div className="space-y-6">
                              {[
-                               { label: 'Architectural Presentation Guide', icon: Globe },
-                               { label: 'Social Media Deployment Strategy', icon: Globe },
-                               { label: 'Digital Narrative Protocol', icon: Globe }
+                               { label: 'Architectural Presentation Guide', url: 'https://firebasestorage.googleapis.com/v0/b/exposed-brick-media.appspot.com/o/guides%2Fpresentation.pdf?alt=media' },
+                               { label: 'Social Media Deployment Strategy', url: 'https://firebasestorage.googleapis.com/v0/b/exposed-brick-media.appspot.com/o/guides%2Fsocial.pdf?alt=media' },
+                               { label: 'Digital Narrative Protocol', url: 'https://firebasestorage.googleapis.com/v0/b/exposed-brick-media.appspot.com/o/guides%2Fprotocol.pdf?alt=media' }
                              ].map((guide, i) => (
-                               <button key={i} className="w-full flex items-center justify-between group">
-                                  <span className="text-[10px] uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">{guide.label}</span>
+                               <button 
+                                 key={i} 
+                                 onClick={() => setSelectedPdf({ url: guide.url, title: guide.label })}
+                                 className="w-full flex items-center justify-between group text-left"
+                               >
+                                  <div className="flex items-center gap-3">
+                                    <FileText size={12} className="text-white/20 group-hover:text-brick-copper" />
+                                    <span className="text-[10px] uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">{guide.label}</span>
+                                  </div>
                                   <ChevronRight size={12} className="text-white/10 group-hover:text-brick-copper" />
                                </button>
                              ))}
@@ -873,6 +916,34 @@ export function ClientDashboard() {
           </div>
         )}
       </div>
+
+      {/* PDF MODAL REVEAL */}
+      <AnimatePresence>
+        {selectedPdf && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col p-4 md:p-12 lg:p-24"
+          >
+            <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
+               <div className="space-y-1">
+                 <h2 className="font-display text-4xl italic text-white">{selectedPdf.title}</h2>
+                 <p className="text-[10px] uppercase tracking-[0.3em] text-brick-copper font-black">Strategic Partner Document</p>
+               </div>
+               <button 
+                 onClick={() => setSelectedPdf(null)}
+                 className="w-12 h-12 bg-white/5 border border-white/10 flex items-center justify-center hover:bg-brick-copper hover:text-charcoal transition-all"
+               >
+                 <Shield size={20} className="rotate-45" />
+               </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+               <PDFViewer fileUrl={selectedPdf.url} title={selectedPdf.title} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

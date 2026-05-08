@@ -18,6 +18,7 @@ import { LinkButton } from "../components/LinkButton";
 import { Button as ShadcnButton } from "../components/ui/button";
 
 import { FileUpload } from "../components/FileUpload";
+import { PDFViewer } from "../components/PDFViewer";
 
 // Reusable Elementor-style Spacing Control
 const SpacingControl = {
@@ -268,6 +269,11 @@ export type PuckConfig = {
     BrandGallery: {
       title: string;
       category?: string;
+      width: "full" | "half";
+    };
+    PDFReader: {
+      url: string;
+      title?: string;
       width: "full" | "half";
     };
   };
@@ -587,7 +593,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
               <div className="p-8 md:p-12">
                 <div className="flex items-center justify-between mb-12 border-b border-white/5 pb-6">
                    <h2 className="font-display text-4xl italic text-white">{title}</h2>
-                   <span className="text-[10px] uppercase tracking-[0.3em] text-brick-copper font-black">{category || 'Global Archive'}</span>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -613,6 +618,28 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
                       <p className="text-[10px] uppercase tracking-widest">No matching resources discovered.</p>
                    </div>
                 )}
+              </div>
+            </ComponentWrapper>
+          );
+        }
+      },
+      PDFReader: {
+        fields: {
+          url: MediaField("PDF URL", "image/*", "documents") as any, // Using image/* for file selection UI, but it will store any URL
+          title: { type: "text" },
+          width: WidthField as any,
+        },
+        defaultProps: {
+          url: "",
+          title: "Technical Archive",
+          width: "full"
+        },
+        render: ({ url, title, width }) => {
+          if (!url) return <div className="p-12 text-center opacity-20 italic">Upload a PDF to initialize the reader.</div>;
+          return (
+            <ComponentWrapper width={width}>
+              <div className="p-4 md:p-8">
+                <PDFViewer fileUrl={url} title={title} />
               </div>
             </ComponentWrapper>
           );

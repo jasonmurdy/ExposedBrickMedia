@@ -50,6 +50,30 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
         ...formData,
         createdAt: serverTimestamp()
       });
+
+      // TRIGGER EMAIL NOTIFICATION
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: settings.contactInfo?.email || 'jasonmurdy@gmail.com', // Primary admin email
+            subject: `New Inquiry: ${formData.realtorName} - ${formData.propertyAddress}`,
+            body: `
+              <div style="font-family: sans-serif; color: #1a1a1a;">
+                <p><strong>Property Address:</strong> ${formData.propertyAddress}</p>
+                <p><strong>Realtor Name:</strong> ${formData.realtorName}</p>
+                <p><strong>Email:</strong> ${formData.email}</p>
+                <p><strong>Service Type:</strong> ${formData.serviceType || 'Photography'}</p>
+                <p style="margin-top: 20px; color: #c43b2a; font-weight: bold;">A new inquiry has been submitted via the website.</p>
+              </div>
+            `
+          })
+        });
+      } catch (e) {
+        console.error("Failed to send notification email", e);
+      }
+
       setSubmitted(true);
       trackGenerateLead({
         form_name: override?.title || settings.inquiryTitle || "booking_request",

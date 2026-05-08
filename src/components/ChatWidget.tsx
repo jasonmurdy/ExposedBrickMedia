@@ -5,9 +5,6 @@ import { db, auth } from '../lib/firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { useSiteContent } from '../lib/SiteContentContext';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 interface Message {
   id: string;
@@ -88,25 +85,25 @@ export const ChatWidget = () => {
         createTime: serverTimestamp(),
       });
 
-      // 2. Generate response using Gemini API with history
+      // 2. Generate response using backend proxy
       const history = messages.map(m => ([
         { role: 'user', parts: [{ text: m.prompt }] },
         { role: 'model', parts: [{ text: m.response || '' }] }
       ])).flat().filter(p => p.parts[0].text !== '');
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          ...history,
-          { role: 'user', parts: [{ text: finalPrompt }] }
-        ],
-        config: {
-          systemInstruction: settings.chatbotPersona || "You are a helpful assistant.",
-          temperature: 0.7,
-        }
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          history: history,
+          systemInstruction: settings.chatbotPersona || "You are a helpful assistant for Exposed Brick Media, a high-end real estate photography and cinematography agency."
+        })
       });
 
-      const responseText = response.text || "I'm sorry, I couldn't process that.";
+      if (!response.ok) throw new Error('AI chat failed');
+      const data = await response.json();
+      const responseText = data.text || "I'm sorry, I couldn't process that.";
 
       // 3. Update the document with the response
       await setDoc(chatRef, { response: responseText }, { merge: true });

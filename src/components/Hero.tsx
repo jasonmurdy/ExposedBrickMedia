@@ -20,15 +20,6 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
 
-  if (loading) {
-    return <div className="animate-pulse h-32 w-full max-w-sm bg-white/5 rounded-sm mb-12" />;
-  }
-
-  const displayTitle1 = override?.title1 || settings.heroTitlePart1 || "Luxury";
-  const displayTitle2 = override?.title2 || settings.heroTitlePart2 || "Architecture";
-  const displayAccent = override?.accent || settings.heroTitleAccent || "Studios";
-  const displayTagline = override?.tagline || settings.tagline || "Defined by Light";
-
   const saveSetting = async (field: string, value: string) => {
     try {
       await updateDoc(doc(db, 'settings', 'site'), {
@@ -96,7 +87,16 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
       </span>
     );
   };
-  
+
+  if (loading) {
+    return <div className="animate-pulse h-32 w-full max-w-sm bg-white/5 rounded-sm mb-12" />;
+  }
+
+  const displayTitle1 = override?.title1 || settings.heroTitlePart1 || "Luxury";
+  const displayTitle2 = override?.title2 || settings.heroTitlePart2 || "Architecture";
+  const displayAccent = override?.accent || settings.heroTitleAccent || "Studios";
+  const displayTagline = override?.tagline || settings.tagline || "Defined by Light";
+
   return (
     <div className={`mb-12 ${alignment === 'center' ? 'text-center flex flex-col items-center' : ''}`}>
       <Link to="/" onClick={(e) => isEditMode && e.preventDefault()}>
@@ -356,6 +356,8 @@ export const HeroVisual = ({
   const { settings, isEditMode, loading } = useSiteContent();
   const [isEditing, setIsEditing] = useState(false);
   const [imgUrl, setImgUrl] = useState(settings.heroImage || '');
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [tempValue, setTempValue] = useState('');
 
   if (loading) {
     return <div className="relative h-80 sm:h-[60vh] lg:h-[50%] w-full bg-charcoal animate-pulse" />;
@@ -367,6 +369,74 @@ export const HeroVisual = ({
       updatedAt: serverTimestamp()
     });
     setIsEditing(false);
+  };
+
+  const saveSetting = async (field: string, value: string) => {
+    try {
+      await updateDoc(doc(db, 'settings', 'site'), {
+        [field]: value,
+        updatedAt: serverTimestamp()
+      });
+      setEditingField(null);
+    } catch (error) {
+      console.error("Error updating setting:", error);
+    }
+  };
+
+  const EditableText = ({ field, value, className, multiline = false }: { field: string, value: string, className: string, multiline?: boolean }) => {
+    const isEditing = editingField === field && isEditMode;
+    
+    if (isEditing) {
+      return (
+        <span className="relative group/edit">
+          {multiline ? (
+            <textarea
+              className={`${className} bg-transparent border-b border-brick-copper outline-none resize-none w-full`}
+              value={tempValue}
+              onChange={(e) => setTempValue(e.target.value)}
+              autoFocus
+              onBlur={() => saveSetting(field, tempValue)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  saveSetting(field, tempValue);
+                }
+              }}
+            />
+          ) : (
+            <input
+              type="text"
+              className={`${className} bg-transparent border-b border-brick-copper outline-none w-full`}
+              value={tempValue}
+              onChange={(e) => setTempValue(e.target.value)}
+              autoFocus
+              onBlur={() => saveSetting(field, tempValue)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveSetting(field, tempValue);
+              }}
+            />
+          )}
+          <span className="absolute top-0 -right-8 flex gap-1">
+             <button onClick={() => saveSetting(field, tempValue)} className="text-green-500"><Check size={14} /></button>
+          </span>
+        </span>
+      );
+    }
+
+    return (
+      <span 
+        className={`${className} relative ${isEditMode ? 'cursor-pointer hover:ring-1 hover:ring-brick-copper/30 rounded px-1 transition-all' : ''}`}
+        onClick={() => {
+          if (isEditMode) {
+            setEditingField(field);
+            setTempValue(value || '');
+          }
+        }}
+      >
+        {value}
+        {isEditMode && <Edit3 size={10} className="absolute -top-3 -right-3 opacity-0 group-hover:opacity-100 text-brick-copper" />}
+      </span>
+    );
   };
 
   const displayImage = imageUrl || settings.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=1200";
@@ -388,8 +458,9 @@ export const HeroVisual = ({
         <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-transparent opacity-60" />
         <div className="absolute bottom-8 left-8 right-8 flex flex-wrap justify-between items-end gap-4">
           <div className="hidden lg:block">
-            <span className="text-[9px] uppercase tracking-[0.3em] bg-bg-primary/80 px-3 py-1 border border-border-subtle">01 / Site Identity</span>
-            <h2 className="font-display text-2xl mt-3 text-text-primary/90 italic">{settings.brandName}</h2>
+            <h2 className="font-display text-2xl mt-3 text-text-primary/90 italic">
+              <EditableText field="brandName" value={settings.brandName || "Exposed Brick"} className="inline" />
+            </h2>
           </div>
           
           {showCta && href && (
