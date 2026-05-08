@@ -8,6 +8,8 @@ import { BrandHeader, Navbar, HeroVisual, MobileNavbar } from './components/Hero
 import { Portfolio, Services } from './components/PortfolioSections';
 import { BookingForm, FooterContent } from './components/BookingAndFooter';
 import { ProjectDetailView } from './components/ProjectDetailView';
+import { PartnerProfile } from './components/PartnerProfile';
+import { TeamProfile } from './components/TeamProfile';
 import { ChatWidget } from './components/ChatWidget';
 import { ClientDashboard } from './components/ClientDashboard';
 import AboutPage from './pages/About';
@@ -43,10 +45,11 @@ function MainLayout() {
   usePageTracking();
   const [showAdmin, setShowAdmin] = useState(false);
   const [showPuck, setShowPuck] = useState(false);
-  const { isAdmin, settings, isEditMode, setIsEditMode, pages, isLight, setIsLight } = useSiteContent();
+  const { isAdmin, settings, isEditMode, setIsEditMode, pages, isLight, setIsLight, loading } = useSiteContent();
 
   const location = useLocation();
   const isPortal = location.pathname.startsWith('/portal');
+
   const slugFromPath = location.pathname.startsWith('/p/') ? location.pathname.split('/p/')[1] : null;
   const currentPage = slugFromPath ? pages.find(p => p.slug === slugFromPath) : null;
 
@@ -84,6 +87,20 @@ function MainLayout() {
     }
   }, [location.pathname]);
 
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-bg-primary flex items-center justify-center z-[200]">
+        <div className="flex flex-col items-center gap-6">
+          <Loader2 className="text-brick-copper animate-spin" size={48} strokeWidth={1} />
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.5em] font-black text-brick-copper">EB MEDIA</span>
+            <span className="text-[8px] uppercase tracking-widest text-text-primary/30">System Initialization</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const renderContent = () => {
     return (
       <AnimatePresence mode="wait">
@@ -94,6 +111,8 @@ function MainLayout() {
           <Route path="/inquiry" element={<InquiryPage />} />
           <Route path="/p/:slug" element={<DynamicPageView />} />
           <Route path="/listing/:id" element={<ProjectDetailView />} />
+          <Route path="/partners/:partnerId" element={<PartnerProfile />} />
+          <Route path="/teams/:teamId" element={<TeamProfile />} />
           <Route path="/portal" element={<ClientDashboard />} />
         </Routes>
       </AnimatePresence>

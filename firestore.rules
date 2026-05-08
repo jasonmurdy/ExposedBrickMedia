@@ -41,6 +41,7 @@ service cloud.firestore {
         && data.category is string && data.category.size() <= 200
         && data.img is string && data.img.size() <= 5000
         && (data.get('url', null) == null || (data.url is string && data.url.size() <= 5000))
+        && (data.get('deliveryUrl', null) == null || (data.deliveryUrl is string && data.deliveryUrl.size() <= 5000))
         && (data.get('description', null) == null || (data.description is string && data.description.size() <= 10000))
         && (data.get('gallery', null) == null || (data.gallery is list))
         && (data.get('mlsNumber', null) == null || (data.mlsNumber is string && data.mlsNumber.size() <= 200))
@@ -144,15 +145,28 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.keys().hasAll(['email', 'createdAt'])
         && data.email is string && data.email.size() <= 200
+        && (data.get('uid', null) == null || (data.uid is string && data.uid.size() <= 128))
         && (data.get('displayName', null) == null || (data.displayName is string && data.displayName.size() <= 200))
         && (data.get('headshotUrl', null) == null || (data.headshotUrl is string && data.headshotUrl.size() <= 2000))
         && (data.get('logoUrl', null) == null || (data.logoUrl is string && data.logoUrl.size() <= 2000))
+        && (data.get('teamId', null) == null || (data.teamId is string && data.teamId.size() <= 128))
         && (data.get('instagram', null) == null || (data.instagram is string && data.instagram.size() <= 200))
         && (data.get('facebook', null) == null || (data.facebook is string && data.facebook.size() <= 200))
         && (data.get('linkedin', null) == null || (data.linkedin is string && data.linkedin.size() <= 200))
         && (data.get('bio', null) == null || (data.bio is string && data.bio.size() <= 5000))
-        && (data.get('role', null) == null || (data.role is string && (data.role == 'client' || data.role == 'partner' || data.role == 'admin')))
+        && (data.get('role', null) == null || (data.role is string && (data.role == 'client' || data.role == 'partner' || data.role == 'admin' || data.role == 'preferred')))
+        && (data.get('resources', null) == null || (data.resources is list))
         && (data.get('updatedAt', null) == null || true);
+    }
+
+    function isValidTeam(data) {
+      return data.keys().hasAll(['name', 'createdAt'])
+        && data.name is string && data.name.size() <= 200
+        && (data.get('description', null) == null || (data.description is string && data.description.size() <= 5000))
+        && (data.get('logoUrl', null) == null || (data.logoUrl is string && data.logoUrl.size() <= 2000))
+        && (data.get('leaderUid', null) == null || (data.leaderUid is string && data.leaderUid.size() <= 128))
+        && (data.get('members', null) == null || (data.members is list))
+        && (data.get('brandGuideUrl', null) == null || (data.brandGuideUrl is string && data.brandGuideUrl.size() <= 2000));
     }
 
     function isValidReferral(data) {
@@ -258,17 +272,33 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
-    match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == userId 
-        && isValidUser(incoming())
-        && isValidId(userId)
+    match /teams/{teamId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidTeam(incoming()) && isValidId(teamId)
         && incoming().createdAt == request.time;
-      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+      allow update: if isAdmin() && isValidTeam(incoming())
+        && incoming().createdAt == existing().createdAt
+        && (incoming().get('updatedAt', null) == null || incoming().updatedAt == request.time);
+      allow delete: if isAdmin();
+    }
+
+    match /brand_resources/{resourceId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if (isSignedIn() && (request.auth.uid == userId || request.auth.uid == resource.data.get('uid', '') || isAdmin())) || 
+                     (resource.data.get('role', 'client') in ['partner', 'preferred']);
+      allow create: if (isSignedIn() && request.auth.uid == userId) || isAdmin() 
+        && isValidUser(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if (isSignedIn() && (request.auth.uid == userId || request.auth.uid == existing().get('uid', ''))) || isAdmin()
         && isValidUser(incoming())
         && incoming().createdAt == existing().createdAt
         && (incoming().get('updatedAt', null) == null || incoming().updatedAt == request.time)
-        && (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'headshotUrl', 'logoUrl', 'instagram', 'facebook', 'linkedin', 'bio', 'updatedAt']))
+        && (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'headshotUrl', 'logoUrl', 'instagram', 'facebook', 'linkedin', 'bio', 'updatedAt', 'uid']))
+        && (isAdmin() || (incoming().get('uid', existing().get('uid', '')) == request.auth.uid && existing().get('uid', null) == null))
         && (isAdmin() || incoming().get('role', existing().get('role', 'client')) == existing().get('role', 'client'));
     }
 

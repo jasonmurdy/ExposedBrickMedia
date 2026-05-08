@@ -12,13 +12,17 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', override?: { title1: string, title2: string, accent: string, tagline: string } }) => {
-  const { settings, isEditMode, isAdmin } = useSiteContent();
+  const { settings, isEditMode, isAdmin, loading } = useSiteContent();
   const currentTheme = theme || 'dark';
   const logoUrl = currentTheme === 'light' ? settings.logoLight : settings.logoDark;
   const alignment = settings.heroAlignment || 'left';
   
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
+
+  if (loading) {
+    return <div className="animate-pulse h-32 w-full max-w-sm bg-white/5 rounded-sm mb-12" />;
+  }
 
   const displayTitle1 = override?.title1 || settings.heroTitlePart1 || "Luxury";
   const displayTitle2 = override?.title2 || settings.heroTitlePart2 || "Architecture";
@@ -193,20 +197,7 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
           {theme === 'light' ? <CloudMoon size={22} strokeWidth={2.5} /> : <CloudSun size={22} strokeWidth={2.5} />}
         </button>
         
-        {/* Dynamic Pages in Nav */}
-        {pages.filter(p => p.showInNav).map(page => (
-          <Link 
-            key={page.id}
-            to={`/p/${page.slug}`}
-            className={`transition-colors uppercase text-[10px] tracking-widest font-medium ${
-              location.pathname === `/p/${page.slug}` ? 'text-brick-copper' : 'text-text-primary/70 hover:text-brick-copper'
-            }`}
-          >
-            {page.title}
-          </Link>
-        ))}
-
-        {/* Custom Navigation Items (Now including defaults) */}
+        {/* Custom Navigation Items (Now including pages managed via admin) */}
         {navItems
           .filter(item => !item.hidden)
           .sort((a,b) => a.order - b.order)
@@ -307,6 +298,7 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
             className="fixed inset-0 z-[55] bg-bg-primary pt-24 px-8 overflow-y-auto"
           >
             <div className="flex flex-col gap-8 py-12">
+              {/* Navigation Items (Master List) */}
               {navItems
                 .filter(item => !item.hidden)
                 .sort((a,b) => a.order - b.order)
@@ -337,17 +329,6 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
                     </a>
                   );
                 })}
-
-              {pages.filter(p => p.showInNav).map(page => (
-                <Link 
-                  key={page.id} 
-                  to={`/p/${page.slug}`} 
-                  onClick={closeMenu}
-                  className={`text-2xl font-display italic ${location.pathname === `/p/${page.slug}` ? 'text-brick-copper' : 'text-text-primary/60'}`}
-                >
-                  {page.title}
-                </Link>
-              ))}
             </div>
           </motion.div>
         )}
@@ -372,9 +353,13 @@ export const HeroVisual = ({
   ctaInternalPage?: string, 
   ctaExternalUrl?: string 
 }) => {
-  const { settings, isEditMode } = useSiteContent();
+  const { settings, isEditMode, loading } = useSiteContent();
   const [isEditing, setIsEditing] = useState(false);
   const [imgUrl, setImgUrl] = useState(settings.heroImage || '');
+
+  if (loading) {
+    return <div className="relative h-80 sm:h-[60vh] lg:h-[50%] w-full bg-charcoal animate-pulse" />;
+  }
 
   const saveImage = async () => {
     await updateDoc(doc(db, 'settings', 'site'), {

@@ -6,7 +6,7 @@
 import React, { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { MoveUpRight } from "lucide-react";
+import { MoveUpRight, Shield, User, Globe, Mail, Phone, Download, FileText, Box as BoxIcon } from "lucide-react";
 import { Config, DropZone } from "@measured/puck";
 import { HeroVisual, BrandHeader } from "../components/Hero";
 import { Portfolio, Services } from "../components/PortfolioSections";
@@ -259,11 +259,23 @@ export type PuckConfig = {
       align: "left" | "center" | "right";
       width: "full" | "half";
     };
+    PartnerShowcase: {
+      partnerId: string;
+      layout: "profile" | "card";
+      showAssets: boolean;
+      width: "full" | "half";
+    };
+    BrandGallery: {
+      title: string;
+      category?: string;
+      width: "full" | "half";
+    };
   };
 };
 
-export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Config<PuckConfig> => {
+export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], partners: any[] = [], teams: any[] = [], brandResources: any[] = []): Config<PuckConfig> => {
   const pageOptions = pages.map(p => ({ label: p.title || p.slug, value: p.slug }));
+  const partnerOptions = partners.map(p => ({ label: p.displayName, value: p.id }));
   
   const LinkField = {
     type: "custom" as const,
@@ -455,6 +467,152 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = []): Con
             <ComponentWrapper width={width}>
               <div className={`flex justify-${justify} my-4`}>
                 <LinkButton link={link} />
+              </div>
+            </ComponentWrapper>
+          );
+        }
+      },
+      PartnerShowcase: {
+        fields: {
+          partnerId: {
+            type: "select",
+            options: partnerOptions
+          },
+          layout: {
+            type: "radio",
+            options: [
+              { label: "Full Profile", value: "profile" },
+              { label: "Compact Card", value: "card" }
+            ]
+          },
+          showAssets: { type: "radio", options: [{ label: "Yes", value: true }, { label: "No", value: false }] },
+          width: WidthField as any,
+        },
+        defaultProps: {
+          partnerId: partners[0]?.id || "",
+          layout: "card",
+          showAssets: false,
+          width: "full"
+        },
+        render: ({ partnerId, layout, showAssets, width }) => {
+          const partner = partners.find(p => p.id === partnerId);
+          if (!partner) return <div className="p-8 text-center opacity-20 italic">Select a verified partner to display.</div>;
+
+          if (layout === 'card') {
+            return (
+              <ComponentWrapper width={width}>
+                <div className="p-8">
+                  <Link to={`/partners/${partner.id}`} className="group block bg-white/5 border border-white/5 hover:border-brick-copper/30 transition-all p-6">
+                    <div className="flex items-center gap-6">
+                      <div className="w-20 h-20 overflow-hidden bg-charcoal border border-white/5 grayscale group-hover:grayscale-0 transition-all">
+                        {partner.headshotUrl ? (
+                           <img src={partner.headshotUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center opacity-20"><User size={32} /></div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-display text-2xl italic text-white group-hover:text-brick-copper transition-colors">{partner.displayName}</h4>
+                        <p className="text-[10px] uppercase tracking-widest text-white/40">{partner.role || 'Strategic Partner'}</p>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              </ComponentWrapper>
+            );
+          }
+
+          return (
+            <ComponentWrapper width={width}>
+              <div className="p-8 md:p-12 lg:p-16 space-y-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                   <div className="aspect-square bg-charcoal border border-white/5 overflow-hidden grayscale">
+                      {partner.headshotUrl ? (
+                         <img src={partner.headshotUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                         <div className="w-full h-full flex items-center justify-center opacity-10"><Shield size={120} /></div>
+                      )}
+                   </div>
+                   <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                         <span className="w-12 h-[1px] bg-brick-copper" />
+                         <span className="text-[10px] uppercase tracking-widest text-brick-copper font-black">Verified Narrative Advisor</span>
+                      </div>
+                      <h3 className="font-display text-5xl md:text-7xl italic leading-none">{partner.displayName}<span className="text-brick-copper">.</span></h3>
+                      <p className="text-text-primary/60 italic font-serif leading-relaxed text-lg">{partner.bio || "Crafting premium architectural experiences through high-fidelity visual narratives."}</p>
+                      <div className="flex gap-4 pt-4">
+                         <Link to={`/partners/${partner.id}`} className="px-8 py-3 bg-brick-copper text-charcoal text-[9px] uppercase font-black tracking-widest hover:bg-white transition-all">View Showcase</Link>
+                         {partner.email && <a href={`mailto:${partner.email}`} className="w-10 h-10 border border-white/10 flex items-center justify-center hover:bg-white/5 transition-all"><Mail size={14} /></a>}
+                      </div>
+                   </div>
+                </div>
+
+                {showAssets && partner.resources && partner.resources.length > 0 && (
+                  <div className="pt-12 border-t border-white/5">
+                     <h5 className="text-[11px] uppercase tracking-[0.4em] text-white/30 mb-8">Direct Brand Resources</h5>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {partner.resources.map((res: any, idx: number) => (
+                          <div key={idx} className="bg-white/5 border border-white/5 p-6 hover:border-brick-copper/50 transition-all flex flex-col justify-between">
+                             <div className="mb-6">
+                                <FileText className="text-brick-copper/40 mb-3" size={16} />
+                                <h6 className="text-sm font-display italic text-white">{res.name}</h6>
+                             </div>
+                             <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-[9px] uppercase tracking-widest text-brick-copper border-b border-brick-copper/20 self-start hover:text-white transition-colors">Download Asset</a>
+                          </div>
+                        ))}
+                     </div>
+                  </div>
+                )}
+              </div>
+            </ComponentWrapper>
+          );
+        }
+      },
+      BrandGallery: {
+        fields: {
+          title: { type: "text" },
+          category: { type: "text" },
+          width: WidthField as any,
+        },
+        defaultProps: {
+          title: "Brand Artifacts",
+          category: "Templates",
+          width: "full"
+        },
+        render: ({ title, category, width }) => {
+          const resources = brandResources.filter(r => !category || r.category === category);
+          
+          return (
+            <ComponentWrapper width={width}>
+              <div className="p-8 md:p-12">
+                <div className="flex items-center justify-between mb-12 border-b border-white/5 pb-6">
+                   <h2 className="font-display text-4xl italic text-white">{title}</h2>
+                   <span className="text-[10px] uppercase tracking-[0.3em] text-brick-copper font-black">{category || 'Global Archive'}</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                   {resources.map(res => (
+                     <div key={res.id} className="group relative bg-white/5 border border-white/5 p-8 transition-all hover:bg-black/40">
+                        <div className="flex justify-between items-start mb-8">
+                           <div className="w-12 h-12 bg-charcoal border border-white/5 flex items-center justify-center text-brick-copper transition-all group-hover:scale-110">
+                              <BoxIcon size={20} />
+                           </div>
+                           <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-brick-copper transition-colors">
+                              <Download size={18} />
+                           </a>
+                        </div>
+                        <p className="text-[8px] uppercase tracking-widest text-white/30 mb-2">{res.category}</p>
+                        <h4 className="font-display text-xl italic text-white mb-6 leading-tight">{res.title}</h4>
+                        <div className="h-[1px] w-full bg-white/5 group-hover:bg-brick-copper/30 transition-colors" />
+                     </div>
+                   ))}
+                </div>
+                {resources.length === 0 && (
+                   <div className="py-20 text-center border border-dashed border-white/5 opacity-20">
+                      <FileText size={32} className="mx-auto mb-4" />
+                      <p className="text-[10px] uppercase tracking-widest">No matching resources discovered.</p>
+                   </div>
+                )}
               </div>
             </ComponentWrapper>
           );

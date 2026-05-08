@@ -8,6 +8,7 @@
         "title": { "type": "string" },
         "category": { "type": "string" },
         "img": { "type": "string" },
+        "deliveryUrl": { "type": "string" },
         "description": { "type": "string" },
         "gallery": { "type": "array" },
         "bannerText": { "type": "string" },
@@ -29,6 +30,8 @@
         "rowSpan": { "type": "number" },
         "type": { "type": "string" },
         "panel": { "type": "string" },
+        "partnerUid": { "type": "string" },
+        "partnerUids": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -110,6 +113,7 @@
       "description": "User profile containing brand assets and roles",
       "type": "object",
       "properties": {
+        "uid": { "type": "string" },
         "email": { "type": "string" },
         "displayName": { "type": "string" },
         "headshotUrl": { "type": "string" },
@@ -118,11 +122,29 @@
         "facebook": { "type": "string" },
         "linkedin": { "type": "string" },
         "bio": { "type": "string" },
-        "role": { "type": "string", "enum": ["client", "partner", "admin"] },
+        "teamId": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "partner", "admin", "preferred"] },
+        "resources": { "type": "array", "items": { "type": "object" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "createdAt"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "A group of agents associated with a single brand/group.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "leaderUid": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "brandGuideUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "createdAt"]
     },
     "Referral": {
       "title": "Referral",
@@ -182,6 +204,10 @@
     "users": {
       "schema": "User",
       "description": "User profiles including brand assets."
+    },
+    "teams": {
+      "schema": "Team",
+      "description": "Teams grouping multiple partners."
     },
     "referrals": {
       "schema": "Referral",

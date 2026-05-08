@@ -21,7 +21,7 @@ interface SiteSettings {
   servicesTitle?: string;
   servicesSubtitle?: string;
   homeSectionsOrder?: string[]; 
-  navigationItems?: { id: string; label: string; url: string; order: number; hidden?: boolean }[];
+  navigationItems?: { id: string; label: string; url: string; order: number; hidden?: boolean; isPage?: boolean }[];
   socialLinks?: { id: string; platform: 'instagram' | 'twitter' | 'linkedin' | 'facebook'; url: string }[];
   contactInfo?: { email: string; phone: string; address: string };
   fontTitle?: 'Prata' | 'Montserrat' | 'Inter' | 'Playfair Display';
@@ -68,6 +68,9 @@ interface SiteContentContextType {
   pages: CustomPage[];
   services: ServiceItem[];
   portfolioItems: any[];
+  partners: any[];
+  teams: any[];
+  brandResources: any[];
   loading: boolean;
   isAdmin: boolean;
   isEditMode: boolean;
@@ -77,45 +80,44 @@ interface SiteContentContextType {
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
-  brandName: 'The Exposed Brick',
-  logoText: 'EB',
+  brandName: '',
+  logoText: '',
   logoLight: '',
   logoDark: '',
-  tagline: 'Defined by Light',
-  heroTitlePart1: 'The',
-  heroTitlePart2: 'Exposed',
-  heroTitleAccent: 'Brick',
-  heroImage: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=1200',
+  tagline: '',
+  heroTitlePart1: '',
+  heroTitlePart2: '',
+  heroTitleAccent: '',
+  heroImage: '',
   heroAlignment: 'left',
   accentColor: '#A47149',
-  footerQuote: 'Every structure has a narrative; we simply provide the lighting.',
-  inquiryTitle: 'Inquiry',
-  servicesTitle: 'Service Tiers',
-  servicesSubtitle: 'Refined media solutions for high-fidelity architectural narratives.',
+  footerQuote: '',
+  inquiryTitle: '',
+  servicesTitle: '',
+  servicesSubtitle: '',
   homeSectionsOrder: ['portfolio'],
   navigationItems: [],
-  socialLinks: [
-    { id: '1', platform: 'instagram', url: 'https://instagram.com' },
-    { id: '2', platform: 'linkedin', url: 'https://linkedin.com' }
-  ],
+  socialLinks: [],
   contactInfo: {
-    email: 'contact@exposedbrick.com',
-    phone: '+1 (555) BRICK-01',
-    address: '123 Archive St, Industrial District'
+    email: '',
+    phone: '',
+    address: ''
   },
   fontTitle: 'Prata',
   fontBody: 'Montserrat',
   propertiesPerPage: 6,
   chatbotEnabled: false,
-  chatbotPersona: 'You are the Exposed Brick Media assistant. You help clients understand our services, pricing, and process. Use the pricing provided in your context to quote services. Always be polite and direct users to the booking page or inquiry form.',
+  chatbotPersona: 'You are the Exposed Brick Media assistant.',
   chatbotPricing: {
-    flambient_base: 150,
-    drone_addon: 100,
-    turnaround_time: "24 hours"
+    flambient_base: 0,
+    drone_addon: 0,
+    turnaround_time: ""
   },
-  portalTitle: 'The Brand Hub',
-  portalDescription: 'A dedicated ecosystem for our real estate partners. Access your brand assets, track referrals in real-time, and manage your property media history.',
-  portalImg: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800'
+  portalTitle: '',
+  portalDescription: '',
+  portalImg: '',
+  portalSupportEmail: '',
+  portalNotifyEmail: ''
 };
 
 const SiteContentContext = createContext<SiteContentContextType | undefined>(undefined);
@@ -125,7 +127,19 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [pages, setPages] = useState<CustomPage[]>([]);
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [partners, setPartners] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [brandResources, setBrandResources] = useState<any[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+  const [pagesLoaded, setPagesLoaded] = useState(false);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
+  const [partnersLoaded, setPartnersLoaded] = useState(false);
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [brandResourcesLoaded, setBrandResourcesLoaded] = useState(false);
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLight, setIsLight] = useState(() => {
@@ -134,6 +148,16 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     return false;
   });
+
+  const loading = (!settingsLoaded || !portfolioLoaded || !pagesLoaded || !servicesLoaded || !partnersLoaded || !teamsLoaded || !brandResourcesLoaded || !authLoaded) && !timedOut;
+
+  useEffect(() => {
+    // Safety timeout: if stuff hasn't loaded in 6 seconds, force show the app
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
@@ -152,18 +176,23 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (ADMIN_EMAILS.includes(user.email)) {
           setIsAdmin(true);
           currentIsAdmin = true;
+          setAuthLoaded(true);
           return;
         }
 
-        // Also check Firestore admins collection
-        const adminDoc = await getDoc(doc(db, 'admins', user.email));
-        const isAdminUser = adminDoc.exists();
-        setIsAdmin(isAdminUser);
-        currentIsAdmin = isAdminUser;
+        try {
+          const adminDoc = await getDoc(doc(db, 'admins', user.email));
+          const isAdminUser = adminDoc.exists();
+          setIsAdmin(isAdminUser);
+          currentIsAdmin = isAdminUser;
+        } catch (err) {
+          console.error("Admin check failed:", err);
+        }
       } else {
         setIsAdmin(false);
         currentIsAdmin = false;
       }
+      setAuthLoaded(true);
     });
 
     const settingsRef = doc(db, 'settings', 'site');
@@ -171,35 +200,66 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (docSnap.exists()) {
         setSettings({ ...DEFAULT_SETTINGS, ...docSnap.data() } as SiteSettings);
       } else if (currentIsAdmin) {
-        // Only attempt initialization if the user has admin rights
         setDoc(settingsRef, {
           ...DEFAULT_SETTINGS,
           updatedAt: serverTimestamp()
         }).catch(err => console.error("Settings init failed:", err));
       }
+      setSettingsLoaded(true);
+    }, (err) => {
+      console.error("Settings listener failed:", err);
+      setSettingsLoaded(true);
     });
 
     const qPages = query(collection(db, 'pages'), orderBy('order', 'asc'));
     const unsubPages = onSnapshot(qPages, (snap) => {
       setPages(snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomPage)));
+      setPagesLoaded(true);
     }, (err) => {
       console.error("Pages listener failed:", err);
+      setPagesLoaded(true);
     });
 
     const qServices = query(collection(db, 'services'), orderBy('order', 'asc'));
     const unsubServices = onSnapshot(qServices, (snap) => {
       setServices(snap.docs.map(d => ({ id: d.id, ...d.data() } as ServiceItem)));
+      setServicesLoaded(true);
     }, (err) => {
       console.error("Services listener failed:", err);
+      setServicesLoaded(true);
     });
 
     const qPortfolio = query(collection(db, 'portfolio_items'), orderBy('order', 'asc'));
     const unsubPortfolio = onSnapshot(qPortfolio, (snap) => {
       setPortfolioItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
+      setPortfolioLoaded(true);
     }, (err) => {
       console.error("Portfolio listener failed:", err);
-      setLoading(false);
+      setPortfolioLoaded(true);
+    });
+
+    const unsubPartners = onSnapshot(collection(db, 'users'), (snap) => {
+      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((u: any) => u.role === 'partner' || u.role === 'preferred'));
+      setPartnersLoaded(true);
+    }, (err) => {
+      console.error("Partners listener failed:", err);
+      setPartnersLoaded(true);
+    });
+
+    const unsubTeams = onSnapshot(collection(db, 'teams'), (snap) => {
+      setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setTeamsLoaded(true);
+    }, (err) => {
+      console.error("Teams listener failed:", err);
+      setTeamsLoaded(true);
+    });
+
+    const unsubResources = onSnapshot(collection(db, 'brand_resources'), (snap) => {
+      setBrandResources(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setBrandResourcesLoaded(true);
+    }, (err) => {
+      console.error("Brand Resources listener failed:", err);
+      setBrandResourcesLoaded(true);
     });
 
     return () => {
@@ -208,11 +268,14 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       unsubPages();
       unsubServices();
       unsubPortfolio();
+      unsubPartners();
+      unsubTeams();
+      unsubResources();
     };
   }, []);
 
   return (
-    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, loading, isAdmin, isEditMode, setIsEditMode, isLight, setIsLight }}>
+    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, partners, teams, brandResources, loading, isAdmin, isEditMode, setIsEditMode, isLight, setIsLight }}>
       {children}
     </SiteContentContext.Provider>
   );

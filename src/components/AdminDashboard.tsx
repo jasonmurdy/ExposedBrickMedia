@@ -33,7 +33,7 @@ import {
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download
 } from 'lucide-react';
 import {
   DndContext, 
@@ -106,12 +106,19 @@ const SortableNavItem = ({
           <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-white/10 hover:text-brick-copper transition-colors">
             <GripVertical size={16} />
           </div>
-          <input 
-            className={`bg-transparent border-b border-white/10 text-[10px] uppercase tracking-widest outline-none w-full p-1 focus:border-brick-copper transition-colors font-bold ${item.hidden ? 'text-white/20' : 'text-white'}`} 
-            value={item.label}
-            placeholder="Link Label"
-            onChange={e => onChangeLabel(e.target.value)}
-          />
+          <div className="flex-1 space-y-1">
+             <div className="flex items-center gap-2">
+                <input 
+                  className={`bg-transparent border-b border-white/10 text-[10px] uppercase tracking-widest outline-none w-full p-1 focus:border-brick-copper transition-colors font-bold ${item.hidden ? 'text-white/20' : 'text-white'}`} 
+                  value={item.label}
+                  placeholder="Link Label"
+                  onChange={e => onChangeLabel(e.target.value)}
+                />
+                {item.isPage && (
+                  <span className="text-[7px] bg-brick-copper/20 text-brick-copper px-1.5 py-0.5 rounded-full font-black uppercase tracking-tighter">Page</span>
+                )}
+             </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -309,16 +316,39 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [admins, setAdmins] = useState<any[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [users, setUsers] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners'>('architecture');
+  const [teams, setTeams] = useState<any[]>([]);
+  const [brandResources, setBrandResources] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand'>('architecture');
+
+  // Load brand resources
+  useEffect(() => {
+    if (!user) return;
+    const unSub = onSnapshot(collection(db, 'brand_resources'), (snapshot) => {
+       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+       setBrandResources(list);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'brand_resources'));
+    return () => unSub();
+  }, [user]);
 
   // Load registered partners
   useEffect(() => {
+    if (!user) return;
     const unSub = onSnapshot(collection(db, 'users'), (snapshot) => {
        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
        setUsers(list);
-    });
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
     return () => unSub();
-  }, []);
+  }, [user]);
+
+  // Load teams
+  useEffect(() => {
+    if (!user) return;
+    const unSub = onSnapshot(collection(db, 'teams'), (snapshot) => {
+       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+       setTeams(list);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'teams'));
+    return () => unSub();
+  }, [user]);
   const [activeEditTab, setActiveEditTab] = useState<'media' | 'details' | 'narrative' | 'display'>('media');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showPuck, setShowPuck] = useState(false);
@@ -660,7 +690,21 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
-    await addDoc(collection(db, 'pages'), newPage);
+    const docRef = await addDoc(collection(db, 'pages'), newPage);
+    
+    // Sync with navigation
+    const navId = `page-${docRef.id}`;
+    const newNavItems = [...(localSettings.navigationItems || [])];
+    newNavItems.push({
+      id: navId,
+      label: newPage.title,
+      url: `/p/${newPage.slug}`,
+      order: newNavItems.length,
+      hidden: false,
+      isPage: true
+    });
+    setLocalSettings({ ...localSettings, navigationItems: newNavItems });
+
     await logAction('CREATE_PAGE', { title: newPage.title });
   };
 
@@ -672,6 +716,33 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         ...dataToUpdate,
         updatedAt: serverTimestamp()
       });
+      
+      // Sync with navigation items in localSettings
+      const navId = `page-${id}`;
+      let newNavItems = [...(localSettings.navigationItems || [])];
+      const existingNavIndex = newNavItems.findIndex(n => n.id === navId);
+
+      if (editData.showInNav) {
+        const newItem = {
+          id: navId,
+          label: editData.title || 'Untitled',
+          url: `/p/${editData.slug}`,
+          order: existingNavIndex !== -1 ? newNavItems[existingNavIndex].order : newNavItems.length,
+          hidden: false,
+          isPage: true
+        };
+        if (existingNavIndex !== -1) {
+          newNavItems[existingNavIndex] = newItem;
+        } else {
+          newNavItems.push(newItem);
+        }
+      } else {
+        if (existingNavIndex !== -1) {
+          newNavItems = newNavItems.filter(n => n.id !== navId);
+        }
+      }
+      setLocalSettings({ ...localSettings, navigationItems: newNavItems });
+
       await logAction('UPDATE_PAGE', { id, title: editData.slug });
       setIsEditing(null);
     } catch (err) {
@@ -682,6 +753,12 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const handleDeletePage = async (id: string) => {
     if (confirm('Erase this entire narrative?')) {
       await deleteDoc(doc(db, 'pages', id));
+      
+      // Remove from navigation
+      const navId = `page-${id}`;
+      const newNavItems = (localSettings.navigationItems || []).filter(n => n.id !== navId);
+      setLocalSettings({ ...localSettings, navigationItems: newNavItems });
+
       await logAction('DELETE_PAGE', { id });
     }
   };
@@ -781,6 +858,150 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
+  const handleCreateTeam = async () => {
+    const name = prompt("Enter team name:");
+    if (!name) return;
+    try {
+      await addDoc(collection(db, 'teams'), {
+        name,
+        description: '',
+        leaderUid: null,
+        members: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Team created");
+      await logAction('CREATE_TEAM', { name });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'teams');
+    }
+  };
+
+  const handleUpdateTeam = async (id: string, data?: any) => {
+    try {
+      const dataToUpdate = data || (() => {
+        const { id: _, createdAt: __, updatedAt: ___, ...rest } = editData;
+        return rest;
+      })();
+      
+      const collectionName = activeTab === 'teams' ? 'teams' : 'users';
+
+      await updateDoc(doc(db, collectionName, id), {
+        ...dataToUpdate,
+        updatedAt: serverTimestamp()
+      });
+      toast.success(`${collectionName === 'teams' ? 'Team' : 'Partner'} profile updated`);
+      if (!data) {
+        await logAction(collectionName === 'teams' ? 'UPDATE_TEAM' : 'UPDATE_USER', { id, name: editData.name || editData.displayName });
+        setIsEditing(null);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `${activeTab === 'teams' ? 'teams' : 'users'}/${id}`);
+    }
+  };
+
+  const handleCreateBrandResource = async (data: any) => {
+    try {
+      await addDoc(collection(db, 'brand_resources'), {
+        ...data,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Resource added");
+      await logAction('CREATE_RESOURCE', { title: data.title });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'brand_resources');
+    }
+  };
+
+  const handleDeleteBrandResource = async (id: string) => {
+    if (!confirm("Delete this branding asset?")) return;
+    try {
+      await deleteDoc(doc(db, 'brand_resources', id));
+      toast.success("Resource removed");
+      await logAction('DELETE_RESOURCE', { id });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `brand_resources/${id}`);
+    }
+  };
+
+  const handleDeleteTeam = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this team? Partners will be dissociated.")) return;
+    try {
+      await deleteDoc(doc(db, 'teams', id));
+      toast.success("Team deleted");
+      await logAction('DELETE_TEAM', { id });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `teams/${id}`);
+    }
+  };
+
+  const handleUpdateUserTeam = async (userId: string, teamId: string | null) => {
+    try {
+      const team = teamId ? teams.find(t => t.id === teamId) : null;
+      await updateDoc(doc(db, 'users', userId), {
+        teamId: teamId,
+        teamName: team ? team.name : null,
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Partner team updated");
+      await logAction('UPDATE_USER_TEAM', { userId, teamId });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
+  const handleCreatePartner = async () => {
+    const email = prompt("Enter Partner Email (this will be their login key):")?.toLowerCase().trim();
+    if (!email) return;
+    
+    const displayName = prompt("Enter Partner Name:");
+    if (!displayName) return;
+
+    try {
+      // Use email as ID for pre-linking
+      await setDoc(doc(db, 'users', email), {
+        email,
+        displayName,
+        role: 'partner',
+        teamId: null,
+        teamName: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Partner profile designated");
+      await logAction('CREATE_PARTNER', { email, displayName });
+    } catch (error) {
+       handleFirestoreError(error, OperationType.WRITE, `users/${email}`);
+    }
+  };
+
+  const handleDeletePartner = async (userId: string) => {
+    if (!confirm("Permanently remove this partner profile? This cannot be undone.")) return;
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      toast.success("Partner profile removed");
+      await logAction('DELETE_PARTNER', { userId });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
+    }
+  };
+
+  const handleUpdatePartner = async (id: string) => {
+    try {
+      const { id: _, createdAt: __, ...dataToUpdate } = editData;
+      await updateDoc(doc(db, 'users', id), {
+        ...dataToUpdate,
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Partner profile updated");
+      await logAction('UPDATE_PARTNER', { id, displayName: editData.displayName });
+      setIsEditing(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+    }
+  };
+
   const handleBulkAction = async (action: 'archive' | 'delete') => {
     if (selectedIds.length === 0) return;
     
@@ -856,6 +1077,8 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           { id: 'pages', label: 'Pages', icon: FileText },
           { id: 'portal', label: 'Portal', icon: Shield },
           { id: 'partners', label: 'Partners', icon: Users },
+          { id: 'teams', label: 'Teams', icon: Users },
+          { id: 'brand', label: 'Brand Assets', icon: Box },
           { id: 'admins', label: 'Admins', icon: Shield }
         ].map(tab => (
           <button 
@@ -1272,8 +1495,46 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 
                 <div className="space-y-6 bg-white/[0.02] border border-white/5 p-8">
                   <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 font-bold">Header Navigation Nodes</h4>
+                    <div>
+                      <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 font-bold">Header Navigation Nodes</h4>
+                      <p className="text-[8px] text-white/30 uppercase tracking-widest mt-1">Populated by pages and custom entries</p>
+                    </div>
                     <div className="flex gap-4">
+                      {(localSettings.navigationItems?.length || 0) > 0 && (
+                        <div className="flex gap-2 border-r border-white/10 pr-4 mr-2">
+                           <button 
+                             onClick={() => {
+                               const newItems = (localSettings.navigationItems || []).map(i => ({...i, hidden: true}));
+                               setLocalSettings({...localSettings, navigationItems: newItems});
+                             }}
+                             className="text-white/20 hover:text-white text-[8px] uppercase tracking-widest font-bold"
+                             title="Hide All"
+                           >
+                             Hide All
+                           </button>
+                           <button 
+                             onClick={() => {
+                               const newItems = (localSettings.navigationItems || []).map(i => ({...i, hidden: false}));
+                               setLocalSettings({...localSettings, navigationItems: newItems});
+                             }}
+                             className="text-white/20 hover:text-white text-[8px] uppercase tracking-widest font-bold"
+                             title="Show All"
+                           >
+                             Show All
+                           </button>
+                           <button 
+                             onClick={() => {
+                               if (confirm('Erase all navigation nodes?')) {
+                                 setLocalSettings({...localSettings, navigationItems: []});
+                               }
+                             }}
+                             className="text-red-500/40 hover:text-red-500 text-[8px] uppercase tracking-widest font-bold ml-2"
+                             title="Clear All"
+                           >
+                             Clear
+                           </button>
+                        </div>
+                      )}
                       {(localSettings.navigationItems?.length || 0) === 0 && (
                         <button 
                           onClick={() => {
@@ -2052,7 +2313,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 </div>
               </div>
             )}
-
+ 
             {/* Visual Grid Perspective */}
             <div className="space-y-8 pt-12 border-t border-white/5">
               <div className="flex items-center justify-between">
@@ -2288,6 +2549,12 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 <Users size={18} />
                 <h3 className="font-display text-2xl italic">Partner Ecosystem</h3>
               </div>
+              <button 
+                onClick={handleCreatePartner}
+                className="px-6 py-2 bg-brick-copper text-charcoal text-[10px] uppercase font-black tracking-widest hover:bg-white transition-all flex items-center gap-2"
+              >
+                <Plus size={14} /> Designate Partner
+              </button>
             </div>
 
             <div className="bg-white/5 border border-white/10 overflow-hidden">
@@ -2295,7 +2562,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   <thead className="bg-white/5 text-[10px] uppercase tracking-[0.2em] text-white/40">
                     <tr>
                       <th className="p-6 font-normal">Partner</th>
-                      <th className="p-6 font-normal">Team / Agency</th>
+                      <th className="p-6 font-normal">Team Allocation</th>
                       <th className="p-6 font-normal">Registered</th>
                       <th className="p-6 font-normal text-right">Actions</th>
                     </tr>
@@ -2311,22 +2578,146 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                               <div>
                                 <p className="font-bold text-sm">{user.displayName || 'Unnamed Partner'}</p>
                                 <p className="text-xs text-white/40">{user.email}</p>
+                                <div className="flex gap-2 mt-1">
+                                  <span className={`text-[8px] uppercase px-1.5 py-0.5 rounded-full font-black ${user.role === 'preferred' ? 'bg-sand text-charcoal' : 'bg-white/10 text-white/40'}`}>
+                                    {user.role || 'client'}
+                                  </span>
+                                </div>
                               </div>
                            </div>
                         </td>
                         <td className="p-6">
-                           <span className="text-xs uppercase tracking-widest text-brick-copper">{user.teamName || 'Independent'}</span>
+                           <select 
+                             className="bg-transparent border border-white/10 text-[10px] uppercase tracking-widest text-brick-copper py-1 px-2 outline-none focus:border-brick-copper"
+                             value={user.teamId || ''}
+                             onChange={(e) => handleUpdateUserTeam(user.id, e.target.value || null)}
+                           >
+                             <option value="" className="bg-charcoal text-white/40">Independent</option>
+                             {teams.map(t => (
+                               <option key={t.id} value={t.id} className="bg-charcoal text-white">{t.name}</option>
+                             ))}
+                           </select>
                         </td>
                         <td className="p-6 text-xs text-white/40 font-mono">
                            {user.createdAt?.seconds ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : '---'}
                         </td>
                         <td className="p-6 text-right">
-                           <button className="p-2 text-white/20 hover:text-white transition-colors"><MessageSquare size={14} /></button>
+                           <div className="flex justify-end gap-2">
+                             <button 
+                               onClick={() => { setIsEditing(user.id); setEditData(user); }}
+                               className="p-2 text-white/20 hover:text-white transition-colors"
+                               title="Edit Partner Profile"
+                             >
+                                <Settings size={14} />
+                             </button>
+                             <button 
+                               onClick={() => {
+                                 const role = user.role === 'preferred' ? 'partner' : 'preferred';
+                                 updateDoc(doc(db, 'users', user.id), { role, updatedAt: serverTimestamp() });
+                               }}
+                               className={`p-2 transition-colors ${user.role === 'preferred' ? 'text-brick-copper' : 'text-white/20 hover:text-white'}`}
+                               title="Toggle Preferred Status"
+                             >
+                                <Sparkles size={14} />
+                             </button>
+                             <a 
+                                href={`/partners/${user.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="p-2 text-white/20 hover:text-brick-copper transition-colors"
+                                title="View Public Profile"
+                              >
+                                 <ExternalLink size={14} />
+                              </a>
+                              <button className="p-2 text-white/20 hover:text-white transition-colors"><MessageSquare size={14} /></button>
+                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                </table>
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'teams' && (
+          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+              <div className="flex items-center gap-3 text-brick-copper">
+                <Box size={18} />
+                <h3 className="font-display text-2xl italic">Strategic Teams</h3>
+              </div>
+              <button 
+                onClick={handleCreateTeam}
+                className="px-6 py-2 bg-brick-copper text-charcoal text-[10px] uppercase font-black tracking-widest hover:bg-white transition-all flex items-center gap-2"
+              >
+                <Plus size={14} /> Designate Team
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {teams.map(team => (
+                <div key={team.id} className="bg-white/5 border border-white/10 p-8 flex flex-col space-y-6 group hover:border-brick-copper/30 transition-all">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-display text-2xl italic text-white mb-1">{team.name}</h4>
+                      <p className="text-[10px] text-brick-copper uppercase tracking-widest font-black">Designation</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <a 
+                         href={`/teams/${team.id}`} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-white/10 hover:text-brick-copper transition-colors p-2"
+                         title="View Public Profile"
+                       >
+                          <ExternalLink size={16} />
+                       </a>
+                       <button 
+                         onClick={() => { setIsEditing(team.id); setEditData(team); }}
+                         className="text-white/10 hover:text-brick-copper transition-colors p-2"
+                         title="Edit Team Profile"
+                       >
+                          <Settings size={16} />
+                       </button>
+                       <button onClick={() => handleDeleteTeam(team.id)} className="text-white/10 hover:text-red-500 transition-colors p-2"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[9px] uppercase tracking-widest text-white/30 block">Team Description</label>
+                    <textarea 
+                      className="w-full bg-transparent border border-white/5 p-4 text-[10px] h-24 focus:border-brick-copper/40 outline-none resize-none no-scrollbar font-mono"
+                      value={team.description || ''}
+                      placeholder="Define the team's specialization or territory..."
+                      onChange={e => handleUpdateTeam(team.id, { description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="pt-6 border-t border-white/5">
+                    <div className="flex items-center justify-between mb-4">
+                       <p className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Roster</p>
+                       <span className="text-[9px] font-mono text-brick-copper">{users.filter(u => u.teamId === team.id).length} Active members</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                       {users.filter(u => u.teamId === team.id).map(u => (
+                         <div key={u.id} className="w-8 h-8 rounded-full border border-white/10 overflow-hidden bg-brick-copper/20 flex items-center justify-center text-[10px] font-black" title={u.displayName}>
+                            {u.headshotUrl ? <img src={u.headshotUrl} className="w-full h-full object-cover" /> : u.displayName?.charAt(0)}
+                         </div>
+                       ))}
+                       {users.filter(u => u.teamId === team.id).length === 0 && (
+                         <p className="text-[9px] text-white/20 italic uppercase">No members assigned.</p>
+                       )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {teams.length === 0 && (
+                <div className="col-span-full py-24 text-center border border-dashed border-white/5 text-white/10">
+                   <Box size={32} className="mx-auto mb-4 opacity-5" />
+                   <p className="text-[10px] uppercase tracking-[0.4em]">No strategic teams initialized.</p>
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -2502,6 +2893,235 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               ))}
             </div>
           </section>
+        )}
+ 
+        {isEditing && (activeTab === 'teams' || activeTab === 'partners') && (
+           <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-charcoal border border-brick-copper/30 w-full max-w-2xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl">
+              <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80">
+                <div>
+                  <h4 className="text-xl font-display italic text-white">
+                    {activeTab === 'teams' ? (editData.name || 'Unnamed Collective') : (editData.displayName || 'Unnamed Partner')}
+                  </h4>
+                  <p className="text-[9px] text-brick-copper uppercase tracking-widest font-bold tracking-[0.2em]">
+                    {activeTab === 'teams' ? 'Collective Architecture' : 'Partner Narrative'}
+                  </p>
+                </div>
+                <button onClick={() => setIsEditing(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
+              </header>
+              
+              <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <ImageSelector 
+                      label={activeTab === 'teams' ? "Collective Identity / Logo" : "Portal headshot"}
+                      path={activeTab === 'teams' ? "teams" : "users"}
+                      value={activeTab === 'teams' ? (editData.logoUrl || '') : (editData.headshotUrl || '')}
+                      onChange={(url) => setEditData({...editData, [activeTab === 'teams' ? 'logoUrl' : 'headshotUrl']: url})}
+                   />
+                   <div>
+                      <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">
+                        {activeTab === 'teams' ? 'Standard Guidelines (URL)' : 'Email Identity'}
+                      </label>
+                      {activeTab === 'teams' ? (
+                        <input 
+                          className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                          placeholder="Link to PDF or Brand Portal"
+                          value={editData.brandGuideUrl || ''} 
+                          onChange={e => setEditData({...editData, brandGuideUrl: e.target.value})} 
+                        />
+                      ) : (
+                        <input 
+                          className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white/50" 
+                          value={editData.email || ''} 
+                          readOnly
+                        />
+                      )}
+                   </div>
+                </div>
+
+                <div className="space-y-6">
+                   <div>
+                      <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">
+                        {activeTab === 'teams' ? 'Collective Name' : 'Display Name'}
+                      </label>
+                      <input 
+                        className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                        value={activeTab === 'teams' ? (editData.name || '') : (editData.displayName || '')} 
+                        onChange={e => setEditData({...editData, [activeTab === 'teams' ? 'name' : 'displayName']: e.target.value})} 
+                      />
+                   </div>
+
+                   <div>
+                      <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">
+                        {activeTab === 'teams' ? 'Architectural Statement (Description)' : 'Partner Biography'}
+                      </label>
+                      <textarea 
+                        rows={4}
+                        className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white resize-none" 
+                        value={activeTab === 'teams' ? (editData.description || '') : (editData.bio || '')} 
+                        onChange={e => setEditData({...editData, [activeTab === 'teams' ? 'description' : 'bio']: e.target.value})} 
+                      />
+                   </div>
+                </div>
+              </div>
+
+              <footer className="p-6 border-t border-white/5 bg-charcoal/80 flex gap-4">
+                <button 
+                  onClick={() => handleUpdateTeam(isEditing)} 
+                  className="flex-1 py-4 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-all shadow-xl font-sans"
+                >
+                  Persist {activeTab === 'teams' ? 'Collective' : 'Partner'}
+                </button>
+                <button 
+                  onClick={() => setIsEditing(null)} 
+                  className="px-8 py-4 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest hover:text-white transition-all font-sans font-bold"
+                >
+                  Cancel
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'brand' && (
+           <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+              <div className="flex items-center gap-3 text-brick-copper">
+                <Box size={18} />
+                <h3 className="font-display text-2xl italic">Brand Assets</h3>
+              </div>
+              <button 
+                onClick={() => {
+                   const title = prompt("Asset Title:");
+                   if (!title) return;
+                   const url = prompt("Asset URL (Cloud storage or external link):");
+                   if (!url) return;
+                   const category = prompt("Category (e.g. Logos, Guidelines, Templates):", "Templates");
+                   handleCreateBrandResource({ title, url, category });
+                }}
+                className="px-6 py-2 bg-brick-copper text-charcoal text-[10px] uppercase font-black tracking-widest hover:bg-white transition-all flex items-center gap-2"
+              >
+                <Plus size={14} /> Upload Resource
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+               {brandResources.map(resource => (
+                 <div key={resource.id} className="bg-white/5 border border-white/10 p-8 group hover:border-brick-copper/30 transition-all">
+                    <div className="flex justify-between items-start mb-6">
+                       <div className="w-10 h-10 bg-brick-copper/10 flex items-center justify-center text-brick-copper">
+                          <FileText size={18} />
+                       </div>
+                       <button onClick={() => handleDeleteBrandResource(resource.id)} className="text-white/10 hover:text-red-500 transition-colors">
+                          <Trash2 size={16} />
+                       </button>
+                    </div>
+                    <p className="text-[8px] uppercase tracking-[0.2em] text-brick-copper font-black mb-2">{resource.category}</p>
+                    <h4 className="font-display text-xl italic text-white mb-6">{resource.title}</h4>
+                    <a 
+                      href={resource.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors border-b border-white/10 pb-1"
+                    >
+                       <Download size={14} /> Download Asset
+                    </a>
+                 </div>
+               ))}
+               {brandResources.length === 0 && (
+                  <div className="col-span-full py-24 text-center border border-dashed border-white/5 opacity-20">
+                     <Box size={48} className="mx-auto mb-4" />
+                     <p className="font-display text-2xl italic">No assets documented.</p>
+                  </div>
+               )}
+            </div>
+           </section>
+        )}
+
+        {isEditing && activeTab === 'partners' && (
+           <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-charcoal border border-brick-copper/30 w-full max-w-2xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl">
+              <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80">
+                <div>
+                  <h4 className="text-xl font-display italic text-white">{editData.displayName || 'Unnamed Partner'}</h4>
+                  <p className="text-[9px] text-brick-copper uppercase tracking-widest font-bold tracking-[0.2em]">Profile Architecture</p>
+                </div>
+                <button onClick={() => setIsEditing(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
+              </header>
+              
+              <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <ImageSelector 
+                      label="Advisory Headshot"
+                      path="partners"
+                      value={editData.headshotUrl || ''}
+                      onChange={(url) => setEditData({...editData, headshotUrl: url})}
+                   />
+                   <ImageSelector 
+                      label="Agency Monogram / Logo"
+                      path="partners"
+                      value={editData.logoUrl || ''}
+                      onChange={(url) => setEditData({...editData, logoUrl: url})}
+                   />
+                </div>
+
+                <div className="space-y-6">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Full Name</label>
+                         <input 
+                           className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                           value={editData.displayName || ''} 
+                           onChange={e => setEditData({...editData, displayName: e.target.value})} 
+                         />
+                      </div>
+                      <div>
+                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Email (Identity Key)</label>
+                         <input 
+                           readOnly
+                           className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white/30 cursor-not-allowed" 
+                           value={editData.email || ''} 
+                         />
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Office Phone</label>
+                         <input 
+                           className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                           value={editData.phone || ''} 
+                           onChange={e => setEditData({...editData, phone: e.target.value})} 
+                         />
+                      </div>
+                      <div>
+                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Social ID (IG Handle)</label>
+                         <input 
+                           className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                           value={editData.instagram || ''} 
+                           onChange={e => setEditData({...editData, instagram: e.target.value})} 
+                         />
+                      </div>
+                   </div>
+                </div>
+              </div>
+
+              <footer className="p-6 border-t border-white/5 bg-charcoal/80 flex gap-4">
+                <button 
+                  onClick={() => handleUpdatePartner(isEditing)} 
+                  className="flex-1 py-4 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-all shadow-xl font-sans"
+                >
+                  Persist Profile
+                </button>
+                <button 
+                  onClick={() => setIsEditing(null)} 
+                  className="px-8 py-4 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest hover:text-white transition-all font-sans font-bold"
+                >
+                  Cancel
+                </button>
+              </footer>
+            </div>
+          </div>
         )}
       </div>
     </div>

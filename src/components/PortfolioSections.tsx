@@ -1045,9 +1045,13 @@ const SortableServiceItem = ({
 };
 
 export const Services = ({ override }: { override?: { title: string, subtitle: string } }) => {
-  const { services, settings, isAdmin, isEditMode } = useSiteContent();
+  const { services, settings, isAdmin, isEditMode, loading } = useSiteContent();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState({ title: '', description: '', price: '', url: '' });
+
+  if (loading) {
+    return null; // Or skeleton
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

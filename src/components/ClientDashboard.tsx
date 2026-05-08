@@ -1,21 +1,30 @@
 import { useState, useEffect } from 'react';
-import { db, auth, storage, handleFirestoreError } from '../lib/firebase';
-import { collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth, storage } from '../lib/firebase';
+import { handleFirestoreError, OperationType } from '../lib/firestoreError';
+import { collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, addDoc, serverTimestamp, deleteDoc, getDocs, limit } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { Link } from 'react-router-dom';
-import { Copy, Plus, Image as ImageIcon, Briefcase, Share2, LogOut, CheckCircle2, CopyCheck, UserPlus, CreditCard, Shield } from 'lucide-react';
+import { 
+  Copy, Plus, Image as ImageIcon, Briefcase, Share2, LogOut, 
+  CheckCircle2, CopyCheck, UserPlus, CreditCard, Shield,
+  Folder, Box, Users as UsersIcon, ChevronRight, Globe,
+  Download, ExternalLink, Mail, Phone, FileText
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 import { useSiteContent } from '../lib/SiteContentContext';
 
 export function ClientDashboard() {
   const { settings, isAdmin } = useSiteContent();
-  const [activeTab, setActiveTab] = useState<'profile' | 'referrals' | 'listings'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'referrals' | 'listings' | 'resources' | 'team'>('profile');
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [referrals, setReferrals] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
+  const [brandResources, setBrandResources] = useState<any[]>([]);
+  const [team, setTeam] = useState<any>(null);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -37,29 +46,74 @@ export function ClientDashboard() {
     if (!currentUser) return;
     setIsLoading(true);
     const profileRef = doc(db, 'users', currentUser.uid);
-    const unSubProfile = onSnapshot(profileRef, (docSnap) => {
+    const unSubProfile = onSnapshot(profileRef, async (docSnap) => {
       if (docSnap.exists()) {
         setUserProfile({ id: docSnap.id, ...docSnap.data() });
+        setIsLoading(false);
       } else {
-        // Create initial profile if it doesn't exist
-        const defaultProfile = {
-          email: currentUser.email,
-          displayName: currentUser.displayName || '',
-          role: isAdmin ? 'admin' : 'client',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        };
-        setDoc(profileRef, defaultProfile).catch((err) => handleFirestoreError(err, 'create', `users/${currentUser.uid}`));
+        // Fallback: Check if there's a pre-seeded profile using the email as document ID 
+        // (Admins often create profiles this way before the user first signs in)
+        try {
+          const emailProfileRef = doc(db, 'users', currentUser.email!);
+          const emailSnap = await getDoc(emailProfileRef);
+          
+          if (emailSnap.exists()) {
+            // Found a pre-seeded profile! Migrate it to the UID-based document for security and performance
+            const preSeededData = emailSnap.data();
+            const migratedProfile = {
+              ...preSeededData,
+              uid: currentUser.uid,
+              updatedAt: serverTimestamp()
+            };
+            
+            await setDoc(profileRef, migratedProfile);
+            await deleteDoc(emailProfileRef); // Cleanup the email-indexed document
+            
+            setUserProfile({ id: currentUser.uid, ...migratedProfile });
+            setIsLoading(false);
+          } else {
+             // Second Fallback: Check via query in case the ID wasn't exactly the email
+             const q = query(collection(db, 'users'), where('email', '==', currentUser.email), limit(1));
+             const querySnap = await getDocs(q);
+             
+             if (!querySnap.empty) {
+                const seedDoc = querySnap.docs[0];
+                const seedData = seedDoc.data();
+                
+                // Migrate to UID
+                await setDoc(profileRef, { ...seedData, uid: currentUser.uid, updatedAt: serverTimestamp() });
+                if (seedDoc.id !== currentUser.uid) {
+                   await deleteDoc(doc(db, 'users', seedDoc.id));
+                }
+             } else {
+                // Create initial profile if no seeds found
+                const defaultProfile = {
+                  email: currentUser.email,
+                  displayName: currentUser.displayName || '',
+                  role: isAdmin ? 'admin' : 'client',
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                };
+                await setDoc(profileRef, defaultProfile);
+             }
+             setIsLoading(false);
+          }
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
+          setIsLoading(false);
+        }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
       setIsLoading(false);
-    }, (error) => handleFirestoreError(error, 'get', `users/${currentUser.uid}`));
+    });
 
     // Load Referrals
     const referralsQuery = query(collection(db, 'referrals'), where('referrerUid', '==', currentUser.uid));
     const unSubReferrals = onSnapshot(referralsQuery, (snapshot) => {
       const refs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setReferrals(refs);
-    }, (error) => handleFirestoreError(error, 'list', 'referrals'));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'referrals'));
 
     // Load Associated Listings (where the partner UID is present in the assignment array)
     const listingsQuery = currentUser.uid === auth.currentUser?.uid && (isAdmin || userProfile?.role === 'admin') 
@@ -69,14 +123,38 @@ export function ClientDashboard() {
     const unSubListings = onSnapshot(listingsQuery, (snapshot) => {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setListings(list);
-    }, (error) => handleFirestoreError(error, 'list', 'portfolio_items'));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'portfolio_items'));
+
+    // Load Team
+    let unSubTeam = () => {};
+    let unSubTeamMembers = () => {};
+
+    if (userProfile?.teamId) {
+       unSubTeam = onSnapshot(doc(db, 'teams', userProfile.teamId), (snap) => {
+          if (snap.exists()) setTeam({ id: snap.id, ...snap.data() });
+       });
+
+       const membersQuery = query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
+       unSubTeamMembers = onSnapshot(membersQuery, (snap) => {
+          setTeamMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+       });
+    }
+
+    // Load Brand Resources
+    const resourcesQuery = query(collection(db, 'brand_resources'));
+    const unSubResources = onSnapshot(resourcesQuery, (snapshot) => {
+       setBrandResources(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'brand_resources'));
 
     return () => {
       unSubProfile();
       unSubReferrals();
       unSubListings();
+      unSubTeam();
+      unSubTeamMembers();
+      unSubResources();
     };
-  }, [currentUser]);
+  }, [currentUser, userProfile?.teamId]);
 
   const handleProfileUpdate = async (field: string, value: string) => {
     if (!currentUser) return;
@@ -87,7 +165,7 @@ export function ClientDashboard() {
       });
       toast.success(`${field} updated`);
     } catch (error) {
-      handleFirestoreError(error, 'update', `users/${currentUser.uid}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.uid}`);
     }
   };
 
@@ -140,7 +218,7 @@ export function ClientDashboard() {
       setNewReferral({ name: '', phone: '', email: '', notes: '' });
       setShowReferralForm(false);
     } catch (error) {
-      handleFirestoreError(error, 'create', 'referrals');
+      handleFirestoreError(error, OperationType.CREATE, 'referrals');
     }
   };
 
@@ -283,6 +361,20 @@ export function ClientDashboard() {
           >
             <Briefcase size={14} /> Media Archive
           </button>
+          <button 
+            onClick={() => setActiveTab('resources')}
+            className={`w-full flex items-center gap-4 px-5 py-4 rounded-sm text-left text-[10px] uppercase tracking-[0.2em] transition-all duration-300 ${activeTab === 'resources' ? 'bg-brick-copper text-charcoal font-black border-l-4 border-charcoal/20' : 'text-text-primary/60 hover:bg-text-primary/5 hover:text-text-primary'}`}
+          >
+            <Folder size={14} /> Brand Resources
+          </button>
+          {userProfile?.teamId && (
+            <button 
+              onClick={() => setActiveTab('team')}
+              className={`w-full flex items-center gap-4 px-5 py-4 rounded-sm text-left text-[10px] uppercase tracking-[0.2em] transition-all duration-300 ${activeTab === 'team' ? 'bg-brick-copper text-charcoal font-black border-l-4 border-charcoal/20' : 'text-text-primary/60 hover:bg-text-primary/5 hover:text-text-primary'}`}
+            >
+              <UsersIcon size={14} /> Collective
+            </button>
+          )}
         </nav>
         
         <div className="mt-auto pt-8 border-t border-border-subtle">
@@ -303,6 +395,7 @@ export function ClientDashboard() {
            <button onClick={() => setActiveTab('profile')} className={`p-2 ${activeTab === 'profile' ? 'text-brick-copper' : 'text-text-primary/40'}`}><Shield size={20}/></button>
            <button onClick={() => setActiveTab('referrals')} className={`p-2 ${activeTab === 'referrals' ? 'text-brick-copper' : 'text-text-primary/40'}`}><UserPlus size={20}/></button>
            <button onClick={() => setActiveTab('listings')} className={`p-2 ${activeTab === 'listings' ? 'text-brick-copper' : 'text-text-primary/40'}`}><Briefcase size={20}/></button>
+           <button onClick={() => setActiveTab('resources')} className={`p-2 ${activeTab === 'resources' ? 'text-brick-copper' : 'text-text-primary/40'}`}><Folder size={20}/></button>
         </div>
       </div>
 
@@ -557,6 +650,173 @@ export function ClientDashboard() {
                          <p className="text-[10px] uppercase tracking-[0.3em] text-text-primary/30 font-bold">Initiate your first referral connection</p>
                       </div>
                     )}
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'resources' && (
+                <motion.div 
+                   key="resources"
+                   initial={{ opacity: 0, y: 10 }} 
+                   animate={{ opacity: 1, y: 0 }}
+                   className="space-y-16"
+                >
+                  <header className="space-y-4">
+                     <h1 className="font-display text-5xl md:text-7xl lowercase italic mt-12 md:mt-0">Resources<span className="text-brick-copper">.</span></h1>
+                     <p className="text-sm text-text-primary/50 max-w-sm">Exclusive brand assets and strategic documentation tailored for your identity.</p>
+                  </header>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Global Asset Registry */}
+                    <div className="md:col-span-2 space-y-12">
+                       <h2 className="text-[12px] uppercase tracking-[0.5em] font-black text-text-primary/40 flex items-center gap-6">
+                          <span className="w-12 h-[1px] bg-border-subtle" /> Global Archive
+                       </h2>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          {brandResources.map((res) => (
+                            <div key={res.id} className="bg-bg-primary border border-border-subtle p-8 hover:border-brick-copper/50 transition-all group flex flex-col justify-between">
+                               <div className="mb-8">
+                                  <div className="w-10 h-10 bg-brick-copper/10 flex items-center justify-center mb-6">
+                                     <FileText className="text-brick-copper" size={18} />
+                                  </div>
+                                  <h3 className="font-display text-xl italic mb-2">{res.title}</h3>
+                                  <p className="text-[10px] text-text-primary/40 uppercase tracking-widest">{res.category || 'Shared Asset'}</p>
+                               </div>
+                               <a 
+                                 href={res.url} 
+                                 target="_blank" 
+                                 rel="noopener noreferrer"
+                                 className="w-full py-4 border border-border-subtle text-[9px] uppercase tracking-widest font-black flex items-center justify-center gap-3 hover:bg-brick-copper hover:text-charcoal transition-all"
+                               >
+                                  <Download size={12} /> Retrieve Asset
+                               </a>
+                            </div>
+                          ))}
+                       </div>
+
+                       <h2 className="text-[12px] uppercase tracking-[0.5em] font-black text-text-primary/40 flex items-center gap-6 pt-12">
+                          <span className="w-12 h-[1px] bg-border-subtle" /> Personalized Assets
+                       </h2>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          {userProfile?.resources?.map((res: any, idx: number) => (
+                            <div key={idx} className="bg-bg-primary border border-border-subtle p-8 hover:border-brick-copper/50 transition-all group flex flex-col justify-between">
+                               <div className="mb-8">
+                                  <div className="w-10 h-10 bg-brick-copper/10 flex items-center justify-center mb-6">
+                                     <FileText className="text-brick-copper" size={18} />
+                                  </div>
+                                  <h3 className="font-display text-xl italic mb-2">{res.name || `Asset ${idx + 1}`}</h3>
+                                  <p className="text-[10px] text-text-primary/40 uppercase tracking-widest">{res.type || 'Shared Resource'}</p>
+                               </div>
+                               <a 
+                                 href={res.url} 
+                                 target="_blank" 
+                                 rel="noopener noreferrer"
+                                 className="w-full py-4 border border-border-subtle text-[9px] uppercase tracking-widest font-black flex items-center justify-center gap-3 hover:bg-brick-copper hover:text-charcoal transition-all"
+                               >
+                                  <Download size={12} /> Retrieve Asset
+                               </a>
+                            </div>
+                          ))}
+                          {(!userProfile?.resources || userProfile.resources.length === 0) && brandResources.length === 0 && (
+                            <div className="col-span-full py-20 text-center border border-dashed border-border-subtle text-text-primary/20">
+                               <Box size={32} className="mx-auto mb-4 opacity-5" />
+                               <p className="text-[10px] uppercase tracking-[0.3em]">No brand assets discovered.</p>
+                            </div>
+                          )}
+                       </div>
+                    </div>
+
+                    {/* Shared Knowledge */}
+                    <div className="space-y-8">
+                       <div className="bg-charcoal p-8 border border-white/5">
+                          <h4 className="text-[10px] uppercase tracking-[0.3em] font-black text-brick-copper mb-6">Strategic Guides</h4>
+                          <div className="space-y-6">
+                             {[
+                               { label: 'Architectural Presentation Guide', icon: Globe },
+                               { label: 'Social Media Deployment Strategy', icon: Globe },
+                               { label: 'Digital Narrative Protocol', icon: Globe }
+                             ].map((guide, i) => (
+                               <button key={i} className="w-full flex items-center justify-between group">
+                                  <span className="text-[10px] uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">{guide.label}</span>
+                                  <ChevronRight size={12} className="text-white/10 group-hover:text-brick-copper" />
+                               </button>
+                             ))}
+                          </div>
+                       </div>
+
+                       <div className="bg-brick-copper/5 border border-brick-copper/20 p-8">
+                          <h4 className="text-[10px] uppercase tracking-[0.3em] font-black text-brick-copper mb-4">Request Custom Asset</h4>
+                          <p className="text-[9px] text-text-primary/50 uppercase leading-relaxed mb-6">Need a specific brand mark or presentation deck? Contact our fulfillment team.</p>
+                          <a href={`mailto:${settings.contactInfo?.email}`} className="text-[10px] uppercase tracking-widest font-black border-b border-brick-copper pb-1 hover:text-brick-copper transition-colors">Submit Request</a>
+                       </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'team' && (
+                <motion.div 
+                   key="team"
+                   initial={{ opacity: 0, y: 10 }} 
+                   animate={{ opacity: 1, y: 0 }}
+                   className="space-y-16"
+                >
+                  <header className="space-y-4">
+                     <h1 className="font-display text-5xl md:text-7xl lowercase italic mt-12 md:mt-0">Collective<span className="text-brick-copper">.</span></h1>
+                     <p className="text-sm text-text-primary/50 max-w-sm">Synchronized professionals operating under a unified strategic umbrella.</p>
+                  </header>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+                     <div className="lg:col-span-1 space-y-8">
+                        <div className="bg-bg-primary border border-brick-copper/30 p-8 shadow-2xl relative overflow-hidden">
+                           <div className="absolute top-0 right-0 p-4 opacity-5">
+                              <Box size={80} />
+                           </div>
+                           <h3 className="font-display text-3xl italic mb-1 text-brick-copper">{team?.name}</h3>
+                           <p className="text-[10px] text-text-primary/40 uppercase tracking-widest mb-6">Identity Shield</p>
+                           <p className="text-xs text-text-primary/60 leading-relaxed font-serif italic">"{team?.description || 'A unified collective of real estate professionals committed to architectural excellence.'}"</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="bg-text-primary/5 p-6 border border-border-subtle">
+                              <p className="text-[8px] uppercase tracking-widest text-text-primary/30 mb-2">Member Count</p>
+                              <p className="font-display text-2xl italic">{teamMembers.length}</p>
+                           </div>
+                           <div className="bg-text-primary/5 p-6 border border-border-subtle">
+                              <p className="text-[8px] uppercase tracking-widest text-text-primary/30 mb-2">Active Listings</p>
+                              <p className="font-display text-2xl italic">---</p>
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="lg:col-span-3 space-y-8">
+                        <h2 className="text-[11px] uppercase tracking-[0.4em] font-black text-text-primary/40 flex items-center gap-4">
+                           <span className="w-12 h-[1px] bg-border-subtle"/> Team Roster
+                        </h2>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                           {teamMembers.map((member) => (
+                             <div key={member.id} className="bg-bg-primary border border-border-subtle p-8 group hover:border-brick-copper/40 transition-all flex flex-col items-center text-center">
+                                <div className="w-24 h-24 rounded-full border border-border-subtle p-1 mb-6 group-hover:border-brick-copper/30 transition-all">
+                                   <div className="w-full h-full rounded-full overflow-hidden bg-text-primary/5 flex items-center justify-center grayscale group-hover:grayscale-0 transition-all">
+                                      {member.headshotUrl ? (
+                                        <img src={member.headshotUrl} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <Shield size={32} className="text-text-primary/5" />
+                                      )}
+                                   </div>
+                                </div>
+                                <h4 className="text-lg font-display italic mb-1">{member.displayName || 'Unnamed Advisor'}</h4>
+                                <p className="text-[9px] uppercase tracking-[0.2em] text-brick-copper font-bold mb-6">{member.role || 'Partner'}</p>
+                                
+                                <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                   {member.email && <a href={`mailto:${member.email}`} className="text-text-primary/40 hover:text-brick-copper transition-colors"><Mail size={14} /></a>}
+                                   {member.phone && <a href={`tel:${member.phone}`} className="text-text-primary/40 hover:text-brick-copper transition-colors"><Phone size={14} /></a>}
+                                </div>
+                             </div>
+                           ))}
+                        </div>
+                     </div>
                   </div>
                 </motion.div>
               )}

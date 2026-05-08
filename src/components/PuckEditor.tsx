@@ -14,11 +14,11 @@ import { Save, X, Loader2, RotateCcw } from "lucide-react";
 import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 
 export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () => void }) => {
-  const { settings, pages, isLight, portfolioItems } = useSiteContent();
+  const { settings, pages, isLight, portfolioItems, partners, teams, brandResources } = useSiteContent();
   const [isSaving, setIsSaving] = useState(false);
   const [currentPageId, setCurrentPageId] = useState(pageId);
 
-  const config = useMemo(() => createConfig(pages, portfolioItems), [pages, portfolioItems]);
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
 
   // Define cleanObject before usage or as a helper
   const cleanObject = (obj: any): any => {
