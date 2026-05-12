@@ -193,12 +193,12 @@ service cloud.firestore {
         && incoming().keys().hasAll(['title', 'category', 'img', 'order', 'createdAt', 'updatedAt'])
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isAdmin() 
+      allow update: if (isAdmin() || (isSignedIn() && (request.auth.uid in existing().get('assignedTo', []) || request.auth.uid == existing().get('partnerUid', '') || request.auth.uid in existing().get('partnerUids', []))))
         && isValidPortfolioItem(incoming())
         && (existing().get('createdAt', null) == null || incoming().createdAt == existing().createdAt)
-        && incoming().updatedAt == request.time
+        && (isAdmin() || incoming().updatedAt == request.time)
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'img', 'description', 'gallery', 'order', 'url', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status', 'externalLink', 'daysOnMarket', 'colSpan', 'rowSpan', 'type', 'panel', 'hidden', 'bannerText', 'bannerColor', 'bannerSize', 'updatedAt', 'partnerUid', 'partnerUids'])
+          isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'gallery', 'updatedAt', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status'])
         );
       allow delete: if isAdmin();
     }

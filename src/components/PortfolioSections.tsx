@@ -909,7 +909,15 @@ const SortableServiceItem = ({
     opacity: isDragging ? 0.5 : 1
   };
 
-  const targetUrl = tier.url ? (tier.url.startsWith('/') || tier.url.startsWith('http') ? tier.url : `/p/${tier.url}`) : null;
+  const serviceSlugMap: Record<string, string> = {
+    'Floor Plans': '/services/floor-plans',
+    'Interior Photography': '/services/interior',
+    'Aerial Photography': '/services/aerial',
+    '3D Virtual Tours': '/services/virtual-tours'
+  };
+
+  const fallbackUrl = serviceSlugMap[tier.title];
+  const targetUrl = (tier.url || fallbackUrl) ? ((tier.url || fallbackUrl).startsWith('/') || (tier.url || fallbackUrl).startsWith('http') ? (tier.url || fallbackUrl) : `/p/${tier.url || fallbackUrl}`) : null;
   const navigate = useNavigate();
 
   const handleClick = (e: React.MouseEvent) => {
@@ -1138,19 +1146,28 @@ export const Services = ({ override }: { override?: { title: string, subtitle: s
 
   const displayServices = (services.length > 0 || (isAdmin && isEditMode)) ? services : [
     { 
-      id: 'photography',
-      title: 'Photography', 
-      description: 'Editorial-grade architectural coverage capturing movement and soul.'
+      id: 'interior-photo',
+      title: 'Interior Photography', 
+      description: 'Editorial-grade architectural coverage capturing movement and soul.',
+      url: '/services/interior'
     },
     { 
-      id: 'videography',
-      title: 'Cinematography', 
-      description: '4K Cinematic storytelling using rhythmic pacing and aerials.'
+      id: 'aerial-photo',
+      title: 'Aerial Photography', 
+      description: 'heroic perspectives impossible from the ground, highlighting estate scale.',
+      url: '/services/aerial'
     },
     { 
       id: '3dtours',
       title: '3D Virtual Tours', 
-      description: 'High-fidelity digital twins for remote structural understanding.'
+      description: 'High-fidelity digital twins for remote structural understanding.',
+      url: '/services/virtual-tours'
+    },
+    { 
+      id: 'floorplans',
+      title: 'Floor Plans', 
+      description: 'Clean, high-contrast schematic layouts for spatial clarity.',
+      url: '/services/floor-plans'
     }
   ];
 

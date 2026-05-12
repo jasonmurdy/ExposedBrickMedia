@@ -73,6 +73,7 @@ interface SiteContentContextType {
   brandResources: any[];
   loading: boolean;
   isAdmin: boolean;
+  user: any | null;
   isEditMode: boolean;
   setIsEditMode: (val: boolean) => void;
   isLight: boolean;
@@ -141,6 +142,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [timedOut, setTimedOut] = useState(false);
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<any | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLight, setIsLight] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -172,6 +174,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     let currentIsAdmin = false;
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
       if (user?.email) {
         if (ADMIN_EMAILS.includes(user.email)) {
           setIsAdmin(true);
@@ -275,7 +278,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   return (
-    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, partners, teams, brandResources, loading, isAdmin, isEditMode, setIsEditMode, isLight, setIsLight }}>
+    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, partners, teams, brandResources, loading, isAdmin, user, isEditMode, setIsEditMode, isLight, setIsLight }}>
       {children}
     </SiteContentContext.Provider>
   );

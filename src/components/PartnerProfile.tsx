@@ -3,17 +3,21 @@ import { useParams, Link } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import { collection, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
-import { Mail, Phone, Instagram, Linkedin, Facebook, Globe, Box, Shield, Briefcase, ChevronRight, Projector as Project } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Mail, Phone, Instagram, Linkedin, Facebook, Globe, Box, Shield, Briefcase, ChevronRight, Settings, Edit3, Projector as Project } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { Helmet } from 'react-helmet-async';
+import { ListingEditModal } from './ListingEditModal';
 
 export function PartnerProfile() {
   const { partnerId } = useParams();
-  const { isLight } = useSiteContent();
+  const { isLight, user, isAdmin } = useSiteContent();
   const [profile, setProfile] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingListing, setEditingListing] = useState<any>(null);
+
+  const canEdit = isAdmin || (user && user.uid === partnerId);
 
   useEffect(() => {
     if (!partnerId) return;
@@ -174,30 +178,42 @@ export function PartnerProfile() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {listings.map((item, idx) => (
-                <Link key={item.id} to={`/listing/${item.id}`} className="group">
-                  <div className="relative aspect-[4/5] overflow-hidden bg-charcoal mb-4">
-                    {item.coverImage ? (
-                      <img 
-                        src={item.coverImage} 
-                        alt="" 
-                        className="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-110"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white/5 opacity-50">
-                        <Briefcase size={64} />
+                <div key={item.id} className="group relative">
+                  <Link to={`/listing/${item.id}`}>
+                    <div className="relative aspect-[4/5] overflow-hidden bg-charcoal mb-4">
+                      {item.coverImage || item.img ? (
+                        <img 
+                          src={item.coverImage || item.img} 
+                          alt="" 
+                          className="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white/5 opacity-50">
+                          <Briefcase size={64} />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-charcoal/20 group-hover:bg-transparent transition-all duration-500" />
+                      <div className="absolute bottom-0 left-0 p-8 z-20 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500">
+                        <p className="text-[8px] uppercase tracking-[0.3em] font-black text-brick-copper mb-2">{item.location || 'Kingston, ON'}</p>
+                        <h4 className="font-display text-2xl italic text-white">{item.title}</h4>
                       </div>
-                    )}
-                    <div className="absolute inset-0 bg-charcoal/20 group-hover:bg-transparent transition-all duration-500" />
-                    <div className="absolute bottom-0 left-0 p-8 z-20 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500">
-                      <p className="text-[8px] uppercase tracking-[0.3em] font-black text-brick-copper mb-2">{item.location || 'Kingston, ON'}</p>
-                      <h4 className="font-display text-2xl italic text-white">{item.title}</h4>
                     </div>
-                  </div>
+                  </Link>
+
+                  {canEdit && (
+                    <button 
+                      onClick={() => setEditingListing(item)}
+                      className="absolute top-4 right-4 z-30 p-3 bg-charcoal border border-white/10 text-brick-copper opacity-0 group-hover:opacity-100 transition-all hover:bg-brick-copper hover:text-charcoal"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                  )}
+
                   <div className="flex justify-between items-center group">
                     <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-text-primary/40 group-hover:text-text-primary transition-colors">Case Study 0{idx + 1}</span>
                     <ChevronRight size={14} className="text-text-primary/10 group-hover:text-brick-copper transition-colors" />
                   </div>
-                </Link>
+                </div>
               ))}
               {listings.length === 0 && (
                 <div className="col-span-full py-24 text-center border border-dashed border-border-subtle rounded-sm">
@@ -209,6 +225,16 @@ export function PartnerProfile() {
           </div>
         </div>
       </section>
+
+      <AnimatePresence>
+        {editingListing && (
+          <ListingEditModal 
+            listing={editingListing} 
+            isOpen={!!editingListing} 
+            onClose={() => setEditingListing(null)} 
+          />
+        )}
+      </AnimatePresence>
 
       {/* Footer CTA */}
       <section className="bg-charcoal py-24 text-center px-8">

@@ -286,21 +286,31 @@ const SortablePortfolioRow = ({
   );
 };
 
+// Safe JSON stringify helper for circular structures
+const safeStringify = (obj: any, replacer?: (key: string, value: any) => any, indent?: number) => {
+  const cache = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (cache.has(value)) {
+        return '[Circular]';
+      }
+      cache.add(value);
+    }
+    return replacer ? replacer(key, value) : value;
+  }, indent);
+};
+
 // Clean object for Firestore (remove functions and non-serializable fields)
 const cleanObject = (obj: any): any => {
   if (!obj || typeof obj !== 'object') return obj;
-  const result: any = Array.isArray(obj) ? [] : {};
-  for (const key in obj) {
-    const value = obj[key];
-    if (typeof value === 'function') continue;
-    if (value === undefined) continue;
-    if (value !== null && typeof value === 'object') {
-      result[key] = cleanObject(value);
-    } else {
-      result[key] = value;
-    }
+  
+  // Use safeStringify to break circles before cleaning
+  try {
+    return JSON.parse(safeStringify(obj));
+  } catch (err) {
+    console.error("CleanObject failure:", err);
+    return obj;
   }
-  return result;
 };
 
 export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
@@ -551,8 +561,8 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   const logAction = async (action: string, details: any) => {
     try {
-      // Deep clone and clean to avoid circular structures in JSON.stringify
-      const sanitizedDetails = JSON.parse(JSON.stringify(details, (key, value) => {
+      // Use safeStringify to avoid circular structures
+      const sanitizedDetails = JSON.parse(safeStringify(details, (key, value) => {
         if (typeof value === 'object' && value !== null) {
           if (key === 'layout') return '[Layout Data]'; // Avoid logging huge layouts twice
           return value;
@@ -563,7 +573,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       await fetch('/api/admin/logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, details: sanitizedDetails, user: user.email })
+        body: safeStringify({ action, details: sanitizedDetails, user: user.email })
       });
     } catch (err) {
       console.error('Failed to log action:', err);

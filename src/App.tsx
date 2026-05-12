@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrandHeader, Navbar, HeroVisual, MobileNavbar } from './components/Hero';
 import { Portfolio, Services } from './components/PortfolioSections';
 import { BookingForm, FooterContent } from './components/BookingAndFooter';
@@ -15,6 +15,10 @@ import { ClientDashboard } from './components/ClientDashboard';
 import AboutPage from './pages/About';
 import ServicesPage from './pages/Services';
 import InquiryPage from './pages/Inquiry';
+import FloorPlansPage from './pages/services/FloorPlans';
+import InteriorPhotographyPage from './pages/services/InteriorPhotography';
+import AerialPhotographyPage from './pages/services/AerialPhotography';
+import VirtualToursPage from './pages/services/VirtualTours';
 // Lazy load the AdminDashboard to reduce initial bundle size
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const PuckEditor = lazy(() => import('./components/PuckEditor').then(m => ({ default: m.PuckEditor })));
@@ -108,6 +112,10 @@ function MainLayout() {
           <Route path="/" element={<HomeView />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/services" element={<ServicesPage />} />
+          <Route path="/services/floor-plans" element={<FloorPlansPage />} />
+          <Route path="/services/interior" element={<InteriorPhotographyPage />} />
+          <Route path="/services/aerial" element={<AerialPhotographyPage />} />
+          <Route path="/services/virtual-tours" element={<VirtualToursPage />} />
           <Route path="/inquiry" element={<InquiryPage />} />
           <Route path="/p/:slug" element={<DynamicPageView />} />
           <Route path="/listing/:id" element={<ProjectDetailView />} />
@@ -200,10 +208,34 @@ function MainLayout() {
 }
 
 function HomeView() {
-  const { settings, pages, portfolioItems } = useSiteContent();
+  const { settings, pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
   
-  if (settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones)) {
-    return <Render config={createConfig(pages, portfolioItems)} data={settings.layout} />;
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+  
+  const sanitizedLayout = useMemo(() => {
+    if (!settings.layout) return null;
+    try {
+      return JSON.parse(JSON.stringify(settings.layout));
+    } catch (e) {
+      // If circular, return a pruned version
+      const cache = new WeakSet();
+      const prune = (val: any): any => {
+        if (val === null || typeof val !== 'object') return val;
+        if (cache.has(val)) return undefined;
+        cache.add(val);
+        if (Array.isArray(val)) return val.map(prune);
+        const cleaned: any = {};
+        for (const [k, v] of Object.entries(val)) {
+          cleaned[k] = prune(v);
+        }
+        return cleaned;
+      };
+      return prune(settings.layout);
+    }
+  }, [settings.layout]);
+
+  if (sanitizedLayout && (sanitizedLayout.content?.length > 0 || sanitizedLayout.zones)) {
+    return <Render config={config} data={sanitizedLayout} />;
   }
 
   const sections = settings.homeSectionsOrder || ['portfolio', 'services'];
@@ -227,10 +259,33 @@ function HomeView() {
 
 function DynamicPageView() {
   const { slug } = useParams();
-  const { pages, portfolioItems } = useSiteContent();
+  const { pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
   const page = pages.find(p => p.slug === slug);
 
   if (!page) return <div className="p-16 text-center">Narrative not found.</div>;
+
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+
+  const sanitizedLayout = useMemo(() => {
+    if (!page.layout) return null;
+    try {
+      return JSON.parse(JSON.stringify(page.layout));
+    } catch (e) {
+      const cache = new WeakSet();
+      const prune = (val: any): any => {
+        if (val === null || typeof val !== 'object') return val;
+        if (cache.has(val)) return undefined;
+        cache.add(val);
+        if (Array.isArray(val)) return val.map(prune);
+        const cleaned: any = {};
+        for (const [k, v] of Object.entries(val)) {
+          cleaned[k] = prune(v);
+        }
+        return cleaned;
+      };
+      return prune(page.layout);
+    }
+  }, [page.layout]);
 
   return (
     <div className="flex flex-col w-full min-h-screen">
@@ -245,8 +300,8 @@ function DynamicPageView() {
         <span className="text-text-primary">{page.title}</span>
       </div>
       <div className="flex-1">
-        {page.layout && (page.layout.content?.length > 0 || page.layout.zones) ? (
-          <Render config={createConfig(pages, portfolioItems)} data={page.layout} />
+        {sanitizedLayout && (sanitizedLayout.content?.length > 0 || sanitizedLayout.zones) ? (
+          <Render config={config} data={sanitizedLayout} />
         ) : (
           <motion.section 
             initial={{ opacity: 0 }}

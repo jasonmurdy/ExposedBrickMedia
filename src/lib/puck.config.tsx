@@ -69,13 +69,14 @@ const SpacingControl = {
 };
 
 // Helper component to wrap elements with the spacing
-const SpacingWrapper = ({ spacing, children, className = "" }: { spacing: any, children: React.ReactNode, className?: string }) => (
+const SpacingWrapper = ({ spacing, children, className = "", style = {} }: { spacing: any, children: React.ReactNode, className?: string, style?: React.CSSProperties }) => (
   <div 
     style={{
       paddingTop: spacing?.pt ? `${spacing.pt}px` : undefined,
       paddingBottom: spacing?.pb ? `${spacing.pb}px` : undefined,
       marginTop: spacing?.mt ? `${spacing.mt}px` : undefined,
       marginBottom: spacing?.mb ? `${spacing.mb}px` : undefined,
+      ...style
     }} 
     className={className}
   >
@@ -142,6 +143,7 @@ export type PuckConfig = {
       collection: "portfolio" | "pages";
       limit: number;
       columns: 2 | 3 | 4;
+      spacing?: any;
     };
     CinematicHero: {
       title: string;
@@ -150,12 +152,14 @@ export type PuckConfig = {
       mediaType: "video" | "image";
       ctaText: string;
       ctaUrl: string;
+      spacing?: any;
     };
     Columns: {
       leftColumnWidth: number;
       gap: number;
       left?: React.ReactNode;
       right?: React.ReactNode;
+      spacing?: any;
     };
     Heading: {
       text: string;
@@ -163,11 +167,13 @@ export type PuckConfig = {
       align: "left" | "center" | "right";
       accent: boolean;
       width: "full" | "half";
+      spacing?: any;
     };
     RichText: {
       content: string;
       size: "sm" | "base" | "lg";
       width: "full" | "half";
+      spacing?: any;
     };
     Hero: {
       imageUrl?: string;
@@ -178,6 +184,7 @@ export type PuckConfig = {
         url: string;
         label: string;
       };
+      spacing?: any;
     };
     TextContent: {
       title1: string;
@@ -185,6 +192,7 @@ export type PuckConfig = {
       accent: string;
       tagline: string;
       width: "full" | "half";
+      spacing?: any;
     };
     Portfolio: {
       variant: "grid" | "gallery";
@@ -192,28 +200,34 @@ export type PuckConfig = {
       limit?: number;
       showFilter: boolean;
       width: "full" | "half";
+      spacing?: any;
     };
     Services: {
       title: string;
       subtitle: string;
       width: "full" | "half";
+      spacing?: any;
     };
     Contact: {
       title: string;
       description?: string;
       width: "full" | "half";
+      spacing?: any;
     };
     Footer: {
       quote: string;
       width: "full" | "half";
+      spacing?: any;
     };
     Spacer: {
       size: number;
       width: "full" | "half";
+      spacing?: any;
     };
     Testimonials: {
       maxItems: number;
       width: "full" | "half";
+      spacing?: any;
     };
     MediaEmbed: {
       url: string;
@@ -221,6 +235,7 @@ export type PuckConfig = {
       widthPercentage: number;
       aspectRatio: "16/9" | "4/3" | "1/1" | "9/16";
       width: "full" | "half";
+      spacing?: any;
     };
     PropertyHighlight: {
       mediaUrl: string;
@@ -230,26 +245,31 @@ export type PuckConfig = {
       listPrice: string;
       packageUsed: string;
       width: "full" | "half";
+      spacing?: any;
     };
     TourEmbed: {
       url: string;
       height: number;
       width: "full" | "half";
+      spacing?: any;
     };
     LogoCloud: {
-      logos: { url: string; alt: string }[];
+      logos: { url: string; alt: string; link?: string }[];
       width: "full" | "half";
+      spacing?: any;
     };
     InstagramFeed: {
       username: string;
       width: "full" | "half";
+      spacing?: any;
     };
     HTMLEmbed: {
       html: string;
       height?: number;
       title?: string;
-      wrapInIframe?: boolean;
+      wrapInIframe: boolean;
       width: "full" | "half";
+      spacing?: any;
     };
     Button: {
       link: {
@@ -259,22 +279,26 @@ export type PuckConfig = {
       };
       align: "left" | "center" | "right";
       width: "full" | "half";
+      spacing?: any;
     };
     PartnerShowcase: {
       partnerId: string;
       layout: "profile" | "card";
       showAssets: boolean;
       width: "full" | "half";
+      spacing?: any;
     };
     BrandGallery: {
       title: string;
       category?: string;
       width: "full" | "half";
+      spacing?: any;
     };
     PDFReader: {
       url: string;
       title?: string;
       width: "full" | "half";
+      spacing?: any;
     };
   };
 };
@@ -401,10 +425,12 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     }
   });
 
-  const ComponentWrapper = ({ width, children }: { width?: "full" | "half", children: React.ReactNode }) => {
+  const ComponentWrapper = ({ width, spacing, children }: { width?: "full" | "half", spacing?: any, children: React.ReactNode }) => {
     return (
-      <div className={`${width === 'half' ? 'w-full lg:w-1/2' : 'w-full'}`}>
-        {children}
+      <div className={`${width === 'half' ? 'w-full lg:w-1/2' : 'w-full'} overflow-hidden`}>
+        <SpacingWrapper spacing={spacing}>
+          {children}
+        </SpacingWrapper>
       </div>
     );
   };
@@ -457,6 +483,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             ]
           },
           width: WidthField as any,
+          spacing: SpacingControl as any,
         },
         defaultProps: {
           link: {
@@ -466,12 +493,13 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           },
           align: "left",
           width: "full",
+          spacing: { pt: "0", pb: "0", mt: "16", mb: "16" },
         },
-        render: ({ link, align, width }) => {
+        render: ({ link, align, width, spacing }) => {
           const justify = align === 'center' ? 'center' : align === 'right' ? 'end' : 'start';
           return (
-            <ComponentWrapper width={width}>
-              <div className={`flex justify-${justify} my-4`}>
+            <ComponentWrapper width={width} spacing={spacing}>
+              <div className={`flex justify-${justify}`}>
                 <LinkButton link={link} />
               </div>
             </ComponentWrapper>
@@ -493,21 +521,23 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           },
           showAssets: { type: "radio", options: [{ label: "Yes", value: true }, { label: "No", value: false }] },
           width: WidthField as any,
+          spacing: SpacingControl as any,
         },
         defaultProps: {
           partnerId: partners[0]?.id || "",
           layout: "card",
           showAssets: false,
-          width: "full"
+          width: "full",
+          spacing: { pt: "20", pb: "20", mt: "0", mb: "0" },
         },
-        render: ({ partnerId, layout, showAssets, width }) => {
+        render: ({ partnerId, layout, showAssets, width, spacing }) => {
           const partner = partners.find(p => p.id === partnerId);
           if (!partner) return <div className="p-8 text-center opacity-20 italic">Select a verified partner to display.</div>;
 
           if (layout === 'card') {
             return (
-              <ComponentWrapper width={width}>
-                <div className="p-8">
+              <ComponentWrapper width={width} spacing={spacing}>
+                <div className="px-8">
                   <Link to={`/partners/${partner.id}`} className="group block bg-white/5 border border-white/5 hover:border-brick-copper/30 transition-all p-6">
                     <div className="flex items-center gap-6">
                       <div className="w-20 h-20 overflow-hidden bg-charcoal border border-white/5 grayscale group-hover:grayscale-0 transition-all">
@@ -529,8 +559,8 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           }
 
           return (
-            <ComponentWrapper width={width}>
-              <div className="p-8 md:p-12 lg:p-16 space-y-12">
+            <ComponentWrapper width={width} spacing={spacing}>
+              <div className="px-8 md:px-12 lg:px-16 py-12 space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                    <div className="aspect-square bg-charcoal border border-white/5 overflow-hidden grayscale">
                       {partner.headshotUrl ? (
@@ -579,18 +609,20 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           title: { type: "text" },
           category: { type: "text" },
           width: WidthField as any,
+          spacing: SpacingControl as any,
         },
         defaultProps: {
           title: "Brand Artifacts",
           category: "Templates",
-          width: "full"
+          width: "full",
+          spacing: { pt: "40", pb: "40", mt: "0", mb: "0" },
         },
-        render: ({ title, category, width }) => {
+        render: ({ title, category, width, spacing }) => {
           const resources = brandResources.filter(r => !category || r.category === category);
           
           return (
-            <ComponentWrapper width={width}>
-              <div className="p-8 md:p-12">
+            <ComponentWrapper width={width} spacing={spacing}>
+              <div className="px-8 md:px-12">
                 <div className="flex items-center justify-between mb-12 border-b border-white/5 pb-6">
                    <h2 className="font-display text-4xl italic text-white">{title}</h2>
                 </div>
@@ -628,17 +660,19 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           url: MediaField("PDF URL", "image/*", "documents") as any, // Using image/* for file selection UI, but it will store any URL
           title: { type: "text" },
           width: WidthField as any,
+          spacing: SpacingControl as any,
         },
         defaultProps: {
           url: "",
           title: "Technical Archive",
-          width: "full"
+          width: "full",
+          spacing: { pt: "40", pb: "40", mt: "0", mb: "0" },
         },
-        render: ({ url, title, width }) => {
+        render: ({ url, title, width, spacing }) => {
           if (!url) return <div className="p-12 text-center opacity-20 italic">Upload a PDF to initialize the reader.</div>;
           return (
-            <ComponentWrapper width={width}>
-              <div className="p-4 md:p-8">
+            <ComponentWrapper width={width} spacing={spacing}>
+              <div className="px-4 md:px-8">
                 <PDFViewer fileUrl={url} title={title} />
               </div>
             </ComponentWrapper>
@@ -709,7 +743,8 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           ] 
         },
         ctaText: { type: "text" },
-        ctaUrl: { type: "text" }
+        ctaUrl: { type: "text" },
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         title: "Architectural Narratives",
@@ -717,10 +752,11 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         mediaUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
         mediaType: "video",
         ctaText: "View Portfolio",
-        ctaUrl: "/"
+        ctaUrl: "/",
+        spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl }) => (
-        <div className="relative h-[80vh] min-h-[600px] w-full flex items-center justify-center overflow-hidden">
+      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl, spacing }) => (
+        <SpacingWrapper spacing={spacing} className="relative h-[80vh] min-h-[600px] w-full flex items-center justify-center overflow-hidden">
           {mediaType === 'video' ? (
             <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
               <source src={mediaUrl} type="video/mp4" />
@@ -758,7 +794,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
               </Link>
             </motion.div>
           </div>
-        </div>
+        </SpacingWrapper>
       )
     },
     DynamicGrid: {
@@ -778,14 +814,16 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             { label: "3", value: 3 },
             { label: "4", value: 4 }
           ]
-        }
+        },
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         collection: "portfolio",
         limit: 6,
-        columns: 3
+        columns: 3,
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ collection: coll, limit, columns }) => {
+      render: ({ collection: coll, limit, columns, spacing }) => {
         const items = coll === 'portfolio' ? portfolioItems : pages;
         const displayItems = items.slice(0, limit);
         const gridCols = {
@@ -795,26 +833,28 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         }[columns];
 
         return (
-          <div className={`grid ${gridCols} gap-8 p-8`}>
-            {displayItems.map((item: any) => (
-              <motion.div 
-                key={item.id}
-                whileHover={{ y: -10 }}
-                className="group relative h-80 bg-charcoal overflow-hidden border border-white/5"
-              >
-                <img 
-                  src={item.img || item.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c"} 
-                  className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-700" 
-                  alt={item.title} 
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex flex-col justify-end">
-                  <span className="text-[9px] uppercase tracking-widest text-brick-copper font-black mb-2">{item.propertyType || item.category || 'PROJECT'}</span>
-                  <h4 className="text-xl font-display italic text-white">{item.title}</h4>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )
+          <SpacingWrapper spacing={spacing}>
+            <div className={`grid ${gridCols} gap-8 p-8`}>
+              {displayItems.map((item: any) => (
+                <motion.div 
+                  key={item.id}
+                  whileHover={{ y: -10 }}
+                  className="group relative h-80 bg-charcoal overflow-hidden border border-white/5"
+                >
+                  <img 
+                    src={item.img || item.heroImage || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c"} 
+                    className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-700" 
+                    alt={item.title} 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex flex-col justify-end">
+                    <span className="text-[9px] uppercase tracking-widest text-brick-copper font-black mb-2">{item.propertyType || item.category || 'PROJECT'}</span>
+                    <h4 className="text-xl font-display italic text-white">{item.title}</h4>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </SpacingWrapper>
+        );
       }
     },
     Columns: {
@@ -827,21 +867,23 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           max: 90,
         },
         gap: { type: "number" },
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         leftColumnWidth: 50,
         gap: 32,
+        spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ leftColumnWidth, gap }) => {
+      render: ({ leftColumnWidth, gap, spacing }) => {
         return (
-          <div className="flex flex-col md:grid" style={{ gap: `${gap}px`, gridTemplateColumns: `${leftColumnWidth}% calc(${100 - leftColumnWidth}% - ${gap}px)` }}>
+          <SpacingWrapper spacing={spacing} className="flex flex-col md:grid" style={{ gap: `${gap}px`, gridTemplateColumns: `${leftColumnWidth}% calc(${100 - leftColumnWidth}% - ${gap}px)` }}>
             <div className="w-full min-h-[50px] transition-all border border-transparent hover:border-white/5">
               <DropZone zone="left" />
             </div>
             <div className="w-full min-h-[50px] transition-all border border-transparent hover:border-white/5">
               <DropZone zone="right" />
             </div>
-          </div>
+          </SpacingWrapper>
         );
       },
     },
@@ -873,6 +915,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           ]
         },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         text: "Elevated Architecture",
@@ -880,8 +923,9 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         align: "left",
         accent: false,
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ text, level, align, accent, width }) => {
+      render: ({ text, level, align, accent, width, spacing }) => {
         const Tag = (`h${level}` as any) || "h2";
         const alignClass = { left: "text-left", center: "text-center", right: "text-right" }[align];
         const sizeClass = {
@@ -891,8 +935,8 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           4: "text-xl md:text-2xl",
         }[level];
         return (
-          <ComponentWrapper width={width}>
-            <div className="p-8">
+          <ComponentWrapper width={width} spacing={spacing}>
+            <div className="px-8">
               <Tag className={`${alignClass} ${sizeClass} font-display italic tracking-tight ${accent ? "text-brick-copper" : "text-text-primary"}`}>
                 {text}
               </Tag>
@@ -913,17 +957,19 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           ],
         },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         content: "High-fidelity narratives for architectural excellence.",
         size: "base",
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ content, size, width }) => {
+      render: ({ content, size, width, spacing }) => {
         const sizeClass = { sm: "text-xs", base: "text-sm", lg: "text-base" }[size];
         return (
-          <ComponentWrapper width={width}>
-            <div className={`${sizeClass} leading-relaxed text-text-primary/60 max-w-2xl p-8`}>
+          <ComponentWrapper width={width} spacing={spacing}>
+            <div className={`${sizeClass} leading-relaxed text-text-primary/60 max-w-2xl px-8 md:px-12`}>
               {content}
             </div>
           </ComponentWrapper>
@@ -943,6 +989,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         },
         cta: LinkField as any,
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         height: "short",
@@ -951,10 +998,11 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           type: "internal",
           label: "View Portfolio",
           url: "portfolio"
-        }
+        },
+        spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ imageUrl, cta, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ imageUrl, cta, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <div className="relative">
             <HeroVisual 
               imageUrl={imageUrl} 
@@ -978,6 +1026,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         accent: { type: "text" },
         tagline: { type: "text" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         title1: "EXPOSED",
@@ -985,9 +1034,10 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         accent: "MEDIA",
         tagline: "HIGH-FIDELITY ARCHITECTURAL NARRATIVES",
         width: "full",
+        spacing: { pt: "0", pb: "0", mt: "0", mb: "20" },
       },
-      render: ({ title1, title2, accent, tagline, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ title1, title2, accent, tagline, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <BrandHeader override={{ title1, title2, accent, tagline }} />
         </ComponentWrapper>
       ),
@@ -1017,15 +1067,17 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           ]
         },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         variant: "grid",
         panel: "main",
         showFilter: true,
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ variant, panel, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ variant, panel, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <Portfolio variant={variant} panel={panel as any} />
         </ComponentWrapper>
       ),
@@ -1035,14 +1087,16 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         title: { type: "text" },
         subtitle: { type: "text" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         title: "SERVICES",
         subtitle: "Refined Solutions",
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ title, subtitle, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ title, subtitle, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <Services override={{ title, subtitle }} />
         </ComponentWrapper>
       ),
@@ -1052,14 +1106,16 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         title: { type: "text" },
         description: { type: "text" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         title: "GET IN TOUCH",
         description: "Let's discuss your next project",
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ title, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ title, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <BookingForm override={{ title }} />
         </ComponentWrapper>
       ),
@@ -1068,13 +1124,15 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       fields: {
         quote: { type: "text" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         quote: "Elegance is the only beauty that never fades.",
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ quote, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ quote, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <FooterContent override={{ quote }} />
         </ComponentWrapper>
       ),
@@ -1087,13 +1145,15 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           max: 200
         },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         size: 40,
         width: "full",
+        spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ size, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ size, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <div style={{ height: `${size}px` }} />
         </ComponentWrapper>
       ),
@@ -1102,10 +1162,11 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       fields: {
         maxItems: { type: "number" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
-      defaultProps: { maxItems: 5, width: "full" },
-      render: ({ maxItems, width }) => (
-        <ComponentWrapper width={width}>
+      defaultProps: { maxItems: 5, width: "full", spacing: { pt: "32", pb: "32", mt: "0", mb: "0" } },
+      render: ({ maxItems, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <TestimonialCarousel maxItems={maxItems} />
         </ComponentWrapper>
       ),
@@ -1122,6 +1183,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         listPrice: { type: "text" },
         packageUsed: { type: "text" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         mediaUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
@@ -1131,9 +1193,10 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         listPrice: "$1,150,000",
         packageUsed: "Cinematic Plus",
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ mediaUrl, mediaType, daysOnMarket, salePrice, listPrice, packageUsed, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ mediaUrl, mediaType, daysOnMarket, salePrice, listPrice, packageUsed, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <PropertyHighlight 
             mediaUrl={mediaUrl} 
             mediaType={mediaType} 
@@ -1150,10 +1213,11 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         url: { type: "text" },
         height: { type: "number" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
-      defaultProps: { url: "", height: 600, width: "full" },
-      render: ({ url, height, width }) => (
-        <ComponentWrapper width={width}>
+      defaultProps: { url: "", height: 600, width: "full", spacing: { pt: "32", pb: "32", mt: "0", mb: "0" } },
+      render: ({ url, height, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <TourEmbed url={url} height={height} />
         </ComponentWrapper>
       ),
@@ -1162,23 +1226,27 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       fields: {
         logos: {
           type: "array",
+          getItemSummary: (item) => item.alt || "Logo",
           arrayFields: {
-            url: { type: "text" },
+            url: MediaField("Logo", "image/*", "logos") as any,
             alt: { type: "text" },
+            link: { type: "text" },
           },
         },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
         logos: [
           { url: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Compass_logo.svg", alt: "Compass" },
           { url: "https://upload.wikimedia.org/wikipedia/commons/e/ee/Sotheby%27s_International_Realty_logo.svg", alt: "Sotheby's" },
           { url: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Coldwell_Banker_logo.svg", alt: "Coldwell Banker" },
         ]
       },
-      render: ({ logos, width }) => (
-        <ComponentWrapper width={width}>
+      render: ({ logos, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <LogoCloud logos={logos} />
         </ComponentWrapper>
       ),
@@ -1187,10 +1255,11 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       fields: {
         username: { type: "text" },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
-      defaultProps: { username: "exposedbrickmedia", width: "full" },
-      render: ({ username, width }) => (
-        <ComponentWrapper width={width}>
+      defaultProps: { username: "exposedbrickmedia", width: "full", spacing: { pt: "32", pb: "32", mt: "0", mb: "0" } },
+      render: ({ username, width, spacing }) => (
+        <ComponentWrapper width={width} spacing={spacing}>
           <InstagramFeed username={username} />
         </ComponentWrapper>
       ),
@@ -1213,6 +1282,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           ]
         },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         url: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
@@ -1220,11 +1290,12 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         widthPercentage: 100,
         aspectRatio: "16/9",
         width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ url, mediaType, widthPercentage, aspectRatio, width }) => {
+      render: ({ url, mediaType, widthPercentage, aspectRatio, width, spacing }) => {
         return (
-          <ComponentWrapper width={width}>
-            <div className="w-full flex justify-center my-8">
+          <ComponentWrapper width={width} spacing={spacing}>
+            <div className="w-full flex justify-center">
               <div style={{ width: `${widthPercentage}%`, aspectRatio: aspectRatio }} className="overflow-hidden bg-white/5 relative group border border-white/10">
                 {mediaType === 'video' ? (
                   url ? <video src={url} autoPlay loop muted playsInline className="w-full h-full object-cover" /> : null
@@ -1250,14 +1321,16 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           ]
         },
         width: WidthField as any,
+        spacing: SpacingControl as any,
       },
       defaultProps: {
         html: "<div style=\"padding: 20px; background: #eee; text-align: center;\">Custom HTML content</div>",
         wrapInIframe: false,
         title: "HTML Embed",
-        width: "full"
+        width: "full",
+        spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ html, height, title, wrapInIframe, width }) => {
+      render: ({ html, height, title, wrapInIframe, width, spacing }) => {
         const content = wrapInIframe ? (
           <iframe
             srcDoc={html}
@@ -1268,9 +1341,8 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         ) : (
           <InlineHTML html={html} height={height} />
         );
-
         return (
-          <ComponentWrapper width={width}>
+          <ComponentWrapper width={width} spacing={spacing}>
             {content}
           </ComponentWrapper>
         );
