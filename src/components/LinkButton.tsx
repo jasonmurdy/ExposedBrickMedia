@@ -1,10 +1,17 @@
 import { Link } from 'react-router-dom';
 
-export const LinkButton = ({ link, className: passedClassName }: { link: any, className?: string }) => {
+export const LinkButton = ({ link, variant = "solid", className: passedClassName }: { link: any, variant?: "solid" | "outline" | "underline", className?: string }) => {
   if (!link?.label || !link?.url) return null;
   
-  const defaultClassName = "inline-block px-6 py-3 bg-brick-copper hover:bg-white text-charcoal font-bold uppercase text-[10px] tracking-widest transition-transform duration-300 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 shadow-sm hover:shadow-md";
-  const finalClass = passedClassName || defaultClassName;
+  const variants = {
+    solid: "bg-brick-copper hover:bg-white text-charcoal shadow-sm hover:shadow-md px-6 py-3",
+    outline: "bg-transparent border border-brick-copper text-brick-copper hover:bg-brick-copper hover:text-charcoal shadow-sm hover:shadow-md px-6 py-3",
+    underline: "bg-transparent border-b border-brick-copper text-brick-copper hover:text-white px-0 py-1 shadow-none hover:shadow-none translate-y-0 hover:translate-y-0"
+  };
+
+  const baseClass = "inline-block font-bold uppercase text-[10px] tracking-widest transition-all duration-300 hover:-translate-y-0.5 active:scale-95 active:translate-y-0";
+  const variantClass = variants[variant] || variants.solid;
+  const finalClass = passedClassName || `${baseClass} ${variantClass}`;
   
   if (link.type === 'internal') {
     return (

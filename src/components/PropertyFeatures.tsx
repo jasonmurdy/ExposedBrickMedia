@@ -3,6 +3,7 @@ import React from 'react';
 export const PropertyHighlight = ({ 
   mediaUrl, 
   mediaType, 
+  autoPlay = true,
   daysOnMarket, 
   salePrice, 
   listPrice, 
@@ -10,6 +11,7 @@ export const PropertyHighlight = ({
 }: { 
   mediaUrl: string, 
   mediaType: 'image' | 'video', 
+  autoPlay?: boolean,
   daysOnMarket: number, 
   salePrice: string, 
   listPrice: string, 
@@ -19,7 +21,7 @@ export const PropertyHighlight = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/10 group">
       <div className="relative aspect-square md:aspect-auto md:h-full overflow-hidden bg-white/5">
         {mediaType === 'video' ? (
-          mediaUrl ? <video src={mediaUrl} autoPlay loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" /> : null
+          mediaUrl ? <video src={mediaUrl} autoPlay={autoPlay} loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" /> : null
         ) : (
           mediaUrl ? <img src={mediaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="Highlight" /> : null
         )}

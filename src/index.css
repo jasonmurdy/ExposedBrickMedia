@@ -112,6 +112,12 @@
   height: 100%;
 }
 
+/* Ensure editor text is visible regardless of global layer base styles */
+[class*="Puck"] {
+  --puck-color-white: #ffffff;
+  --puck-color-black: #000000;
+}
+
 .font-serif {
   font-family: var(--font-display);
 }
