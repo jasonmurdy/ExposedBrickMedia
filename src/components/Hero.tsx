@@ -11,7 +11,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
-export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', override?: { title1: string, title2: string, accent: string, tagline: string } }) => {
+export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', override?: { title1: string, title2: string, accent: string, tagline: string, showLogo?: boolean } }) => {
   const { settings, isEditMode, isAdmin, loading } = useSiteContent();
   const currentTheme = theme || 'dark';
   const logoUrl = currentTheme === 'light' ? settings.logoLight : settings.logoDark;
@@ -96,6 +96,7 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
   const displayTitle2 = override?.title2 || settings.heroTitlePart2 || "Architecture";
   const displayAccent = override?.accent || settings.heroTitleAccent || "Studios";
   const displayTagline = override?.tagline || settings.tagline || "Defined by Light";
+  const showLogo = override?.showLogo !== undefined ? override.showLogo : true;
 
   return (
     <div className={`mb-12 ${alignment === 'center' ? 'text-center flex flex-col items-center' : ''}`}>
@@ -106,7 +107,7 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
           transition={{ duration: 0.8, ease: [0.215, 0.61, 0.355, 1] }}
           className="mb-4 pt-4 md:pt-20"
         >
-          {logoUrl ? (
+          {logoUrl && showLogo ? (
             <div className={`w-full max-w-[16rem] md:max-w-xs flex items-center group relative ${isEditMode ? 'hover:ring-2 hover:ring-brick-copper transition-all p-4' : ''}`}>
               {logoUrl ? (
                 <img 

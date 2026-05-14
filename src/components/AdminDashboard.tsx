@@ -1207,7 +1207,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               <div className="bg-white/5 p-8 border border-white/10">
                 <h4 className="text-[10px] uppercase tracking-widest text-brick-copper mb-4">Engine Specs</h4>
                 <p className="text-[10px] text-white/40 uppercase tracking-widest">
-                  Powered by Puck @puckeditor/core v0.x
+                  Powered by Puck @measured/puck v0.x
                 </p>
               </div>
             </div>

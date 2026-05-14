@@ -7,7 +7,7 @@ import React, { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { MoveUpRight, Shield, User, Globe, Mail, Phone, Download, FileText, Box as BoxIcon } from "lucide-react";
-import { Config } from "@puckeditor/core";
+import { Config } from "@measured/puck";
 import { HeroVisual, BrandHeader } from "../components/Hero";
 import { Portfolio, Services } from "../components/PortfolioSections";
 import { BookingForm, FooterContent } from "../components/BookingAndFooter";
@@ -69,8 +69,9 @@ const SpacingControl = {
 };
 
 // Helper component to wrap elements with the spacing
-const SpacingWrapper = ({ spacing, children, className = "", style = {} }: { spacing: any, children: React.ReactNode, className?: string, style?: React.CSSProperties }) => (
+const SpacingWrapper = ({ spacing, children, className = "", style = {}, id }: { spacing: any, children: React.ReactNode, className?: string, style?: React.CSSProperties, id?: string }) => (
   <div 
+    id={id}
     style={{
       paddingTop: spacing?.pt ? `${spacing.pt}px` : undefined,
       paddingBottom: spacing?.pb ? `${spacing.pb}px` : undefined,
@@ -130,6 +131,8 @@ export type PuckConfig = {
     description?: string;
     ogImage?: string;
     layoutMode?: "one-panel" | "two-panel";
+    main?: React.ReactNode;
+    side?: React.ReactNode;
   };
   components: {
     Section: {
@@ -157,16 +160,6 @@ export type PuckConfig = {
       entranceAnimation?: string;
       children?: React.ReactNode;
     };
-    Container: {
-      spacing: any;
-      background: "bg-transparent" | "glass" | "bg-charcoal" | "bg-white/5";
-      border: boolean;
-      padding: number;
-      width: "full" | "half";
-      styles?: string;
-      entranceAnimation?: string;
-      children?: React.ReactNode;
-    };
     DynamicGrid: {
       collection: "portfolio" | "pages";
       limit: number;
@@ -182,7 +175,6 @@ export type PuckConfig = {
       mediaType: "video" | "image";
       ctaText: string;
       ctaUrl: string;
-      content?: React.ReactNode;
       spacing?: any;
       entranceAnimation?: string;
     };
@@ -225,7 +217,6 @@ export type PuckConfig = {
         url: string;
         label: string;
       };
-      content?: React.ReactNode;
       spacing?: any;
       entranceAnimation?: string;
     };
@@ -234,8 +225,8 @@ export type PuckConfig = {
       title2: string;
       accent: string;
       tagline: string;
+      showLogo?: boolean;
       width: "full" | "half";
-      content?: React.ReactNode;
       spacing?: any;
       entranceAnimation?: string;
     };
@@ -290,7 +281,6 @@ export type PuckConfig = {
       muted?: boolean;
       showControls?: boolean;
       width: "full" | "half";
-      content?: React.ReactNode;
       spacing?: any;
       entranceAnimation?: string;
       styles?: string;
@@ -303,7 +293,6 @@ export type PuckConfig = {
       salePrice: string;
       listPrice: string;
       packageUsed: string;
-      content?: React.ReactNode;
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
@@ -540,7 +529,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
   return {
     categories: {
       Layout: {
-        components: ["Section", "Columns", "Container", "Spacer", "DynamicGrid"],
+        components: ["Section", "Columns", "Spacer", "DynamicGrid"],
       },
       Typography: {
         components: ["Heading", "RichText", "TextContent"],
@@ -563,20 +552,22 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         title: { type: "text" },
         description: { type: "textarea" },
         ogImage: MediaField("OG Image"),
-        main: { type: "slot" },
-        side: { type: "slot" },
         layoutMode: {
           type: "radio",
           options: [
             { label: "1 Panel (Full)", value: "one-panel" },
             { label: "2 Panel (Split)", value: "two-panel" }
           ]
-        }
+        },
+        main: { type: "slot" },
+        side: { type: "slot" }
       },
       defaultProps: {
         layoutMode: "two-panel"
       },
-      render: ({ children, title, description, ogImage, layoutMode = "two-panel", main, side }) => {
+      render: ({ children, main, side, title, description, ogImage, layoutMode = "two-panel" }) => {
+        const MainSlot = main as any;
+        const SideSlot = side as any;
         // Sync with document head
         useEffect(() => {
           if (title) document.title = `${title} | Exposed Brick Media`;
@@ -588,8 +579,8 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           return (
             <div className="min-h-screen bg-bg-primary overflow-hidden">
                <main className="w-full overflow-y-auto no-scrollbar scroll-smooth">
-                <div className="flex flex-wrap content-start">
-                  {main()}
+                 <div className="flex flex-wrap content-start">
+                  <MainSlot />
                 </div>
                 {children}
               </main>
@@ -598,18 +589,18 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         }
 
         return (
-          <div className="flex flex-col lg:flex-row min-h-screen bg-bg-primary overflow-hidden">
+          <div className="flex flex-col lg:flex-row min-h-screen bg-bg-primary overflow-hidden relative">
             {/* LEFT COLUMN: BRAND & SERVICES */}
             <aside className="hidden lg:flex w-1/3 border-r border-border-subtle flex-col p-8 md:p-12 lg:p-16 pt-32 lg:pt-12 overflow-y-auto no-scrollbar">
               <div className="flex flex-col flex-wrap lg:flex-nowrap gap-y-4">
-                {side()}
+                <SideSlot />
               </div>
             </aside>
 
             {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
             <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth pt-20 lg:pt-0">
               <div className="flex flex-wrap content-start">
-                {main()}
+                <MainSlot />
               </div>
               {children}
             </main>
@@ -900,8 +891,11 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         blur: 0,
         parallax: false,
         layout: "boxed",
+        gradientDirection: "",
       },
-      render: ({ spacing, columns, padding, background, bgImage, overlayOpacity, blur, parallax, gradientDirection, anchorId, layout, styles, children }) => (
+      render: ({ children, spacing, columns, padding, background, bgImage, overlayOpacity, blur, parallax, gradientDirection, anchorId, layout, styles }) => {
+        const ChildrenSlot = children as any;
+        return (
         <SpacingWrapper spacing={spacing} className={`relative ${background} overflow-hidden group/section ${styles || ""}`} id={anchorId}>
           {bgImage && (
             <>
@@ -917,11 +911,12 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           )}
           <div className={`relative z-10 transition-all ${layout === 'boxed' ? 'max-w-7xl mx-auto px-8 md:px-16' : 'w-full px-8 md:px-16'} ${padding}`}>
             <div className={`min-h-[100px] w-full ${columns}`}>
-              {children()}
+              <ChildrenSlot />
             </div>
           </div>
         </SpacingWrapper>
-      ),
+        );
+      },
     },
     DecorativeFrame: {
       fields: {
@@ -941,7 +936,9 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         borderRadius: 0,
         padding: 24,
       },
-      render: ({ spacing, borderWidth, borderColor, borderRadius, padding, entranceAnimation, styles, children }) => (
+      render: ({ children, spacing, borderWidth, borderColor, borderRadius, padding, entranceAnimation, styles }) => {
+        const ChildrenSlot = children as any;
+        return (
         <ComponentWrapper spacing={spacing} entranceAnimation={entranceAnimation} styles={styles}>
           <div 
             style={{ 
@@ -952,10 +949,11 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             }}
             className="w-full h-full min-h-[50px] relative"
           >
-            {children()}
+            <ChildrenSlot />
           </div>
         </ComponentWrapper>
-      )
+        );
+      }
     },
     CinematicHero: {
       fields: {
@@ -971,7 +969,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         },
         ctaText: { type: "text" },
         ctaUrl: { type: "text" },
-        content: { type: "slot" },
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
       },
@@ -984,7 +981,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         ctaUrl: "/",
         spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl, content, spacing, entranceAnimation }) => (
+      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl, spacing, entranceAnimation }) => (
         <ComponentWrapper spacing={spacing} entranceAnimation={entranceAnimation}>
           <div className="relative h-[80vh] min-h-[600px] w-full flex items-center justify-center overflow-hidden">
             {mediaType === 'video' ? (
@@ -995,42 +992,34 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
               <img src={mediaUrl} className="absolute inset-0 w-full h-full object-cover" alt="Hero" />
             )}
             <div className="absolute inset-0 bg-black/40" />
-            <div className="relative z-10 text-center text-white px-4 w-full max-w-7xl mx-auto flex flex-col items-center">
-              {content ? (
-                <div className="w-full flex flex-col items-center font-display">
-                  {content()}
-                </div>
-              ) : (
-                <>
-                  <motion.h1 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6"
-                  >
-                    {title}
-                  </motion.h1>
-                  <motion.p 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="text-xl md:text-2xl text-white/80 mb-8 max-w-2xl font-light"
-                  >
-                    {subtitle}
-                  </motion.p>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <Link 
-                      to={ctaUrl}
-                      className="inline-block bg-brick-copper text-charcoal hover:bg-white transition-all duration-500 rounded-none px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-black"
-                    >
-                      {ctaText}
-                    </Link>
-                  </motion.div>
-                </>
-              )}
+            <div className="relative z-10 text-center text-white px-4 max-w-4xl flex flex-col items-center">
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6"
+              >
+                {title}
+              </motion.h1>
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-xl md:text-2xl text-white/80 mb-8 max-w-2xl font-light"
+              >
+                {subtitle}
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Link 
+                  to={ctaUrl}
+                  className="inline-block bg-brick-copper text-charcoal hover:bg-white transition-all duration-500 rounded-none px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-black"
+                >
+                  {ctaText}
+                </Link>
+              </motion.div>
             </div>
           </div>
         </ComponentWrapper>
@@ -1121,15 +1110,17 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         gap: 32,
         spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ leftColumnWidth, gap, spacing, entranceAnimation, left, right }) => {
+      render: ({ left, right, leftColumnWidth, gap, spacing, entranceAnimation }) => {
+        const LeftSlot = left as any;
+        const RightSlot = right as any;
         return (
           <ComponentWrapper spacing={spacing} entranceAnimation={entranceAnimation}>
             <div className="flex flex-col md:grid" style={{ gap: `${gap}px`, gridTemplateColumns: `${leftColumnWidth}% calc(${100 - leftColumnWidth}% - ${gap}px)` }}>
               <div className="w-full min-h-[50px] transition-all border border-transparent hover:border-white/5">
-                {left()}
+                <LeftSlot />
               </div>
               <div className="w-full min-h-[50px] transition-all border border-transparent hover:border-white/5">
-                {right()}
+                <RightSlot />
               </div>
             </div>
           </ComponentWrapper>
@@ -1284,7 +1275,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             { label: "Tall", value: "tall" },
           ],
         },
-        content: { type: "slot" },
         cta: LinkField as any,
         width: WidthField as any,
         spacing: SpacingControl as any,
@@ -1300,41 +1290,43 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         },
         spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ imageUrl, cta, content, width, spacing, entranceAnimation }) => (
+      render: ({ imageUrl, cta, width, spacing, entranceAnimation }) => (
         <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
           <div className="relative">
             <HeroVisual 
               imageUrl={imageUrl} 
               showCta={false} 
             />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-full max-w-7xl px-8 md:px-12 pointer-events-none">
-                 <div className="pointer-events-auto flex flex-col items-center text-center">
-                   {content && content()}
-                   {cta?.label && (
-                     <div className="mt-8">
-                       <LinkButton link={cta} />
-                     </div>
-                   )}
-                 </div>
+            {cta?.label && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-24">
+                <div className="pointer-events-auto">
+                  <LinkButton link={cta} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </ComponentWrapper>
-      )
+      ),
     },
     TextContent: {
       fields: {
+        showLogo: { 
+          type: "radio", 
+          options: [
+            { label: "Show Logo", value: true }, 
+            { label: "Show Text", value: false }
+          ] 
+        },
         title1: { type: "text" },
         title2: { type: "text" },
         accent: { type: "text" },
         tagline: { type: "text" },
-        content: { type: "slot" },
         width: WidthField as any,
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
       },
       defaultProps: {
+        showLogo: true,
         title1: "EXPOSED",
         title2: "BRICK",
         accent: "MEDIA",
@@ -1342,16 +1334,9 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: "full",
         spacing: { pt: "0", pb: "0", mt: "0", mb: "20" },
       },
-      render: ({ title1, title2, accent, tagline, content, width, spacing, entranceAnimation }) => (
+      render: ({ title1, title2, accent, tagline, showLogo, width, spacing, entranceAnimation }) => (
         <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
-          <div className="flex flex-col gap-8">
-            <BrandHeader override={{ title1, title2, accent, tagline }} />
-            {content && (
-              <div className="px-8 md:px-12 lg:px-16">
-                {content()}
-              </div>
-            )}
-          </div>
+          <BrandHeader override={{ title1, title2, accent, tagline, showLogo }} />
         </ComponentWrapper>
       ),
     },
@@ -1501,7 +1486,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         salePrice: { type: "text" },
         listPrice: { type: "text" },
         packageUsed: { type: "text" },
-        content: { type: "slot" },
         width: WidthField as any,
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
@@ -1517,84 +1501,19 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: "full",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ mediaUrl, mediaType, autoPlay, daysOnMarket, salePrice, listPrice, packageUsed, content, width, spacing, entranceAnimation }) => (
+      render: ({ mediaUrl, mediaType, autoPlay, daysOnMarket, salePrice, listPrice, packageUsed, width, spacing, entranceAnimation }) => (
         <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/10 group bg-charcoal">
-            <div className="relative aspect-square md:aspect-auto md:h-full overflow-hidden bg-white/5">
-              {mediaType === 'video' ? (
-                mediaUrl ? <video src={mediaUrl} autoPlay={autoPlay} loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" /> : null
-              ) : (
-                mediaUrl ? <img src={mediaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="Highlight" /> : null
-              )}
-            </div>
-            <div className="p-8 md:p-16 flex flex-col justify-center">
-              {content ? (
-                <div className="w-full min-h-[100px]">
-                  {content()}
-                </div>
-              ) : (
-                <>
-                  <h3 className="font-display italic text-3xl mb-12 text-white">Project Economics</h3>
-                  <div className="space-y-8">
-                    <div className="border-b border-white/10 pb-4">
-                      <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Days on Market</span>
-                      <span className="font-mono text-2xl text-white">{daysOnMarket}</span>
-                    </div>
-                    <div className="border-b border-white/10 pb-4">
-                      <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Sale vs List Price</span>
-                      <div className="flex gap-4 items-baseline">
-                        <span className="font-mono text-2xl text-white">{salePrice}</span>
-                        <span className="font-mono text-xs text-white/40 line-through">{listPrice}</span>
-                      </div>
-                    </div>
-                    <div className="pt-4">
-                      <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Media Package Utilized</span>
-                      <span className="text-sm font-semibold uppercase tracking-widest text-white">{packageUsed}</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          <PropertyHighlight 
+            mediaUrl={mediaUrl} 
+            mediaType={mediaType} 
+            autoPlay={autoPlay}
+            daysOnMarket={daysOnMarket} 
+            salePrice={salePrice} 
+            listPrice={listPrice} 
+            packageUsed={packageUsed} 
+          />
         </ComponentWrapper>
       ),
-    },
-    Container: {
-      fields: {
-        children: { type: "slot" },
-        spacing: SpacingControl as any,
-        background: {
-          type: "select",
-          options: [
-            { label: "Transparent", value: "bg-transparent" },
-            { label: "Glass", value: "glass" },
-            { label: "Charcoal", value: "bg-charcoal" },
-            { label: "White Subdued", value: "bg-white/5" },
-          ]
-        },
-        border: { type: "radio", options: [{ label: "On", value: true }, { label: "Off", value: false }] },
-        padding: { type: "number", min: 0, max: 100 },
-        width: WidthField as any,
-        styles: StylesField as any,
-        entranceAnimation: EntranceAnimationField as any,
-      },
-      defaultProps: {
-        spacing: { pt: "16", pb: "16", mt: "0", mb: "0" },
-        background: "bg-transparent",
-        border: true,
-        padding: 32,
-        width: "full",
-      },
-      render: ({ children, spacing, background, border, padding, width, styles, entranceAnimation }) => (
-        <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation} styles={styles}>
-          <div 
-            className={`${background} ${border ? 'border border-white/10' : ''}`}
-            style={{ padding: `${padding}px` }}
-          >
-            {children()}
-          </div>
-        </ComponentWrapper>
-      )
     },
     TourEmbed: {
       fields: {
@@ -1684,7 +1603,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         loop: { type: "radio", options: [{ label: "On", value: true }, { label: "Off", value: false }] },
         muted: { type: "radio", options: [{ label: "On", value: true }, { label: "Off", value: false }] },
         showControls: { type: "radio", options: [{ label: "On", value: true }, { label: "Off", value: false }] },
-        content: { type: "slot" },
         width: WidthField as any,
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
@@ -1703,7 +1621,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: "full",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ url, mediaType, widthPercentage, aspectRatio, objectFit, autoPlay, loop, muted, showControls, content, width, spacing, entranceAnimation, styles }) => {
+      render: ({ url, mediaType, widthPercentage, aspectRatio, objectFit, autoPlay, loop, muted, showControls, width, spacing, entranceAnimation, styles }) => {
         return (
           <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation} styles={styles}>
             <div className="w-full flex justify-center">
@@ -1712,13 +1630,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
                   url ? <video src={url} autoPlay={autoPlay} loop={loop} muted={muted} controls={showControls} playsInline className={`w-full h-full object-${objectFit}`} /> : null
                 ) : (
                   url ? <img src={url} className={`w-full h-full object-${objectFit}`} alt="" /> : null
-                )}
-                {content && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="pointer-events-auto w-full">
-                      {content()}
-                    </div>
-                  </div>
                 )}
               </div>
             </div>
@@ -1773,45 +1684,47 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
 
 export const BASELINE_LAYOUT = {
   content: [],
-  zones: {
-    side: [
-      {
-        type: "TextContent",
-        props: { 
-          id: "brand-header-1",
-          title1: "EXPOSED",
-          title2: "BRICK",
-          accent: "MEDIA",
-          tagline: "HIGH-FIDELITY ARCHITECTURAL NARRATIVES"
+  root: {
+    props: {
+      title: "Home",
+      side: [
+        {
+          type: "TextContent",
+          props: { 
+            id: "brand-header-1",
+            title1: "EXPOSED",
+            title2: "BRICK",
+            accent: "MEDIA",
+            tagline: "HIGH-FIDELITY ARCHITECTURAL NARRATIVES"
+          }
+        },
+        {
+          type: "Services",
+          props: { id: "services-1" }
+        },
+        {
+          type: "Portfolio",
+          props: { id: "portfolio-side", panel: "side" }
         }
-      },
-      {
-        type: "Services",
-        props: { id: "services-1" }
-      },
-      {
-        type: "Portfolio",
-        props: { id: "portfolio-side", panel: "side" }
-      }
-    ],
-    main: [
-      {
-        type: "Hero",
-        props: { id: "hero-1" }
-      },
-      {
-        type: "Portfolio",
-        props: { id: "portfolio-main", panel: "main" }
-      },
-      {
-        type: "Contact",
-        props: { id: "contact-1" }
-      },
-      {
-        type: "Footer",
-        props: { id: "footer-1" }
-      }
-    ]
-  },
-  root: { props: { title: "Home" } }
+      ],
+      main: [
+        {
+          type: "Hero",
+          props: { id: "hero-1" }
+        },
+        {
+          type: "Portfolio",
+          props: { id: "portfolio-main", panel: "main" }
+        },
+        {
+          type: "Contact",
+          props: { id: "contact-1" }
+        },
+        {
+          type: "Footer",
+          props: { id: "footer-1" }
+        }
+      ]
+    }
+  }
 };

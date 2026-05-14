@@ -28,7 +28,7 @@ import { SiteContentProvider, useSiteContent } from './lib/SiteContentContext';
 import { BrowserRouter, Routes, Route, useParams, useLocation, Link } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
-import { Render } from "@puckeditor/core";
+import { Render } from "@measured/puck";
 import { createConfig } from "./lib/puck.config";
 import { Helmet } from 'react-helmet-async';
 import { trackPageView } from './lib/analytics';
