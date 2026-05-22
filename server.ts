@@ -9,8 +9,15 @@ import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// ES Module path helper (only used for ES environment reference if needed)
+let localFilename = "";
+let localDirname = "";
+try {
+  localFilename = fileURLToPath(import.meta.url);
+  localDirname = path.dirname(localFilename);
+} catch (e) {
+  // CommonJS context - __filename and __dirname are globally provided
+}
 
 // In-memory system logs for admin oversight
 const systemLogs: any[] = [];
@@ -19,7 +26,175 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  const genAI = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY" ? new GoogleGenAI({ 
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
+    }
+  }) : null;
+
   app.use(express.json());
+
+  app.post("/api/ai/generate-layout", async (req, res) => {
+    const { prompt } = req.body;
+    
+    if (!genAI) {
+      return res.status(503).json({ error: "Gemini API key is not configured. Please add your valid GEMINI_API_KEY in the Secrets panel." });
+    }
+
+    try {
+      const systemInstruction = `You are an expert web page layout generator for a high-end real estate media agency website named "Exposed Brick Media".
+You generate layouts for the Puck visual drag-and-drop editor.
+You must return a strict JSON object that exactly matches the Puck visual builder Data schema.
+
+The JSON MUST have this precise shape:
+{
+  "content": [],
+  "root": {
+    "props": {
+      "title": "Page Title",
+      "description": "Page description for SEO",
+      "layoutMode": "one-panel",
+      "main": [],
+      "side": []
+    }
+  }
+}
+
+Rules:
+1. Set "layoutMode" to either "one-panel" (full width, standard for subpages) or "two-panel" (classic split: narrow left side column, wide right content area).
+- If "layoutMode" is "two-panel", put elements like brand TextContent, Services lists, and Contact booking forms in the "side" slot array, and Hero banner, Portfolio, testimonials in the "main" slot array.
+- If "layoutMode" is "one-panel", place all layout components sequentially inside the "main" slot array ("side" should be an empty list []).
+
+Available Puck components (use their exact string types in lowercase/PascalCase as shown):
+
+1. Hero
+   Props:
+   - "id": unique string ID
+   - "imageUrl": custom cover image URL (optional)
+   - "height": "short" | "medium" | "tall"
+   - "width": "full" | "half"
+
+2. CinematicHero
+   Props:
+   - "id": unique string ID
+   - "title": uppercase bold text heading
+   - "subtitle": narrative description tagline
+   - "mediaUrl": string URL for video or background image
+   - "mediaType": "video" | "image"
+   - "ctaText": Button action label (optional)
+   - "ctaUrl": Destination path (optional)
+
+3. TextContent
+   Props:
+   - "id": unique string ID
+   - "showLogo": boolean (true/false)
+   - "title1": main title word 1 (e.g., "EXPOSED")
+   - "title2": main title word 2 (e.g., "BRICK")
+   - "accent": accent suffix word (e.g., "MEDIA")
+   - "tagline": bold tracking tagline text
+   - "width": "full" | "half"
+
+4. Services
+   Props:
+   - "id": unique string ID
+   - "title": main heading (e.g., "SERVICES")
+   - "subtitle": descriptive subtext
+   - "width": "full" | "half"
+
+5. Portfolio
+   Props:
+   - "id": unique string ID
+   - "variant": "grid" | "gallery"
+   - "panel": "main" | "side" (matches where it is placed)
+   - "limit": number of items to show
+   - "showFilter": boolean
+
+6. Contact (This is the Booking Form)
+   Props:
+   - "id": unique string ID
+   - "title": booking call to action title (e.g. "BOOK A SESSION")
+   - "description": description subtext
+
+7. Columns (Two column container element)
+   Props:
+   - "id": unique string ID
+   - "leftColumnWidth": number (10 to 90, default 50)
+   - "gap": gap size in pixels
+   - "left": array of components to wrap inside the left slot
+   - "right": array of components to wrap inside the right slot
+
+8. Section (Row level wrapper card)
+   Props:
+   - "id": unique string ID
+   - "background": "bg-transparent" | "bg-bg-primary" | "bg-bg-secondary" | "bg-charcoal text-white"
+   - "layout": "boxed" | "full"
+   - "padding": "py-8" | "py-16" | "py-32"
+   - "columns": "max-w-4xl mx-auto" | "grid grid-cols-1 lg:grid-cols-2 gap-16" | "w-full"
+   - "children": slot array of child components wrapped inside the section container
+
+9. Heading
+   Props:
+   - "id": unique string ID
+   - "text": headline text
+   - "level": 1 | 2 | 3 | 4
+   - "align": "left" | "center" | "right"
+   - "accent": boolean (highlight color accent)
+
+10. RichText
+    Props:
+    - "id": unique string ID
+    - "content": markdown HTML paragraph content string
+    - "size": "sm" | "base" | "lg"
+
+11. Testimonials
+    Props:
+    - "id": unique string ID
+    - "maxItems": number
+
+12. Spacer
+    Props:
+    - "id": unique string ID
+    - "size": height height offset in pixels (0-200)
+
+13. Footer
+    Props:
+    - "id": unique string ID
+    - "quote": aesthetic signature string
+
+Make sure every component in the returned JSON has a unique "id" string generated via random alphanumeric keys (e.g. "hero-9828"). Ensure the JSON matches this structural output perfectly. Avoid code comments or formatting wrappers inside the JSON raw text. Only return the parsed JSON.`;
+
+      const response = await genAI.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+        }
+      });
+      
+      const text = response.text;
+      if (!text) throw new Error("No text generated");
+      
+      let cleanedText = text.trim();
+      if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+      }
+      
+      const parsed = JSON.parse(cleanedText);
+      res.json(parsed);
+    } catch (error: any) {
+      console.error("AI Generate Layout Error:", error);
+      let errorMessage = "Failed to generate layout";
+      if (error.status === 400 || error.message?.includes("API key")) {
+         errorMessage = "API key not valid. Please configure a valid GEMINI_API_KEY in your Secrets panel.";
+      }
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   
   // 1. Gzip compression for faster payload delivery
   app.use(compression());
@@ -150,13 +325,11 @@ async function startServer() {
   });
 
   // 5. AI Suggestions Proxy (Gemini)
-  const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-
   app.post("/api/ai/chat", async (req, res) => {
     const { prompt, history, systemInstruction, context } = req.body;
     
     if (!genAI) {
-      return res.status(503).json({ error: "AI services not configured" });
+      return res.status(503).json({ error: "Gemini API key is not configured. Please add your valid GEMINI_API_KEY in the Secrets panel." });
     }
 
     try {
@@ -168,7 +341,7 @@ async function startServer() {
       const finalPrompt = context ? `${prompt}\n\nContext: ${context}` : prompt;
 
       const response = await genAI.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         contents: [
           ...chatHistory,
           { role: 'user', parts: [{ text: finalPrompt }] }
@@ -178,7 +351,7 @@ async function startServer() {
         }
       });
       
-      res.json({ text: response.candidates?.[0]?.content?.parts?.[0]?.text || "No response received." });
+      res.json({ text: response.text || "No response received." });
     } catch (error) {
       console.error("AI Chat Error:", error);
       res.status(500).json({ error: "Failed to process chat" });

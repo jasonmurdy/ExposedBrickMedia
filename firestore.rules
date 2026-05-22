@@ -12,14 +12,14 @@ service cloud.firestore {
     }
 
     function isEmailVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn() && request.auth.token.get('email_verified', false) == true;
     }
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'jasonmurdy@gmail.com' || 
-        request.auth.token.email == 'sherwin.131986@gmail.com' ||
-        (request.auth.token.get('email_verified', false) == true && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)))
+        request.auth.token.get('email', '') == 'jasonmurdy@gmail.com' || 
+        request.auth.token.get('email', '') == 'sherwin.131986@gmail.com' ||
+        (request.auth.token.get('email_verified', false) == true && exists(/databases/$(database)/documents/admins/$(request.auth.token.get('email', ''))))
       );
     }
 
@@ -37,33 +37,36 @@ service cloud.firestore {
 
     // 2. Validation Blueprints
     function isValidPortfolioItem(data) {
-      return data.title is string && data.title.size() <= 500
-        && data.category is string && data.category.size() <= 200
-        && data.img is string && data.img.size() <= 5000
-        && (data.get('url', null) == null || (data.url is string && data.url.size() <= 5000))
-        && (data.get('deliveryUrl', null) == null || (data.deliveryUrl is string && data.deliveryUrl.size() <= 5000))
-        && (data.get('description', null) == null || (data.description is string && data.description.size() <= 10000))
-        && (data.get('gallery', null) == null || (data.gallery is list))
-        && (data.get('mlsNumber', null) == null || (data.mlsNumber is string && data.mlsNumber.size() <= 200))
-        && (data.get('listPrice', null) == null || (data.listPrice is string && data.listPrice.size() <= 100))
-        && (data.get('propertyType', null) == null || (data.propertyType is string && data.propertyType.size() <= 300))
-        && (data.get('beds', null) == null || (data.beds is string && data.beds.size() <= 50))
-        && (data.get('baths', null) == null || (data.baths is string && data.baths.size() <= 50))
-        && (data.get('sqft', null) == null || (data.sqft is string && data.sqft.size() <= 50))
-        && (data.get('status', null) == null || (data.status is string && data.status.size() <= 100))
-        && (data.get('externalLink', null) == null || (data.externalLink is string && data.externalLink.size() <= 5000))
-        && (data.get('daysOnMarket', null) == null || (data.daysOnMarket is number))
-        && (data.get('colSpan', null) == null || (data.colSpan is number))
-        && (data.get('rowSpan', null) == null || (data.rowSpan is number))
-        && (data.get('hidden', null) == null || (data.hidden is bool))
-        && (data.get('bannerText', null) == null || (data.bannerText is string && data.bannerText.size() <= 500))
-        && (data.get('bannerColor', null) == null || (data.bannerColor is string && data.bannerColor.size() <= 100))
-        && (data.get('bannerSize', null) == null || (data.bannerSize is string && data.bannerSize.size() <= 50))
-        && (data.get('type', null) == null || (data.type is string && (data.type == 'item' || data.type == 'spacer')))
-        && (data.get('panel', null) == null || (data.panel is string && (data.panel == 'main' || data.panel == 'side')))
-        && (data.get('partnerUid', null) == null || (data.partnerUid is string && data.partnerUid.size() <= 128))
-        && (data.get('partnerUids', null) == null || (data.partnerUids is list))
-        && data.order is number;
+      return data.get('title', '') is string && data.get('title', '').size() <= 500
+        && data.get('category', '') is string && data.get('category', '').size() <= 200
+        && data.get('img', '') is string && data.get('img', '').size() <= 5000
+        && (data.get('url', null) == null || (data.get('url', '') is string && data.get('url', '').size() <= 5000))
+        && (data.get('deliveryUrl', null) == null || (data.get('deliveryUrl', '') is string && data.get('deliveryUrl', '').size() <= 5000))
+        && (data.get('description', null) == null || (data.get('description', '') is string && data.get('description', '').size() <= 10000))
+        && (data.get('gallery', null) == null || (data.get('gallery', []) is list))
+        && (data.get('mlsNumber', null) == null || (data.get('mlsNumber', '') is string && data.get('mlsNumber', '').size() <= 200))
+        && (data.get('listPrice', null) == null || (data.get('listPrice', '') is string && data.get('listPrice', '').size() <= 100))
+        && (data.get('propertyType', null) == null || (data.get('propertyType', '') is string && data.get('propertyType', '').size() <= 300))
+        && (data.get('beds', null) == null || (data.get('beds', '') is string && data.get('beds', '').size() <= 50))
+        && (data.get('baths', null) == null || (data.get('baths', '') is string && data.get('baths', '').size() <= 50))
+        && (data.get('sqft', null) == null || (data.get('sqft', '') is string && data.get('sqft', '').size() <= 50))
+        && (data.get('status', null) == null || (data.get('status', '') is string && data.get('status', '').size() <= 100))
+        && (data.get('externalLink', null) == null || (data.get('externalLink', '') is string && data.get('externalLink', '').size() <= 5000))
+        && (data.get('daysOnMarket', null) == null || (data.get('daysOnMarket', 1) is number))
+        && (data.get('colSpan', null) == null || (data.get('colSpan', 1) is number))
+        && (data.get('rowSpan', null) == null || (data.get('rowSpan', 1) is number))
+        && (data.get('hidden', null) == null || (data.get('hidden', false) is bool))
+        && (data.get('bannerText', null) == null || (data.get('bannerText', '') is string && data.get('bannerText', '').size() <= 500))
+        && (data.get('bannerColor', null) == null || (data.get('bannerColor', '') is string && data.get('bannerColor', '').size() <= 100))
+        && (data.get('bannerSize', null) == null || (data.get('bannerSize', '') is string && data.get('bannerSize', '').size() <= 50))
+        && (data.get('type', null) == null || (data.get('type', '') is string && (data.get('type', '') == 'item' || data.get('type', '') == 'spacer')))
+        && (data.get('panel', null) == null || (data.get('panel', '') is string && (data.get('panel', '') == 'main' || data.get('panel', '') == 'side')))
+        && (data.get('partnerUid', null) == null || (data.get('partnerUid', '') is string && data.get('partnerUid', '').size() <= 128))
+        && (data.get('partnerUids', null) == null || (data.get('partnerUids', []) is list))
+        && (data.get('fotelloUrl', null) == null || (data.get('fotelloUrl', '') is string && data.get('fotelloUrl', '').size() <= 5000))
+        && (data.get('matterportUrl', null) == null || (data.get('matterportUrl', '') is string && data.get('matterportUrl', '').size() <= 5000))
+        && (data.get('specsUrl', null) == null || (data.get('specsUrl', '') is string && data.get('specsUrl', '').size() <= 5000))
+        && data.get('order', 0) is number;
     }
 
     function isValidService(data) {
@@ -191,12 +194,12 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAdmin() && isValidPortfolioItem(incoming()) && isValidId(itemId)
         && incoming().keys().hasAll(['title', 'category', 'img', 'order', 'createdAt', 'updatedAt'])
-        && incoming().createdAt == request.time
-        && incoming().updatedAt == request.time;
+        && incoming().get('createdAt', null) == request.time
+        && incoming().get('updatedAt', null) == request.time;
       allow update: if (isAdmin() || (isSignedIn() && (request.auth.uid in existing().get('assignedTo', []) || request.auth.uid == existing().get('partnerUid', '') || request.auth.uid in existing().get('partnerUids', []))))
         && isValidPortfolioItem(incoming())
-        && (existing().get('createdAt', null) == null || incoming().createdAt == existing().createdAt)
-        && (isAdmin() || incoming().updatedAt == request.time)
+        && (existing().get('createdAt', null) == null || incoming().get('createdAt', null) == existing().get('createdAt', null))
+        && (isAdmin() || incoming().get('updatedAt', null) == request.time)
         && (
           isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'gallery', 'updatedAt', 'mlsNumber', 'listPrice', 'propertyType', 'beds', 'baths', 'sqft', 'status'])
         );

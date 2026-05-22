@@ -136,8 +136,10 @@ function MainLayout() {
     );
   }
 
+  const isListingPage = location.pathname.startsWith('/listing/');
+
   return (
-    <div className={`${hasPuckLayout ? 'min-h-screen overflow-x-hidden' : 'flex flex-col lg:flex-row min-h-screen lg:h-screen w-screen overflow-x-hidden lg:overflow-hidden'} bg-bg-primary text-text-primary selection:bg-brick-copper selection:text-charcoal relative transition-colors duration-500 ${isLight ? 'light' : ''}`}>
+    <div className="min-h-screen w-full bg-bg-primary text-text-primary selection:bg-brick-copper selection:text-charcoal relative transition-colors duration-500 overflow-x-hidden flex flex-col">
       <Navbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
       <MobileNavbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
       
@@ -176,30 +178,22 @@ function MainLayout() {
       </div>
 
       {hasPuckLayout ? (
-        <div className="w-full">
+        <div className="w-full pt-20 lg:pt-0">
           {renderContent()}
         </div>
       ) : (
-        <>
-          {/* LEFT COLUMN: BRAND & SERVICES */}
-          <aside className="hidden lg:flex w-1/3 border-r border-border-subtle flex-col p-8 md:p-12 lg:p-16 pt-20 lg:pt-12 lg:overflow-y-auto no-scrollbar">
-            <BrandHeader theme={isLight ? 'light' : 'dark'} />
-            <div className="pt-12 space-y-16">
-              <Services />
-              <BookingForm />
-            </div>
-          </aside>
-
-          {/* RIGHT AREA: HERO, PORTFOLIO & BOOKING */}
-          <main className="w-full lg:w-2/3 flex flex-col lg:overflow-y-auto no-scrollbar scroll-smooth pt-20 lg:pt-0">
+        <div className="w-full flex-1 flex flex-col pt-20 lg:pt-[84px]">
+          <main className="w-full flex-1 flex flex-col scroll-smooth">
             {renderContent()}
+          </main>
 
-            {/* BOTTOM: BOOKING & FOOTER */}
-            <section className="mt-auto p-8 md:p-12 lg:p-16 border-t border-border-subtle bg-text-primary/[0.01]">
+          {/* BOTTOM: BOOKING & FOOTER */}
+          {!isListingPage && !isPortal && (
+            <section className="p-8 md:p-12 lg:p-16 border-t border-border-subtle bg-text-primary/[0.01]">
               <FooterContent />
             </section>
-          </main>
-        </>
+          )}
+        </div>
       )}
       
       <ChatWidget />

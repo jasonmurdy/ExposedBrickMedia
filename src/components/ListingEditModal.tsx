@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { X, Image as ImageIcon, Plus, Trash2, Save, Loader2 } from 'lucide-react';
+import { MultiImageUploader } from './MultiImageUploader';
 import { motion, AnimatePresence } from 'motion/react';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 
@@ -26,6 +27,13 @@ export function ListingEditModal({ listing, isOpen, onClose }: ListingEditModalP
   });
   const [isSaving, setIsSaving] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
+
+  const handleGalleryUploadComplete = (newUrls: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      gallery: [...prev.gallery, ...newUrls]
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -172,6 +180,10 @@ export function ListingEditModal({ listing, isOpen, onClose }: ListingEditModalP
                 <div className="aspect-square border border-dashed border-white/10 flex flex-col items-center justify-center p-4 group hover:border-brick-copper/50 transition-colors">
                   <ImageIcon size={24} className="text-white/10 mb-2 group-hover:text-brick-copper/50 transition-colors" />
                   <p className="text-[8px] text-center text-white/20 uppercase tracking-widest">Add Archive Image</p>
+                </div>
+                
+                <div className="aspect-square">
+                  <MultiImageUploader listingId={listing.id} onUploadComplete={handleGalleryUploadComplete} />
                 </div>
               </div>
 

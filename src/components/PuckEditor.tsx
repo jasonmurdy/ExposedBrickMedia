@@ -51,6 +51,58 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       ? settings.layout 
       : BASELINE_LAYOUT), [page, currentPageId, settings.layout]);
 
+  const [editorData, setEditorData] = useState<any>(initialData);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [prompt, setPrompt] = useState("");
+
+  // Update editorData when initialData changes (e.g. changing pageId)
+  useMemo(() => {
+    setEditorData(initialData);
+  }, [initialData]);
+
+  const handleAIGeneration = async () => {
+    if (!prompt.trim()) return;
+    setIsGenerating(true);
+    try {
+      const res = await fetch("/api/ai/generate-layout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt })
+      });
+      
+      let resText = await res.text();
+      
+      if (!res.ok) {
+         let errorMessage = "Failed to generate layout";
+         try {
+           const data = JSON.parse(resText);
+           errorMessage = data.error || errorMessage;
+         } catch(e) {}
+         throw new Error(errorMessage + ` (Status: ${res.status})`);
+      }
+      
+      let generated;
+      try {
+        generated = JSON.parse(resText);
+      } catch (err) {
+        console.error("Non-JSON response received (Status " + res.status + "):", resText.substring(0, 200));
+        throw new Error("Server returned an invalid response. Please ensure you are logged in and the server is running.");
+      }
+      
+      // Merge generated layout safely
+      setEditorData((prev: any) => ({
+        ...prev,
+        ...generated
+      }));
+    } catch (err: any) {
+      console.error("AI Generation failed:", err);
+      alert("Failed to generate layout: " + err.message);
+    } finally {
+      setIsGenerating(false);
+      setPrompt("");
+    }
+  };
+
   const handleSave = async (data: any) => {
     setIsSaving(true);
     try {
@@ -95,6 +147,23 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
           </div>
         </div>
         <div className="flex gap-4">
+          <div className="flex items-center gap-2 mr-6">
+            <input 
+              type="text" 
+              placeholder="Describe the page you want to build..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              disabled={isGenerating}
+              className="bg-white/5 border border-white/10 text-white py-1 px-3 outline-none focus:border-brick-copper transition-colors w-64 text-sm"
+            />
+            <button
+              onClick={handleAIGeneration}
+              disabled={isGenerating || !prompt.trim()}
+              className="px-4 py-1.5 bg-brick-copper text-charcoal font-medium hover:bg-white transition-colors text-[10px] tracking-widest uppercase disabled:opacity-50"
+            >
+              {isGenerating ? "Generating..." : "Generate with AI"}
+            </button>
+          </div>
           <button 
             onClick={onClose}
             className="px-4 py-2 text-off-white/60 hover:text-white transition-colors uppercase text-[10px] tracking-widest"
@@ -107,7 +176,8 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
         <Puck
           key={currentPageId || 'home'}
           config={config}
-          data={initialData}
+          data={editorData}
+          onChange={(newData) => setEditorData(newData)}
           onPublish={handleSave}
           headerPath="EB Editor"
           iframe={{ enabled: false }}

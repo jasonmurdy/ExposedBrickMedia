@@ -445,7 +445,7 @@ export const HeroVisual = ({
   const href = ctaLinkType === 'internal' ? ctaInternalPage : ctaExternalUrl;
   
   return (
-    <div className="relative h-80 sm:h-[60vh] lg:h-[50%] w-full overflow-hidden border-b border-border-subtle group">
+    <div className="relative h-80 sm:h-[60vh] lg:h-[65vh] w-full overflow-hidden border-b border-border-subtle group">
        <motion.img 
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}

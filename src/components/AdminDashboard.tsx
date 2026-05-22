@@ -56,6 +56,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { FileUpload } from './FileUpload';
 import { LinkSelector } from './LinkSelector';
 import { ImageSelector } from './ImageSelector';
+import { MultiImageUploader } from './MultiImageUploader';
 import { PuckEditor } from './PuckEditor';
 import { Portfolio } from './PortfolioSections';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
@@ -1983,6 +1984,48 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           value={editData.img || ''}
                           onChange={(url) => setEditData({...editData, img: url})}
                         />
+
+                        {/* Photo Gallery Assets Manager */}
+                        <div className="space-y-6 bg-white/[0.01] p-6 border border-white/5 rounded-sm">
+                          <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                            <div>
+                              <h5 className="text-[10px] uppercase tracking-[0.3em] text-brick-copper font-black">Asset Gallery</h5>
+                              <p className="text-[8px] text-white/40 uppercase tracking-widest mt-1 font-medium">These images are integrated into the listing subpage galleries</p>
+                            </div>
+                            <span className="text-[10px] text-white/20 font-mono">{(editData.gallery || []).length} Images</span>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {(editData.gallery || []).map((url: string, index: number) => (
+                              <div key={index} className="group relative aspect-square bg-white/5 border border-white/10 overflow-hidden">
+                                <img src={url} alt="" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all animate-in fade-in" referrerPolicy="no-referrer" />
+                                <button 
+                                  onClick={() => {
+                                    const updatedGallery = (editData.gallery || []).filter((_: any, i: number) => i !== index);
+                                    setEditData({ ...editData, gallery: updatedGallery });
+                                  }}
+                                  className="absolute top-2 right-2 p-1.5 bg-red-900/80 text-white rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Delete Image"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+
+                            <div className="aspect-square">
+                              <MultiImageUploader 
+                                listingId={editData.id} 
+                                onUploadComplete={(newUrls) => {
+                                  const currentGallery = editData.gallery || [];
+                                  setEditData({
+                                    ...editData,
+                                    gallery: [...currentGallery, ...newUrls]
+                                  });
+                                }} 
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
 
