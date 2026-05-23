@@ -2,13 +2,62 @@ import { motion } from 'motion/react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Layout, Maximize, FileText, CheckCircle2 } from 'lucide-react';
+import { useSiteContent } from '../../lib/SiteContentContext';
+import { useMemo } from 'react';
+import { Render } from '@measured/puck';
+import { createConfig } from '../../lib/puck.config';
 
 export default function FloorPlansPage() {
+  const { pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
+  const page = pages.find(p => p.slug === 'floor-plans');
+
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+
+  const sanitizedLayout = useMemo(() => {
+    if (!page?.layout) return null;
+    try {
+      return JSON.parse(JSON.stringify(page.layout));
+    } catch (e) {
+      const cache = new WeakSet();
+      const prune = (val: any): any => {
+        if (val === null || typeof val !== 'object') return val;
+        if (cache.has(val)) return undefined;
+        cache.add(val);
+        if (Array.isArray(val)) return val.map(prune);
+        const cleaned: any = {};
+        for (const [k, v] of Object.entries(val)) {
+          cleaned[k] = prune(v);
+        }
+        return cleaned;
+      };
+      return prune(page.layout);
+    }
+  }, [page?.layout]);
+
   const features = [
     { title: "2D Schematic Layouts", description: "Clean, high-contrast layouts perfect for listing portals and print marketing.", icon: <FileText size={20} /> },
     { title: "3D Visualizations", description: "Immersive 3D renderings that provide a sense of volume and spatial flow.", icon: <Layout size={20} /> },
     { title: "Precise Measurements", description: "Accurate dimensions for every room, ensuring buyers understand the true scale.", icon: <Maximize size={20} /> },
   ];
+
+  if (sanitizedLayout && (sanitizedLayout.content?.length > 0 || sanitizedLayout.zones)) {
+    return (
+      <div className="w-full flex-col min-h-screen">
+        <Helmet>
+          <title>Floor Plans | Exposed Brick Media</title>
+          <meta name="description" content="Professional 2D and 3D schematic floor plans for real estate marketing." />
+        </Helmet>
+        <div className="w-full px-8 md:px-12 lg:px-16 py-6 border-b border-border-subtle flex items-center gap-4 text-[10px] uppercase tracking-widest text-text-primary/60">
+          <Link to="/" className="hover:text-brick-copper transition-colors">Home</Link>
+          <span>/</span>
+          <Link to="/services" className="hover:text-brick-copper transition-colors">Services</Link>
+          <span>/</span>
+          <span className="text-text-primary">Floor Plans</span>
+        </div>
+        <Render config={config} data={sanitizedLayout} />
+      </div>
+    );
+  }
 
   return (
     <motion.div 

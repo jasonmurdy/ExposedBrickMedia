@@ -54,7 +54,11 @@ function MainLayout() {
   const location = useLocation();
   const isPortal = location.pathname.startsWith('/portal');
 
-  const slugFromPath = location.pathname.startsWith('/p/') ? location.pathname.split('/p/')[1] : null;
+  const slugFromPath = location.pathname.startsWith('/p/') 
+    ? location.pathname.split('/p/')[1] 
+    : location.pathname.startsWith('/services/')
+      ? location.pathname.split('/services/')[1]
+      : null;
   const currentPage = slugFromPath ? pages.find(p => p.slug === slugFromPath) : null;
 
   // Check if we are on a page that uses a Puck layout

@@ -174,9 +174,27 @@
         "addedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "role", "addedAt"]
+    },
+    "PuckTemplate": {
+      "title": "Puck Template",
+      "description": "Ready-to-load Puck JSON visual page layout templates.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "previewImage": { "type": "string" },
+        "puckData": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "puckData", "createdAt"]
     }
   },
   "firestore": {
+    "puck_templates": {
+      "schema": "PuckTemplate",
+      "description": "Stored templates for loading in Puck Editor."
+    },
     "portfolio_items": {
       "schema": "PortfolioItem",
       "description": "Collection of portfolio projects."

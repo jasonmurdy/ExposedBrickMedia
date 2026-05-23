@@ -277,6 +277,76 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin || !pagesLoaded) return;
+
+    const seedRequiredPages = async () => {
+      const requiredPages = [
+        {
+          id: 'floor-plans',
+          title: 'Floor Plans',
+          slug: 'floor-plans',
+          description: 'Professional 2D and 3D schematic floor plans for real estate marketing.',
+          content: '# Floor Plans\n\nHigh-resolution, precise 2D and 3D floor plan schematic layouts designed for real estate listings and architectural presentations.',
+          showInNav: true,
+          order: 2
+        },
+        {
+          id: 'interior',
+          title: 'Interior Photography',
+          slug: 'interior',
+          description: 'Editorial-grade interior photography for luxury real estate.',
+          content: '# Interior Photography\n\nEditorial-grade interior capture utilizing ambient light mastery and exposure blending for flawless, balanced interior scenes.',
+          showInNav: true,
+          order: 3
+        },
+        {
+          id: 'aerial',
+          title: 'Aerial Photography',
+          slug: 'aerial',
+          description: 'Cinematic aerial drone photography and videography for real estate.',
+          content: '# Aerial Photography\n\nHigh-resolution aerial vistas and cinematic drone flyovers capturing waterfront estate context and surrounding terrains.',
+          showInNav: true,
+          order: 4
+        },
+        {
+          id: 'virtual-tours',
+          title: '3D Virtual Tours',
+          slug: 'virtual-tours',
+          description: 'High-fidelity 3D Matterport tours and digital twins for architectural spaces.',
+          content: '# 3D Virtual Tours\n\nImmersive 3D Matterport captures allowing interactive navigation and responsive dollhouse perspective tours on any device.',
+          showInNav: true,
+          order: 5
+        }
+      ];
+
+      for (const rp of requiredPages) {
+        const exists = pages.some(p => p.slug === rp.slug);
+        if (!exists) {
+          console.log(`Auto-seeding page: ${rp.title}`);
+          const docRef = doc(db, 'pages', rp.id);
+          try {
+            await setDoc(docRef, {
+              title: rp.title,
+              slug: rp.slug,
+              description: rp.description,
+              content: rp.content,
+              showInNav: rp.showInNav,
+              order: rp.order,
+              layout: { content: [], root: { props: { title: rp.title } } },
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          } catch (err) {
+            console.error(`Failed to auto-seed page ${rp.title}:`, err);
+          }
+        }
+      }
+    };
+
+    seedRequiredPages();
+  }, [isAdmin, pagesLoaded, pages]);
+
   return (
     <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, partners, teams, brandResources, loading, isAdmin, user, isEditMode, setIsEditMode, isLight, setIsLight }}>
       {children}

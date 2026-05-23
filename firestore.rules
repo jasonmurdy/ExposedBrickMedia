@@ -145,6 +145,15 @@ service cloud.firestore {
         && data.addedAt == request.time;
     }
 
+    function isValidPuckTemplate(data) {
+      return data.keys().hasAll(['name', 'category', 'puckData', 'createdAt'])
+        && data.get('name', '') is string && data.get('name', '').size() <= 200
+        && data.get('category', '') is string && data.get('category', '').size() <= 100
+        && (data.get('description', null) == null || (data.get('description', '') is string && data.get('description', '').size() <= 2000))
+        && (data.get('previewImage', null) == null || (data.get('previewImage', '') is string && data.get('previewImage', '').size() <= 2000))
+        && data.get('puckData', null) is map;
+    }
+
     function isValidUser(data) {
       return data.keys().hasAll(['email', 'createdAt'])
         && data.email is string && data.email.size() <= 200
@@ -260,6 +269,15 @@ service cloud.firestore {
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'slug', 'content', 'showInNav', 'order', 'description', 'layout', 'updatedAt'])
         );
+      allow delete: if isAdmin();
+    }
+
+    match /puck_templates/{templateId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidPuckTemplate(incoming()) && isValidId(templateId)
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidPuckTemplate(incoming())
+        && incoming().createdAt == existing().createdAt;
       allow delete: if isAdmin();
     }
 

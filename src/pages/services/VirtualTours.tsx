@@ -2,13 +2,62 @@ import { motion } from 'motion/react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Box, MousePointer2, Smartphone, Zap } from 'lucide-react';
+import { useSiteContent } from '../../lib/SiteContentContext';
+import { useMemo } from 'react';
+import { Render } from '@measured/puck';
+import { createConfig } from '../../lib/puck.config';
 
 export default function VirtualToursPage() {
+  const { pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
+  const page = pages.find(p => p.slug === 'virtual-tours');
+
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+
+  const sanitizedLayout = useMemo(() => {
+    if (!page?.layout) return null;
+    try {
+      return JSON.parse(JSON.stringify(page.layout));
+    } catch (e) {
+      const cache = new WeakSet();
+      const prune = (val: any): any => {
+        if (val === null || typeof val !== 'object') return val;
+        if (cache.has(val)) return undefined;
+        cache.add(val);
+        if (Array.isArray(val)) return val.map(prune);
+        const cleaned: any = {};
+        for (const [k, v] of Object.entries(val)) {
+          cleaned[k] = prune(v);
+        }
+        return cleaned;
+      };
+      return prune(page.layout);
+    }
+  }, [page?.layout]);
+
   const categories = [
     { title: "Matterport Digital Twins", description: "The industry standard for high-fidelity 3D captures with dollhouse views.", icon: <Box size={20} /> },
     { title: "Interactive Navigation", description: "Intuitive point-and-click movement that lets buyers explore at their own pace.", icon: <MousePointer2 size={20} /> },
     { title: "Any-Device Access", description: "Beautifully responsive experiences that work on mobile, tablet, and desktop.", icon: <Smartphone size={20} /> },
   ];
+
+  if (sanitizedLayout && (sanitizedLayout.content?.length > 0 || sanitizedLayout.zones)) {
+    return (
+      <div className="w-full flex-col min-h-screen">
+        <Helmet>
+          <title>3D Virtual Tours | Exposed Brick Media</title>
+          <meta name="description" content="High-fidelity 3D Matterport tours and digital twins for architectural spaces." />
+        </Helmet>
+        <div className="w-full px-8 md:px-12 lg:px-16 py-6 border-b border-border-subtle flex items-center gap-4 text-[10px] uppercase tracking-widest text-text-primary/60">
+          <Link to="/" className="hover:text-brick-copper transition-colors">Home</Link>
+          <span>/</span>
+          <Link to="/services" className="hover:text-brick-copper transition-colors">Services</Link>
+          <span>/</span>
+          <span className="text-text-primary">3D Virtual Tours</span>
+        </div>
+        <Render config={config} data={sanitizedLayout} />
+      </div>
+    );
+  }
 
   return (
     <motion.div 

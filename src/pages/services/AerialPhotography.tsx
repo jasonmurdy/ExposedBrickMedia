@@ -2,13 +2,62 @@ import { motion } from 'motion/react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Globe, Wind, Compass, ShieldCheck } from 'lucide-react';
+import { useSiteContent } from '../../lib/SiteContentContext';
+import { useMemo } from 'react';
+import { Render } from '@measured/puck';
+import { createConfig } from '../../lib/puck.config';
 
 export default function AerialPhotographyPage() {
+  const { pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
+  const page = pages.find(p => p.slug === 'aerial');
+
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+
+  const sanitizedLayout = useMemo(() => {
+    if (!page?.layout) return null;
+    try {
+      return JSON.parse(JSON.stringify(page.layout));
+    } catch (e) {
+      const cache = new WeakSet();
+      const prune = (val: any): any => {
+        if (val === null || typeof val !== 'object') return val;
+        if (cache.has(val)) return undefined;
+        cache.add(val);
+        if (Array.isArray(val)) return val.map(prune);
+        const cleaned: any = {};
+        for (const [k, v] of Object.entries(val)) {
+          cleaned[k] = prune(v);
+        }
+        return cleaned;
+      };
+      return prune(page.layout);
+    }
+  }, [page?.layout]);
+
   const points = [
     { title: "Expanded Context", description: "Showcase the property in relation to its surroundings, neighborhoods, and terrain.", icon: <Globe size={20} /> },
     { title: "Heroic Perspectives", description: "Capture angles impossible from the ground, highlighting rooflines and estate scale.", icon: <Compass size={20} /> },
     { title: "Licensed Operation", description: "Fully insured and Transport Canada licensed drone pilots for legal, safe mission execution.", icon: <ShieldCheck size={20} /> },
   ];
+
+  if (sanitizedLayout && (sanitizedLayout.content?.length > 0 || sanitizedLayout.zones)) {
+    return (
+      <div className="w-full flex-col min-h-screen">
+        <Helmet>
+          <title>Aerial Photography | Exposed Brick Media</title>
+          <meta name="description" content="Cinematic aerial drone photography and videography for real estate." />
+        </Helmet>
+        <div className="w-full px-8 md:px-12 lg:px-16 py-6 border-b border-border-subtle flex items-center gap-4 text-[10px] uppercase tracking-widest text-text-primary/60">
+          <Link to="/" className="hover:text-brick-copper transition-colors">Home</Link>
+          <span>/</span>
+          <Link to="/services" className="hover:text-brick-copper transition-colors">Services</Link>
+          <span>/</span>
+          <span className="text-text-primary">Aerial Photography</span>
+        </div>
+        <Render config={config} data={sanitizedLayout} />
+      </div>
+    );
+  }
 
   return (
     <motion.div 
