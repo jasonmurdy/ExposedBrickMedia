@@ -32,6 +32,7 @@ import { Render } from "@measured/puck";
 import { createConfig } from "./lib/puck.config";
 import { Helmet } from 'react-helmet-async';
 import { trackPageView } from './lib/analytics';
+import { sanitizeLayout } from './lib/sanitizeLayout';
 
 function usePageTracking() {
   const location = useLocation();
@@ -211,26 +212,8 @@ function HomeView() {
   const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
   
   const sanitizedLayout = useMemo(() => {
-    if (!settings.layout) return null;
-    try {
-      return JSON.parse(JSON.stringify(settings.layout));
-    } catch (e) {
-      // If circular, return a pruned version
-      const cache = new WeakSet();
-      const prune = (val: any): any => {
-        if (val === null || typeof val !== 'object') return val;
-        if (cache.has(val)) return undefined;
-        cache.add(val);
-        if (Array.isArray(val)) return val.map(prune);
-        const cleaned: any = {};
-        for (const [k, v] of Object.entries(val)) {
-          cleaned[k] = prune(v);
-        }
-        return cleaned;
-      };
-      return prune(settings.layout);
-    }
-  }, [settings.layout]);
+    return sanitizeLayout(settings.layout, settings.brandName || 'Home');
+  }, [settings.layout, settings.brandName]);
 
   if (sanitizedLayout && (sanitizedLayout.content?.length > 0 || sanitizedLayout.zones)) {
     return <Render config={config} data={sanitizedLayout} />;
@@ -265,25 +248,8 @@ function DynamicPageView() {
   const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
 
   const sanitizedLayout = useMemo(() => {
-    if (!page.layout) return null;
-    try {
-      return JSON.parse(JSON.stringify(page.layout));
-    } catch (e) {
-      const cache = new WeakSet();
-      const prune = (val: any): any => {
-        if (val === null || typeof val !== 'object') return val;
-        if (cache.has(val)) return undefined;
-        cache.add(val);
-        if (Array.isArray(val)) return val.map(prune);
-        const cleaned: any = {};
-        for (const [k, v] of Object.entries(val)) {
-          cleaned[k] = prune(v);
-        }
-        return cleaned;
-      };
-      return prune(page.layout);
-    }
-  }, [page.layout]);
+    return sanitizeLayout(page.layout, page.title || '');
+  }, [page.layout, page.title]);
 
   return (
     <div className="flex flex-col w-full min-h-screen">

@@ -6,6 +6,7 @@ import { useSiteContent } from '../../lib/SiteContentContext';
 import { useMemo } from 'react';
 import { Render } from '@measured/puck';
 import { createConfig } from '../../lib/puck.config';
+import { sanitizeLayout } from '../../lib/sanitizeLayout';
 
 export default function VirtualToursPage() {
   const { pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
@@ -14,25 +15,8 @@ export default function VirtualToursPage() {
   const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
 
   const sanitizedLayout = useMemo(() => {
-    if (!page?.layout) return null;
-    try {
-      return JSON.parse(JSON.stringify(page.layout));
-    } catch (e) {
-      const cache = new WeakSet();
-      const prune = (val: any): any => {
-        if (val === null || typeof val !== 'object') return val;
-        if (cache.has(val)) return undefined;
-        cache.add(val);
-        if (Array.isArray(val)) return val.map(prune);
-        const cleaned: any = {};
-        for (const [k, v] of Object.entries(val)) {
-          cleaned[k] = prune(v);
-        }
-        return cleaned;
-      };
-      return prune(page.layout);
-    }
-  }, [page?.layout]);
+    return sanitizeLayout(page?.layout, page?.title || '3D Virtual Tours');
+  }, [page?.layout, page?.title]);
 
   const categories = [
     { title: "Matterport Digital Twins", description: "The industry standard for high-fidelity 3D captures with dollhouse views.", icon: <Box size={20} /> },

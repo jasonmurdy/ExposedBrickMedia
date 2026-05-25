@@ -12,6 +12,7 @@ import { doc, setDoc, collection, getDocs, serverTimestamp } from "firebase/fire
 import { useState, useMemo, useEffect } from "react";
 import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus } from "lucide-react";
 import { handleFirestoreError, OperationType } from "../lib/firestoreError";
+import { sanitizeLayout } from "../lib/sanitizeLayout";
 
 export interface PuckTemplateItem {
   id: string;
@@ -87,11 +88,14 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   const page = currentPageId ? pages.find(p => p.id === currentPageId) : null;
 
   // Initialize with current layout or the baseline structure
-  const initialData = useMemo(() => cleanObject(page?.layout && (page.layout.content?.length > 0 || page.layout.zones)
-    ? page.layout
-    : (!currentPageId && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones))
-      ? settings.layout 
-      : BASELINE_LAYOUT), [page, currentPageId, settings.layout]);
+  const initialData = useMemo(() => {
+    const rawData = page?.layout && (page.layout.content?.length > 0 || page.layout.zones)
+      ? page.layout
+      : (!currentPageId && settings.layout && (settings.layout.content?.length > 0 || settings.layout.zones))
+        ? settings.layout 
+        : BASELINE_LAYOUT;
+    return sanitizeLayout(cleanObject(rawData), page?.title || settings.brandName || "Page");
+  }, [page, currentPageId, settings.layout, settings.brandName]);
 
   const [editorData, setEditorData] = useState<any>(initialData);
 
@@ -102,6 +106,101 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
 
   // Pre-seeded local templates for seeding
   const seedPresets: Omit<PuckTemplateItem, "id" | "createdAt">[] = [
+    {
+      name: "Aerial & Drone Photography",
+      category: "Media Showcase",
+      description: "Advanced aerial drone portfolio template page. Includes a professional cinematic intro banner, top-down perspective insights, bento gallery with property boundaries, and a lead capture footer.",
+      previewImage: "copper",
+      puckData: {
+        content: [],
+        root: {
+          props: {
+            title: "Aerial Photography",
+            side: [
+              {
+                type: "TextContent",
+                props: { 
+                  id: "brand-header-aerial",
+                  title1: "AERIAL",
+                  title2: "DRONE",
+                  accent: "MEDIA",
+                  tagline: "ELEVATED PROPERTY PERSPECTIVES"
+                }
+              }
+            ],
+            main: [
+              {
+                type: "CinematicHero",
+                props: {
+                  id: "aerial-hero",
+                  title: "Aerial & Drone Photography",
+                  subtitle: "Elevate your listings above the competition. Showcase lot sizes, property boundaries, and neighborhood context with breathtaking drone imagery.",
+                  mediaUrl: "https://images.unsplash.com/photo-1506126279646-a697353d3166?auto=format&fit=crop&q=80&w=2000",
+                  mediaType: "image",
+                  ctaText: "Request Quote / Book Shoot",
+                  ctaUrl: "#booking"
+                }
+              },
+              {
+                type: "Heading",
+                props: {
+                  id: "aerial-section-heading",
+                  text: "Highlighting What Ground Photos Can't",
+                  level: 2,
+                  align: "center",
+                  accent: true,
+                  width: "full"
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  id: "aerial-section-intro",
+                  content: "A standard eye-level photo tells a fraction of the story. Drone media provides the critical context that luxury and rural property buyers demand before booking a showing. Perfect for large acreages, farms, or deep suburban lots.",
+                  size: "lg",
+                  maxWidth: "800px",
+                  width: "full"
+                }
+              },
+              {
+                type: "DynamicGallery",
+                props: {
+                  id: "aerial-gallery",
+                  title: "Exquisite Aerial Perspectives",
+                  subtitle: "A selection of top-down property boundaries, b-roll layouts, and high-resolution vistas.",
+                  layout: "bento",
+                  aspectRatio: "16/9",
+                  grayscaleEffect: "hover-color",
+                  lightbox: true,
+                  images: [
+                    { url: "https://images.unsplash.com/photo-1512100251789-c4fb505291b5?auto=format&fit=crop&q=80&w=1200", alt: "Suburban Acreage aerial boundary" },
+                    { url: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=1200", alt: "Estate vista with sunset backdrop" },
+                    { url: "https://images.unsplash.com/photo-1592595896551-12b371d546d5?auto=format&fit=crop&q=80&w=1200", alt: "Top-down geometric property outline" },
+                    { url: "https://images.unsplash.com/photo-1563456382029-79ad30950130?auto=format&fit=crop&q=80&w=1200", alt: "Waterfront estate layout" }
+                  ],
+                  width: "full"
+                }
+              },
+              {
+                type: "Contact",
+                props: {
+                  id: "aerial-booking",
+                  title: "Schedule Your Drone Flyover",
+                  width: "full"
+                }
+              },
+              {
+                type: "Footer",
+                props: {
+                  id: "aerial-footer",
+                  quote: "Exposed Brick Media - Fully licensed & transport-compliant commercial drone capture."
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
     {
       name: "Home Page (The Hub)",
       category: "Core Business",
@@ -516,7 +615,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
 
   // Handler to load template to Puck Editor
   const handleLoadTemplate = (templateData: any) => {
-    setEditorData(cleanObject(templateData));
+    setEditorData(sanitizeLayout(cleanObject(templateData), page?.title || settings.brandName || "Page"));
     setPuckVersion(v => v + 1);
     setIsPickerOpen(false);
   };
