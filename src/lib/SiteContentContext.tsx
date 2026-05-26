@@ -63,6 +63,21 @@ interface ServiceItem {
   order: number;
 }
 
+export interface CustomPopup {
+  id: string;
+  title: string;
+  type: 'promotion' | 'lead-gen' | 'news';
+  headline: string;
+  content: string;
+  imageUrl?: string;
+  ctaText?: string;
+  ctaLink?: any;
+  isActive: boolean;
+  trigger: 'onclick_only' | 'on_load' | 'exit_intent' | 'time_delay';
+  delaySeconds?: number;
+  createdAt?: any;
+}
+
 interface SiteContentContextType {
   settings: SiteSettings;
   pages: CustomPage[];
@@ -71,6 +86,7 @@ interface SiteContentContextType {
   partners: any[];
   teams: any[];
   brandResources: any[];
+  popups: CustomPopup[];
   loading: boolean;
   isAdmin: boolean;
   user: any | null;
@@ -131,6 +147,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [partners, setPartners] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [brandResources, setBrandResources] = useState<any[]>([]);
+  const [popups, setPopups] = useState<CustomPopup[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [pagesLoaded, setPagesLoaded] = useState(false);
@@ -138,6 +155,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [partnersLoaded, setPartnersLoaded] = useState(false);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
   const [brandResourcesLoaded, setBrandResourcesLoaded] = useState(false);
+  const [popupsLoaded, setPopupsLoaded] = useState(false);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
 
@@ -151,7 +169,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return false;
   });
 
-  const loading = (!settingsLoaded || !portfolioLoaded || !pagesLoaded || !servicesLoaded || !partnersLoaded || !teamsLoaded || !brandResourcesLoaded || !authLoaded) && !timedOut;
+  const loading = (!settingsLoaded || !portfolioLoaded || !pagesLoaded || !servicesLoaded || !partnersLoaded || !teamsLoaded || !brandResourcesLoaded || !popupsLoaded || !authLoaded) && !timedOut;
 
   useEffect(() => {
     // Safety timeout: if stuff hasn't loaded in 6 seconds, force show the app
@@ -265,6 +283,14 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setBrandResourcesLoaded(true);
     });
 
+    const unsubPopups = onSnapshot(collection(db, 'popups'), (snap) => {
+      setPopups(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CustomPopup));
+      setPopupsLoaded(true);
+    }, (err) => {
+      console.error("Popups listener failed:", err);
+      setPopupsLoaded(true);
+    });
+
     return () => {
       unsubAuth();
       unsubSettings();
@@ -274,6 +300,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       unsubPartners();
       unsubTeams();
       unsubResources();
+      unsubPopups();
     };
   }, []);
 
@@ -348,7 +375,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [isAdmin, pagesLoaded, pages]);
 
   return (
-    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, partners, teams, brandResources, loading, isAdmin, user, isEditMode, setIsEditMode, isLight, setIsLight }}>
+    <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, partners, teams, brandResources, popups, loading, isAdmin, user, isEditMode, setIsEditMode, isLight, setIsLight }}>
       {children}
     </SiteContentContext.Provider>
   );

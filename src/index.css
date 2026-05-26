@@ -112,6 +112,23 @@
   height: 100%;
 }
 
+/* Force Puck header wrappers into dark charcoal theme and remove duplicated padding/borders */
+.puck-container div[class*="_PuckHeader_"] {
+  background-color: #121212 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 0 !important;
+}
+
+.puck-container div[class*="_PuckHeader-inner_"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  gap: 0 !important;
+}
+
 .font-serif {
   font-family: var(--font-display);
 }

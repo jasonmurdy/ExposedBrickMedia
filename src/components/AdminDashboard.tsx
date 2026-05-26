@@ -33,7 +33,7 @@ import {
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell
 } from 'lucide-react';
 import {
   DndContext, 
@@ -325,7 +325,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [brandResources, setBrandResources] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups'>('architecture');
 
   // Load brand resources
   useEffect(() => {
@@ -362,7 +362,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [puckPageId, setPuckPageId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'order', direction: 'asc' });
 
-  const { settings, pages, setIsEditMode } = useSiteContent();
+  const { settings, pages, setIsEditMode, popups } = useSiteContent();
   const [localSettings, setLocalSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -896,6 +896,56 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
+  const handleCreatePopup = async () => {
+    const newItem = {
+      title: 'Summer Sale Notice',
+      type: 'promotion',
+      headline: '20% Off All Cinematic Tours!',
+      content: 'Book any session this summer and get an instant discount on drone and 3D virtual tour packages. Mention code: SUMMER20 when reserving.',
+      imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f',
+      ctaText: 'View Virtual Tours',
+      ctaLink: '/p/virtual-tours',
+      isActive: true,
+      trigger: 'on_load',
+      delaySeconds: 5,
+      createdAt: serverTimestamp()
+    };
+    try {
+      const docRef = await addDoc(collection(db, 'popups'), newItem);
+      await logAction('CREATE_POPUP', { title: newItem.title });
+      setIsEditing(docRef.id);
+      setEditData({ id: docRef.id, ...newItem });
+      toast.success('Global Popup Created');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'popups');
+    }
+  };
+
+  const handleUpdatePopup = async (id: string) => {
+    const docRef = doc(db, 'popups', id);
+    const { id: _, ...dataToUpdate } = editData;
+    try {
+      await updateDoc(docRef, { ...dataToUpdate, updatedAt: serverTimestamp() });
+      await logAction('UPDATE_POPUP', { id, title: editData.title });
+      setIsEditing(null);
+      toast.success('Global Popup Updated');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `popups/${id}`);
+    }
+  };
+
+  const handleDeletePopup = async (id: string) => {
+    if (confirm('Permanently remove this global popup? Triggers referencing its ID will no longer function.')) {
+      try {
+        await deleteDoc(doc(db, 'popups', id));
+        await logAction('DELETE_POPUP', { id });
+        toast.success('Global Popup Removed');
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `popups/${id}`);
+      }
+    }
+  };
+
   const handleCreateTeam = async () => {
     const name = prompt("Enter team name:");
     if (!name) return;
@@ -1140,6 +1190,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           { id: 'partners', label: 'Partners', icon: Users },
           { id: 'teams', label: 'Teams', icon: Users },
           { id: 'brand', label: 'Brand Assets', icon: Box },
+          { id: 'popups', label: 'Global Popups', icon: Bell },
           { id: 'admins', label: 'Admins', icon: Shield }
         ].map(tab => (
           <button 
@@ -2602,6 +2653,244 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               {testimonials.length === 0 && (
                 <div className="py-20 text-center border border-dashed border-white/5 text-white/20">
                   <p className="text-[10px] uppercase tracking-[0.3em]">No social proof registered.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'popups' && (
+          <section className="animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+              <div className="flex items-center gap-3 text-brick-copper">
+                <Bell size={18} />
+                <h3 className="font-display text-2xl italic">Global Popups & Announcements</h3>
+              </div>
+              <button 
+                onClick={handleCreatePopup} 
+                className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-white transition-colors"
+              >
+                <Plus size={14} /> Add Global Popup
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-8">
+              {popups.map(item => (
+                <div key={item.id} className="border border-white/5 p-6 md:p-8 bg-white/[0.01] hover:border-brick-copper/30 transition-all group relative">
+                  {isEditing === item.id ? (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* LEFT COLUMN: PRIMARY DETAILS */}
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">Internal Reference Name</label>
+                            <input 
+                              className="bg-white/5 border border-white/10 w-full outline-none text-sm p-3 text-white focus:border-brick-copper focus:bg-white/[0.08]" 
+                              placeholder="e.g. Summer Shoot Promo" 
+                              value={editData.title ?? ''} 
+                              onChange={e => setEditData({...editData, title: e.target.value})} 
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">Display Headline</label>
+                            <input 
+                              className="bg-white/5 border border-white/10 w-full outline-none text-sm p-3 font-display italic text-white focus:border-brick-copper focus:bg-white/[0.08]" 
+                              placeholder="e.g. Get 20% off Aerial Photography!" 
+                              value={editData.headline ?? ''} 
+                              onChange={e => setEditData({...editData, headline: e.target.value})} 
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">Popup Type</label>
+                              <select 
+                                className="bg-white/5 border border-white/10 w-full outline-none text-xs p-3 text-white focus:border-brick-copper focus:bg-white/[0.08]" 
+                                value={editData.type ?? 'promotion'} 
+                                onChange={e => setEditData({...editData, type: e.target.value})}
+                              >
+                                <option value="promotion" className="bg-[#121212] text-white">Promotion / Coupon</option>
+                                <option value="lead-gen" className="bg-[#121212] text-white">Lead Generation Form</option>
+                                <option value="news" className="bg-[#121212] text-white">News Indicator</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">Trigger Mechanism</label>
+                              <select 
+                                className="bg-white/5 border border-white/10 w-full outline-none text-xs p-3 text-white focus:border-brick-copper focus:bg-white/[0.08]" 
+                                value={editData.trigger ?? 'onclick_only'} 
+                                onChange={e => setEditData({...editData, trigger: e.target.value})}
+                              >
+                                <option value="onclick_only" className="bg-[#121212] text-white">Button / Click Trigger Only</option>
+                                <option value="on_load" className="bg-[#121212] text-white">Trigger Instantly On Load</option>
+                                <option value="exit_intent" className="bg-[#121212] text-white">On Mouse Exit Intent</option>
+                                <option value="time_delay" className="bg-[#121212] text-white">Timed Delay</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {editData.trigger === 'time_delay' && (
+                            <div>
+                              <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">Delay Duration (Seconds)</label>
+                              <input 
+                                type="number" 
+                                min="1" 
+                                max="60" 
+                                className="bg-white/5 border border-white/10 w-full outline-none text-xs p-3 text-white focus:border-brick-copper focus:bg-white/[0.08]" 
+                                value={editData.delaySeconds ?? 5} 
+                                onChange={e => setEditData({...editData, delaySeconds: parseInt(e.target.value)})} 
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 font-sans">
+                            <input 
+                              type="checkbox" 
+                              id={`checkbox-popup-active-${item.id}`} 
+                              checked={editData.isActive ?? false} 
+                              onChange={e => setEditData({...editData, isActive: e.target.checked})} 
+                              className="w-4 h-4 accent-brick-copper"
+                            />
+                            <label htmlFor={`checkbox-popup-active-${item.id}`} className="text-[10px] uppercase tracking-widest text-white/70 select-none cursor-pointer font-bold font-sans">
+                              Enable Popup Automations
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: MEDIA & INTERACTION */}
+                        <div className="space-y-4">
+                          <div>
+                            <FileUpload 
+                              label="Top Accent Banner Image"
+                              path="popups"
+                              onUploadComplete={(url) => setEditData({...editData, imageUrl: url})}
+                            />
+                            {(editData.imageUrl || item.imageUrl) && (
+                              <div className="mt-4 h-24 w-full relative overflow-hidden border border-white/10 bg-charcoal">
+                                <img src={editData.imageUrl || item.imageUrl} className="w-full h-full object-cover" alt="Banner preview" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">CTA Button Copy</label>
+                            <input 
+                              className="bg-white/5 border border-white/10 w-full outline-none text-sm p-3 text-white focus:border-brick-copper focus:bg-white/[0.08]" 
+                              placeholder="e.g. Subscribe Now" 
+                              value={editData.ctaText ?? ''} 
+                              onChange={e => setEditData({...editData, ctaText: e.target.value})} 
+                            />
+                          </div>
+
+                          {editData.type !== 'lead-gen' && (
+                            <div>
+                              <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1.5">Action Link Destination</label>
+                              <LinkSelector 
+                                value={typeof editData.ctaLink === 'string' ? editData.ctaLink : (editData.ctaLink?.url ? `/p/${editData.ctaLink.url}` : '')}
+                                onChange={(val: string) => setEditData({ ...editData, ctaLink: val })}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[8px] uppercase tracking-widest text-white/40 font-mono text-xs">Popup Content / Announcement body</label>
+                        <textarea 
+                          className="bg-white/5 border border-white/10 w-full h-32 p-4 text-xs font-sans text-white focus:border-brick-copper outline-none" 
+                          placeholder="Provide the notification body paragraphs..." 
+                          value={editData.content ?? ''} 
+                          onChange={e => setEditData({...editData, content: e.target.value})} 
+                        />
+                      </div>
+
+                      {/* ACTIONS BAR */}
+                      <div className="flex gap-4 border-t border-white/5 pt-4">
+                        <button 
+                          onClick={() => handleUpdatePopup(item.id)} 
+                          className="px-6 py-3 bg-brick-copper text-charcoal font-sans text-[10px] uppercase tracking-widest font-bold"
+                        >
+                          Persist Changes
+                        </button>
+                        <button 
+                          onClick={() => setIsEditing(null)} 
+                          className="px-6 py-3 border border-white/10 text-white/40 font-sans text-[10px] uppercase tracking-widest font-bold hover:bg-white/5 hover:text-white transition-colors"
+                        >
+                          Discard
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-6 font-sans">
+                      <div className="flex-1 space-y-3 font-sans">
+                        <div className="flex items-center gap-3 flex-wrap font-sans">
+                          <h4 className="text-xl font-display italic text-white font-sans">{item.title}</h4>
+                          <span className="text-[8px] px-2 py-0.5 bg-brick-copper/15 border border-brick-copper/30 text-brick-copper uppercase font-sans tracking-widest font-bold font-mono">
+                            {item.type}
+                          </span>
+                          <span className={`text-[8px] px-2 py-0.5 uppercase font-sans tracking-widest font-bold font-mono border ${
+                            item.isActive 
+                              ? 'bg-green-500/10 border-green-500/20 text-green-400' 
+                              : 'bg-white/5 border-white/10 text-white/30'
+                          }`}>
+                            {item.isActive ? 'Active' : 'Disabled'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white/[0.01] border border-white/[0.03] p-4 text-[10px] font-sans">
+                          <div>
+                            <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5">Headline</span>
+                            <span className="text-white/80 font-medium truncate block max-w-[120px]">{item.headline}</span>
+                          </div>
+                          <div>
+                            <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5 font-sans">Trigger</span>
+                            <span className="text-white/80 font-mono capitalize">{item.trigger?.replace('_', ' ')}</span>
+                          </div>
+                          <div>
+                            <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5 font-sans">CTA Button Copy</span>
+                            <span className="text-white/80">{item.ctaText || 'None'}</span>
+                          </div>
+                          <div>
+                            <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5 flex items-center gap-1 font-sans">Popup Slug (ID)</span>
+                            <span className="text-brick-copper font-mono font-bold select-all">{item.id}</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-white/40 max-w-3xl leading-relaxed italic border-l border-white/10 pl-3">
+                          "{item.content?.substring(0, 160)}{item.content?.length > 160 ? '...' : ''}"
+                        </p>
+                      </div>
+
+                      <div className="flex gap-4 md:self-start opacity-0 group-hover:opacity-100 transition-all font-sans">
+                        <button 
+                          onClick={() => { setIsEditing(item.id); setEditData(item); }} 
+                          className="text-white/20 hover:text-brick-copper p-1"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeletePopup(item.id)} 
+                          className="text-white/20 hover:text-red-500 p-1"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {popups.length === 0 && (
+                <div className="py-20 text-center border border-dashed border-white/5 text-white/20">
+                  <p className="text-[10px] uppercase tracking-[0.3em] mb-2 font-sans font-bold">No Global Popups created yet.</p>
+                  <button 
+                    onClick={handleCreatePopup}
+                    className="mt-4 px-6 py-2 border border-brick-copper text-brick-copper text-[10px] uppercase tracking-widest font-bold hover:bg-brick-copper hover:text-charcoal transition-all font-sans"
+                  >
+                    Create Default Promo Popup
+                  </button>
                 </div>
               )}
             </div>

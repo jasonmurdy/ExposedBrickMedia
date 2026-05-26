@@ -3,16 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Puck } from "@measured/puck";
+import { Puck, usePuck } from "@measured/puck";
 import "@measured/puck/dist/index.css";
 import { createConfig, BASELINE_LAYOUT } from "../lib/puck.config";
 import { useSiteContent } from "../lib/SiteContentContext";
 import { db } from "../lib/firebase";
 import { doc, setDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { useState, useMemo, useEffect } from "react";
-import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus } from "lucide-react";
+import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus, Undo2, Redo2 } from "lucide-react";
 import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 import { sanitizeLayout } from "../lib/sanitizeLayout";
+import html2canvas from "html2canvas";
 
 export interface PuckTemplateItem {
   id: string;
@@ -24,8 +25,127 @@ export interface PuckTemplateItem {
   createdAt: any;
 }
 
+interface CustomHeaderProps {
+  actions: React.ReactNode;
+  currentPageId: string | undefined;
+  setCurrentPageId: (id: string | undefined) => void;
+  pages: any[];
+  setIsPickerOpen: (open: boolean) => void;
+  setTemplateName: (name: string) => void;
+  page: any;
+  setIsSaverOpen: (open: boolean) => void;
+  onClose: () => void;
+}
+
+const CustomHeader = ({
+  actions,
+  currentPageId,
+  setCurrentPageId,
+  pages,
+  setIsPickerOpen,
+  setTemplateName,
+  page,
+  setIsSaverOpen,
+  onClose
+}: CustomHeaderProps) => {
+  const { history } = usePuck();
+
+  return (
+    <div className="bg-[#121212] py-3.5 px-6 flex justify-between items-center z-[100] w-full text-white selection:bg-brick-copper/20">
+      <div className="flex items-center gap-6">
+        <h2 className="text-brick-copper font-display text-xl italic font-medium tracking-tight">Visual Layout Engine</h2>
+        <div className="h-6 w-px bg-white/10" />
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] uppercase tracking-widest text-[#cfa073]/70 font-mono font-bold">Editing:</span>
+          <div className="relative">
+            <select 
+              value={currentPageId || ""} 
+              onChange={(e) => setCurrentPageId(e.target.value || undefined)}
+              className="bg-white/5 border border-white/10 hover:border-brick-copper/55 text-[10px] uppercase tracking-widest text-white py-1 px-8 pr-12 outline-none focus:border-brick-copper transition-all font-mono appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23cfa073%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_10px_center] bg-no-repeat cursor-pointer focus:ring-1 focus:ring-brick-copper/30"
+            >
+              <option value="" className="bg-[#121212] text-white">Home Page</option>
+              {pages.map(p => (
+                <option key={p.id} value={p.id} className="bg-[#121212] text-white">{p.title}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Undo / Redo controls in center */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => history.back()}
+          disabled={!history.hasPast}
+          type="button"
+          className={`h-8 px-3.5 border transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider font-bold font-mono ${
+            history.hasPast 
+              ? "border-white/10 text-brick-copper hover:bg-white/5 hover:border-brick-copper/50 cursor-pointer active:scale-95" 
+              : "border-white/5 opacity-30 cursor-not-allowed text-white/45"
+          }`}
+          title="Undo changes"
+        >
+          <Undo2 size={12} />
+          Undo
+        </button>
+        <button
+          onClick={() => history.forward()}
+          disabled={!history.hasFuture}
+          type="button"
+          className={`h-8 px-3.5 border transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider font-bold font-mono ${
+            history.hasFuture 
+              ? "border-white/10 text-brick-copper hover:bg-white/5 hover:border-brick-copper/50 cursor-pointer active:scale-95" 
+              : "border-white/5 opacity-30 cursor-not-allowed text-white/45"
+          }`}
+          title="Redo changes"
+        >
+          <Redo2 size={12} />
+          Redo
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setIsPickerOpen(true)}
+          type="button"
+          className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] tracking-widest font-bold uppercase text-white transition-all flex items-center gap-2 cursor-pointer font-mono"
+        >
+          <LayoutGrid size={11} className="text-brick-copper" />
+          Load Template
+        </button>
+        <button
+          onClick={() => {
+            setTemplateName(page ? `Template: ${page.title}` : "Template: Home Layout");
+            setIsSaverOpen(true);
+          }}
+          type="button"
+          className="px-4 py-1.5 bg-brick-copper text-charcoal font-black hover:bg-white border border-brick-copper hover:border-white transition-all text-[10px] tracking-widest uppercase flex items-center gap-2 cursor-pointer font-mono shadow-md"
+        >
+          <Save size={11} />
+          Save Template
+        </button>
+        
+        <div className="h-4 w-px bg-white/15 mx-1" />
+
+        {/* This is Puck's Publish/Action button slot */}
+        <div className="flex items-center">
+          {actions}
+        </div>
+
+        <button 
+          onClick={onClose}
+          type="button"
+          className="px-4 py-1.5 border border-white/10 hover:border-white/20 hover:bg-white/5 text-white/60 hover:text-white transition-all uppercase text-[10px] tracking-widest font-bold cursor-pointer font-mono"
+        >
+          Exit
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () => void }) => {
-  const { settings, pages, isLight, portfolioItems, partners, teams, brandResources, isAdmin } = useSiteContent();
+  const { settings, pages, isLight, portfolioItems, partners, teams, brandResources, popups, isAdmin } = useSiteContent();
   const [isSaving, setIsSaving] = useState(false);
   const [puckVersion, setPuckVersion] = useState(0);
 
@@ -61,7 +181,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   const [selectedImgPlaceholder, setSelectedImgPlaceholder] = useState("slate");
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
-  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources, popups), [pages, portfolioItems, partners, teams, brandResources, popups]);
 
   // Define cleanObject before usage or as a helper
   const cleanObject = (obj: any): any => {
@@ -107,19 +227,246 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   // Pre-seeded local templates for seeding
   const seedPresets: Omit<PuckTemplateItem, "id" | "createdAt">[] = [
     {
+      name: "Interior Photography",
+      category: "Media Showcase",
+      description: "Editorial-grade interior capture utilizing ambient light mastery and exposure blending for flawless, balanced interior scenes.",
+      previewImage: "slate",
+      puckData: {
+        content: [],
+        root: {
+          props: {
+            title: "Interior Photography",
+            side: [
+              {
+                type: "TextContent",
+                props: {
+                  id: "brand-header-interior",
+                  title1: "INTERIOR",
+                  title2: "SPACES",
+                  accent: "MEDIA",
+                  tagline: "PREMIUM INTERIOR PHOTOGRAPHY"
+                }
+              }
+            ],
+            main: [
+              {
+                type: "CinematicHero",
+                props: {
+                  id: "interior-hero",
+                  title: "Premium Interior Photography",
+                  subtitle: "Make buyers fall in love before they even step inside. We capture the true flow, light, and atmosphere of every home.",
+                  mediaUrl: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1920&q=80",
+                  mediaType: "image",
+                  ctaText: "Book a Shoot",
+                  ctaUrl: "#booking"
+                }
+              },
+              {
+                type: "Heading",
+                props: {
+                  id: "interior-value-heading",
+                  text: "Scroll-Stopping Images That Drive Showings",
+                  level: 2,
+                  align: "left",
+                  accent: true,
+                  width: "full"
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  id: "interior-value-text",
+                  content: "In today's digital-first market, your listing photos are the actual first showing. Bad lighting and distorted angles drive buyers away. Our magazine-quality interior photography ensures your property stands out in a crowded MLS feed.\n\n• True-to-Life Colors\n• Crystal Clear Window Views\n• Distortion-Free Angles",
+                  size: "lg",
+                  width: "full"
+                }
+              },
+              {
+                type: "Heading",
+                props: {
+                  id: "interior-diff-heading",
+                  text: "The Exposed Brick Difference",
+                  level: 3,
+                  align: "center",
+                  accent: false,
+                  width: "full"
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  id: "interior-diff-text",
+                  content: "We don't just 'point and shoot.' We use advanced lighting and editing techniques to produce high-end architectural imagery for every listing.\n\n• Flambient Blending\n• Magazine Retouching\n• Detail & Vignette Shots",
+                  size: "base",
+                  width: "full"
+                }
+              },
+              {
+                type: "DynamicGallery",
+                props: {
+                  id: "interior-gallery",
+                  title: "Capturing Every Space",
+                  subtitle: "See how we highlight the best features of different rooms in a home.",
+                  layout: "bento",
+                  aspectRatio: "4/3",
+                  images: [
+                    {
+                      url: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80",
+                      portfolioTitle: "Living Spaces",
+                      category: "Interior"
+                    },
+                    {
+                      url: "https://images.unsplash.com/photo-1556912173-3bb406ef7e77?auto=format&fit=crop&w=1200&q=80",
+                      portfolioTitle: "Kitchens & Dining",
+                      category: "Interior"
+                    },
+                    {
+                      url: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80",
+                      portfolioTitle: "Lifestyle Details",
+                      category: "Details"
+                    }
+                  ],
+                  width: "full"
+                }
+              },
+              {
+                type: "Contact",
+                props: {
+                  id: "interior-booking",
+                  title: "Ready to elevate your listing?",
+                  width: "full"
+                }
+              },
+              {
+                type: "Footer",
+                props: {
+                  id: "interior-footer",
+                  quote: "Premium real estate media services designed to help agents win more listings and sell homes faster."
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      name: "3D Virtual Tours",
+      category: "Media Showcase",
+      description: "Immersive 3D Matterport captures allowing interactive navigation and responsive dollhouse perspective tours.",
+      previewImage: "indigo",
+      puckData: {
+        content: [],
+        root: {
+          props: {
+            title: "3D Virtual Tours",
+            side: [
+              {
+                type: "TextContent",
+                props: {
+                  id: "brand-header-tours",
+                  title1: "VIRTUAL",
+                  title2: "TOURS",
+                  accent: "3D",
+                  tagline: "INTERACTIVE DIGITAL TWINS"
+                }
+              }
+            ],
+            main: [
+              {
+                type: "CinematicHero",
+                props: {
+                  id: "tours-hero",
+                  title: "Immersive 3D Virtual Tours",
+                  subtitle: "Host a 24/7 open house. Let buyers walk through the property, measure spaces, and fall in love from anywhere in the world.",
+                  mediaUrl: "https://images.unsplash.com/photo-1558442074-3c1985715e09?auto=format&fit=crop&w=1920&q=80",
+                  mediaType: "image",
+                  ctaText: "Book a Scan",
+                  ctaUrl: "#booking"
+                }
+              },
+              {
+                type: "Heading",
+                props: {
+                  id: "tours-value-heading",
+                  text: "Qualify Leads Before They Even Arrive",
+                  level: 2,
+                  align: "left",
+                  accent: true,
+                  width: "full"
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  id: "tours-value-text",
+                  content: "Photos spark interest, but a 3D tour creates certainty. By allowing potential buyers to virtually walk through a home, you eliminate unnecessary showings and ensure that the buyers who do walk through the front door are serious, qualified, and already in love with the layout.\n\n• The 24/7 Open House\n• Win More Listings\n• Attract Relocating Buyers",
+                  size: "lg",
+                  width: "full"
+                }
+              },
+              {
+                type: "TourEmbed",
+                props: {
+                  id: "tours-embed",
+                  url: "https://my.matterport.com/show/?m=your_tour_id_here",
+                  height: 600,
+                  width: "full"
+                }
+              },
+              {
+                type: "Heading",
+                props: {
+                  id: "tours-specs-heading",
+                  text: "Included with Every Scan",
+                  level: 3,
+                  align: "center",
+                  accent: false,
+                  width: "full"
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  id: "tours-specs-text",
+                  content: "Everything you need to market the property's layout in one package.\n\n• Dollhouse View\n• Mobile Optimized\n• Fast Turnaround\n• MLS & Zillow Sync",
+                  size: "base",
+                  width: "full"
+                }
+              },
+              {
+                type: "Contact",
+                props: {
+                  id: "tours-booking",
+                  title: "Ready to digitize your listing?",
+                  width: "full"
+                }
+              },
+              {
+                type: "Footer",
+                props: {
+                  id: "tours-footer",
+                  quote: "Premium real estate media services designed to help agents win more listings and sell homes faster."
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       name: "Aerial & Drone Photography",
       category: "Media Showcase",
-      description: "Advanced aerial drone portfolio template page. Includes a professional cinematic intro banner, top-down perspective insights, bento gallery with property boundaries, and a lead capture footer.",
+      description: "High-resolution aerial vistas and cinematic drone flyovers capturing property context.",
       previewImage: "copper",
       puckData: {
         content: [],
         root: {
           props: {
-            title: "Aerial Photography",
+            title: "Aerial & Drone Photography",
             side: [
               {
                 type: "TextContent",
-                props: { 
+                props: {
                   id: "brand-header-aerial",
                   title1: "AERIAL",
                   title2: "DRONE",
@@ -135,19 +482,19 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                   id: "aerial-hero",
                   title: "Aerial & Drone Photography",
                   subtitle: "Elevate your listings above the competition. Showcase lot sizes, property boundaries, and neighborhood context with breathtaking drone imagery.",
-                  mediaUrl: "https://images.unsplash.com/photo-1506126279646-a697353d3166?auto=format&fit=crop&q=80&w=2000",
+                  mediaUrl: "https://images.unsplash.com/photo-1506126279646-a697353d3166?auto=format&fit=crop&q=80",
                   mediaType: "image",
-                  ctaText: "Request Quote / Book Shoot",
+                  ctaText: "Book a Shoot",
                   ctaUrl: "#booking"
                 }
               },
               {
                 type: "Heading",
                 props: {
-                  id: "aerial-section-heading",
+                  id: "aerial-value-heading",
                   text: "Highlighting What Ground Photos Can't",
                   level: 2,
-                  align: "center",
+                  align: "left",
                   accent: true,
                   width: "full"
                 }
@@ -155,10 +502,29 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               {
                 type: "RichText",
                 props: {
-                  id: "aerial-section-intro",
-                  content: "A standard eye-level photo tells a fraction of the story. Drone media provides the critical context that luxury and rural property buyers demand before booking a showing. Perfect for large acreages, farms, or deep suburban lots.",
+                  id: "aerial-value-text",
+                  content: "A standard eye-level photo tells a fraction of the story. Drone media provides the critical context that luxury and rural property buyers demand before booking a showing.\n\n• Showcase Lot Size & Boundaries\n• Neighborhood Amenities\n• Unobstructed Angles",
                   size: "lg",
-                  maxWidth: "800px",
+                  width: "full"
+                }
+              },
+              {
+                type: "Heading",
+                props: {
+                  id: "aerial-specs-heading",
+                  text: "Professional Drone Services",
+                  level: 3,
+                  align: "center",
+                  accent: false,
+                  width: "full"
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  id: "aerial-specs-text",
+                  content: "We utilize state-of-the-art DJI drone platforms to deliver crisp, cinematic, and legally compliant aerial media for your listings.\n\n• High-Res Stills (20+ megapixel photos)\n• Licensed & Insured (Transport Canada certified)\n• Cinematic 4K Video",
+                  size: "base",
                   width: "full"
                 }
               },
@@ -166,17 +532,26 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                 type: "DynamicGallery",
                 props: {
                   id: "aerial-gallery",
-                  title: "Exquisite Aerial Perspectives",
-                  subtitle: "A selection of top-down property boundaries, b-roll layouts, and high-resolution vistas.",
-                  layout: "bento",
+                  title: "Aerial Add-Ons & Styles",
+                  subtitle: "Customize your aerial shoot to fit the unique selling points of the property.",
+                  layout: "grid",
                   aspectRatio: "16/9",
-                  grayscaleEffect: "hover-color",
-                  lightbox: true,
                   images: [
-                    { url: "https://images.unsplash.com/photo-1512100251789-c4fb505291b5?auto=format&fit=crop&q=80&w=1200", alt: "Suburban Acreage aerial boundary" },
-                    { url: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=1200", alt: "Estate vista with sunset backdrop" },
-                    { url: "https://images.unsplash.com/photo-1592595896551-12b371d546d5?auto=format&fit=crop&q=80&w=1200", alt: "Top-down geometric property outline" },
-                    { url: "https://images.unsplash.com/photo-1563456382029-79ad30950130?auto=format&fit=crop&q=80&w=1200", alt: "Waterfront estate layout" }
+                    {
+                      url: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80",
+                      portfolioTitle: "Standard Aerials",
+                      category: "Aerial"
+                    },
+                    {
+                      url: "https://images.unsplash.com/photo-1592595896551-12b371d546d5?auto=format&fit=crop&q=80",
+                      portfolioTitle: "Property Outlines",
+                      category: "Graphics"
+                    },
+                    {
+                      url: "https://images.unsplash.com/photo-1563456382029-79ad30950130?auto=format&fit=crop&q=80",
+                      portfolioTitle: "Video B-Roll",
+                      category: "Video"
+                    }
                   ],
                   width: "full"
                 }
@@ -185,7 +560,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                 type: "Contact",
                 props: {
                   id: "aerial-booking",
-                  title: "Schedule Your Drone Flyover",
+                  title: "Ready to elevate your listing?",
                   width: "full"
                 }
               },
@@ -193,7 +568,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                 type: "Footer",
                 props: {
                   id: "aerial-footer",
-                  quote: "Exposed Brick Media - Fully licensed & transport-compliant commercial drone capture."
+                  quote: "Premium real estate media services designed to help agents win more listings and sell homes faster."
                 }
               }
             ]
@@ -502,13 +877,18 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
         ...docSnap.data()
       })) as PuckTemplateItem[];
 
-      if (items.length === 0) {
-        if (isAdmin) {
-          // Auto-seed presets for Admin
-          console.log("No templates found in FireStore. Seeding defaults...");
-          const seededList: PuckTemplateItem[] = [];
-          for (const preset of seedPresets) {
-            const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      if (isAdmin) {
+        // Seed presets if missing, or force-sync the requested templates to Firestore
+        console.log("Checking/syncing core media templates in Firestore...");
+        const seededList: PuckTemplateItem[] = [...items];
+        let hasChanges = false;
+
+        for (const preset of seedPresets) {
+          const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const existing = items.find(item => item.id === docId);
+          const isTargetPreseeded = ["interior-photography", "3d-virtual-tours", "aerial-drone-photography"].includes(docId);
+
+          if (!existing || isTargetPreseeded) {
             const docRef = doc(db, "puck_templates", docId);
             const newDoc = {
               ...preset,
@@ -516,28 +896,33 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             };
             try {
               await setDoc(docRef, newDoc);
-              seededList.push({ id: docId, ...newDoc } as any);
+              if (!existing) {
+                seededList.push({ id: docId, ...newDoc } as any);
+              } else {
+                const idx = seededList.findIndex(x => x.id === docId);
+                if (idx !== -1) {
+                  seededList[idx] = { id: docId, ...newDoc } as any;
+                }
+              }
+              hasChanges = true;
             } catch (writeErr: any) {
-              console.warn(`Failed to seed preset '${preset.name}' into firestore:`, writeErr);
-              // Safe fallback for this preset item locally
-              seededList.push({
-                id: docId,
-                createdAt: new Date().toISOString(),
-                ...preset
-              } as any);
+              console.warn(`Failed to seed/sync preset '${preset.name}' into firestore:`, writeErr);
             }
           }
-          setTemplates(seededList);
-        } else {
-          // Non-admin: Fallback and display local presets in read-only mode, without writing to DB
+        }
+        
+        setTemplates(seededList);
+      } else {
+        if (items.length === 0) {
+          // Non-admin fallback
           setTemplates(seedPresets.map((p, idx) => ({
             id: `seed-preset-${idx}`,
             createdAt: new Date().toISOString(),
             ...p
           })) as PuckTemplateItem[]);
+        } else {
+          setTemplates(items);
         }
-      } else {
-        setTemplates(items);
       }
     } catch (err) {
       console.error("Failed to load puck templates general error:", err);
@@ -589,11 +974,27 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       const docId = `template-${Date.now()}`;
       const docRef = doc(db, "puck_templates", docId);
       
+      let screenshotBase64 = selectedImgPlaceholder;
+      try {
+        const canvasContainer = document.querySelector(".puck-container");
+        if (canvasContainer) {
+          const canvas = await html2canvas(canvasContainer as HTMLElement, {
+            useCORS: true,
+            scale: 0.35,
+            logging: false,
+            backgroundColor: "#161616"
+          });
+          screenshotBase64 = canvas.toDataURL("image/jpeg", 0.65);
+        }
+      } catch (screenshotErr) {
+        console.warn("Screenshot capture failed, falling back to placeholder:", screenshotErr);
+      }
+
       const newTemplate = {
         name: templateName,
         category: templateCategory,
         description: templateDescription || "Custom user-generated page layout template.",
-        previewImage: selectedImgPlaceholder,
+        previewImage: screenshotBase64,
         puckData: cleanObject(editorData),
         createdAt: serverTimestamp()
       };
@@ -648,63 +1049,29 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
 
   return (
     <div className="fixed inset-0 z-[200] bg-bg-primary flex flex-col">
-      <div className="bg-charcoal p-4 flex justify-between items-center border-b border-border-subtle">
-        <div className="flex items-center gap-6">
-          <h2 className="text-brick-copper font-display text-xl italic">Visual Layout Engine</h2>
-          <div className="h-6 w-px bg-white/10" />
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] uppercase tracking-widest text-white/40">Editing:</span>
-            <select 
-              value={currentPageId || ""} 
-              onChange={(e) => setCurrentPageId(e.target.value || undefined)}
-              className="bg-white/5 border border-white/10 text-[10px] uppercase tracking-widest text-white py-1 px-3 outline-none focus:border-brick-copper transition-colors"
-            >
-              <option value="">Home Page</option>
-              {pages.map(p => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsPickerOpen(true)}
-            className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] tracking-widest font-medium uppercase text-white transition-all flex items-center gap-2"
-          >
-            <LayoutGrid size={12} className="text-brick-copper" />
-            Load Layout Template
-          </button>
-          <button
-            onClick={() => {
-              setTemplateName(page ? `Template: ${page.title}` : "Template: Home Layout");
-              setIsSaverOpen(true);
-            }}
-            className="px-4 py-1.5 bg-brick-copper text-charcoal font-bold hover:bg-white transition-all text-[10px] tracking-widest uppercase flex items-center gap-2"
-          >
-            <Save size={12} />
-            Save as Template
-          </button>
-          
-          <div className="h-4 w-px bg-white/15 mx-2" />
-
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 border border-white/5 hover:border-white/20 text-off-white/60 hover:text-white transition-colors uppercase text-[10px] tracking-widest"
-          >
-            Exit Editor
-          </button>
-        </div>
-      </div>
-
-      <div className={`flex-grow overflow-hidden relative puck-container bg-bg-primary text-text-primary ${isLight ? 'light' : ''}`}>
+      <div className={`flex-grow overflow-hidden relative puck-container bg-bg-primary text-text-primary ${isLight ? "light" : ""}`}>
         <Puck
           key={`${currentPageId || 'home'}-v${puckVersion}`}
           config={config}
           data={editorData}
           onChange={(newData) => setEditorData(newData)}
           onPublish={handleSave}
-          headerPath="EB Editor"
           iframe={{ enabled: false }}
+          overrides={{
+            header: ({ actions }) => (
+              <CustomHeader
+                actions={actions}
+                currentPageId={currentPageId}
+                setCurrentPageId={setCurrentPageId}
+                pages={pages}
+                setIsPickerOpen={setIsPickerOpen}
+                setTemplateName={setTemplateName}
+                page={page}
+                setIsSaverOpen={setIsSaverOpen}
+                onClose={onClose}
+              />
+            )
+          }}
         />
       </div>
       
@@ -774,11 +1141,20 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                       className="border border-white/10 bg-[#161616] group hover:border-brick-copper transition-all duration-300 flex flex-col justify-between"
                     >
                       {/* Graphics Header */}
-                      <div className={`h-36 bg-gradient-to-br ${getPlaceholderBg(template.previewImage)} p-4 flex flex-col justify-between relative overflow-hidden`}>
+                      <div className="h-36 relative overflow-hidden bg-black p-4 flex flex-col justify-between">
+                        {template.previewImage && (template.previewImage.startsWith("data:") || template.previewImage.startsWith("http")) ? (
+                          <img 
+                            src={template.previewImage} 
+                            className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-75 transition-opacity" 
+                            referrerPolicy="no-referrer" 
+                          />
+                        ) : (
+                          <div className={`absolute inset-0 bg-gradient-to-br ${getPlaceholderBg(template.previewImage)}`} />
+                        )}
                         {/* Overlay Accent Grid */}
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:14px_24px]" />
+                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
                         
-                        <div className="flex justify-between items-start z-10">
+                        <div className="flex justify-between items-start z-10 relative">
                           <span className="bg-charcoal/90 border border-white/10 text-[9px] uppercase tracking-widest text-brick-copper px-2 py-0.5 font-mono">
                             {template.category}
                           </span>
@@ -786,8 +1162,8 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                             {formatTemplateDate(template.createdAt)}
                           </span>
                         </div>
-                        <div className="z-10">
-                          <h4 className="font-display text-lg text-white group-hover:text-brick-copper transition-colors font-semibold">
+                        <div className="z-10 relative">
+                          <h4 className="font-display text-lg text-white group-hover:text-brick-copper transition-colors font-semibold truncate bg-black/40 px-1.5 py-0.5 rounded-sm backdrop-blur-sm">
                             {template.name}
                           </h4>
                         </div>

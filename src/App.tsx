@@ -12,6 +12,7 @@ import { PartnerProfile } from './components/PartnerProfile';
 import { TeamProfile } from './components/TeamProfile';
 import { ChatWidget } from './components/ChatWidget';
 import { ClientDashboard } from './components/ClientDashboard';
+import { GlobalPopupHost } from './components/GlobalPopupHost';
 import AboutPage from './pages/About';
 import ServicesPage from './pages/Services';
 import InquiryPage from './pages/Inquiry';
@@ -137,6 +138,7 @@ function MainLayout() {
       <div className={`min-h-screen bg-bg-primary text-text-primary transition-colors duration-500 ${isLight ? 'light' : ''}`}>
         {renderContent()}
         <ChatWidget />
+        <GlobalPopupHost />
       </div>
     );
   }
@@ -202,14 +204,15 @@ function MainLayout() {
       )}
       
       <ChatWidget />
+      <GlobalPopupHost />
     </div>
   );
 }
 
 function HomeView() {
-  const { settings, pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
+  const { settings, pages, portfolioItems, partners, teams, brandResources, popups } = useSiteContent();
   
-  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources, popups), [pages, portfolioItems, partners, teams, brandResources, popups]);
   
   const sanitizedLayout = useMemo(() => {
     return sanitizeLayout(settings.layout, settings.brandName || 'Home');
@@ -240,12 +243,12 @@ function HomeView() {
 
 function DynamicPageView() {
   const { slug } = useParams();
-  const { pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
+  const { pages, portfolioItems, partners, teams, brandResources, popups } = useSiteContent();
   const page = pages.find(p => p.slug === slug);
 
   if (!page) return <div className="p-16 text-center">Narrative not found.</div>;
 
-  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources, popups), [pages, portfolioItems, partners, teams, brandResources, popups]);
 
   const sanitizedLayout = useMemo(() => {
     return sanitizeLayout(page.layout, page.title || '');

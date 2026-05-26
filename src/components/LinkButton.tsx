@@ -13,6 +13,18 @@ export const LinkButton = ({ link, variant = "solid", className: passedClassName
   const variantClass = variants[variant] || variants.solid;
   const finalClass = passedClassName || `${baseClass} ${variantClass}`;
   
+  if (link.type === 'popup') {
+    const triggerPopup = (e: React.MouseEvent) => {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('trigger-global-popup', { detail: { popupId: link.url } }));
+    };
+    return (
+      <button onClick={triggerPopup} className={finalClass}>
+        {link.label}
+      </button>
+    );
+  }
+
   if (link.type === 'internal') {
     return (
       <Link to={link.url === '/' ? '/' : `/p/${link.url}`} className={finalClass}>

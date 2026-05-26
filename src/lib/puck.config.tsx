@@ -176,6 +176,7 @@ export type PuckConfig = {
       mediaType: "video" | "image";
       ctaText: string;
       ctaUrl: string;
+      cta?: any;
       spacing?: any;
       entranceAnimation?: string;
     };
@@ -382,9 +383,358 @@ export type PuckConfig = {
   };
 };
 
-export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], partners: any[] = [], teams: any[] = [], brandResources: any[] = []): Config<PuckConfig> => {
+const MediaPickerComponent = React.memo(({ value, onChange, portfolioItems }: any) => {
+  const selectedImages = value || [];
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [limit, setLimit] = React.useState(24);
+  const [filterCategory, setFilterCategory] = React.useState("All");
+
+  const allAppMedia = React.useMemo(() => {
+    const pool: Array<{ url: string; portfolioId: string; portfolioTitle: string; category?: string }> = [];
+    const seenUrls = new Set<string>();
+
+    portfolioItems.forEach((item: any) => {
+      if (item?.img && typeof item.img === "string") {
+        const cleanUrl = item.img.trim();
+        if (cleanUrl && !seenUrls.has(cleanUrl)) {
+          seenUrls.add(cleanUrl);
+          pool.push({
+            url: cleanUrl,
+            portfolioId: item.id || "",
+            portfolioTitle: item.title || "Untitled Project",
+            category: item.category || "General"
+          });
+        }
+      }
+
+      if (Array.isArray(item?.gallery)) {
+        item.gallery.forEach((gImg: any) => {
+          if (gImg && typeof gImg === "string") {
+            const cleanUrl = gImg.trim();
+            if (cleanUrl && !seenUrls.has(cleanUrl)) {
+              seenUrls.add(cleanUrl);
+              pool.push({
+                url: cleanUrl,
+                portfolioId: item.id || "",
+                portfolioTitle: item.title || "Untitled Project",
+                category: item.category || "General"
+              });
+            }
+          }
+        });
+      }
+    });
+
+    return pool;
+  }, [portfolioItems]);
+
+  const categories = React.useMemo(() => {
+    const cats = new Set<string>();
+    allAppMedia.forEach(m => {
+      if (m.category) cats.add(m.category);
+    });
+    return ["All", ...Array.from(cats)];
+  }, [allAppMedia]);
+
+  const [localSearch, setLocalSearch] = React.useState("");
+  const [search, setSearch] = React.useState("");
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(localSearch);
+      setLimit(24);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
+  const filteredPool = React.useMemo(() => {
+    return allAppMedia.filter(m => {
+      const matchSearch = 
+        m.portfolioTitle.toLowerCase().includes(search.toLowerCase()) ||
+        (m.category && m.category.toLowerCase().includes(search.toLowerCase()));
+      const matchCategory = filterCategory === "All" || m.category === filterCategory;
+      return matchSearch && matchCategory;
+    });
+  }, [allAppMedia, search, filterCategory]);
+
+  const paginatedPool = React.useMemo(() => {
+    return filteredPool.slice(0, limit);
+  }, [filteredPool, limit]);
+
+  const toggleSelection = (media: any) => {
+    const exists = selectedImages.some((img: any) => img.url === media.url);
+    if (exists) {
+      onChange(selectedImages.filter((img: any) => img.url !== media.url));
+    } else {
+      onChange([...selectedImages, media]);
+    }
+  };
+
+  const moveItem = (index: number, direction: "up" | "down") => {
+    const newList = [...selectedImages];
+    const targetIndex = index + (direction === "up" ? -1 : 1);
+    if (targetIndex >= 0 && targetIndex < newList.length) {
+      const temp = newList[index];
+      newList[index] = newList[targetIndex];
+      newList[targetIndex] = temp;
+      onChange(newList);
+    }
+  };
+
+  const removeItem = (url: string) => {
+    onChange(selectedImages.filter((img: any) => img.url !== url));
+  };
+
+  return (
+    <div className="space-y-3 bg-[#181818] p-3 border border-white/5">
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-[10px] uppercase font-bold text-white/50 tracking-wider">Curated Queue</span>
+        <span className="text-[9px] bg-brick-copper/20 text-brick-copper px-1.5 py-0.5 font-mono font-black">
+          {selectedImages.length} items
+        </span>
+      </div>
+
+      {selectedImages.length > 0 ? (
+        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
+          {selectedImages.map((img: any, idx: number) => (
+            <div key={`${img.url}-${idx}`} className="flex items-center gap-1.5 bg-black/40 p-1 border border-white/5 rounded-sm">
+              <img src={img.url} className="w-8 h-8 object-cover bg-black" referrerPolicy="no-referrer" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[9px] text-white font-medium truncate leading-tight">{img.portfolioTitle}</p>
+                <p className="text-[7px] text-white/40 truncate uppercase font-mono">{img.category || "General"}</p>
+              </div>
+              <div className="flex items-center">
+                <button
+                  onClick={() => moveItem(idx, "up")}
+                  disabled={idx === 0}
+                  className="p-1 px-1.5 text-[8px] text-white/40 hover:text-white disabled:opacity-20 select-none bg-white/5 border border-white/5"
+                  type="button"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => moveItem(idx, "down")}
+                  disabled={idx === selectedImages.length - 1}
+                  className="p-1 px-1.5 text-[8px] text-white/40 hover:text-white disabled:opacity-20 select-none bg-white/5 border-l-0 border-white/5"
+                  type="button"
+                >
+                  ▼
+                </button>
+                <button
+                  onClick={() => removeItem(img.url)}
+                  className="p-1 px-1.5 text-[9px] text-red-400 hover:text-red-300 font-bold bg-white/5 border-l-0 border-white/5"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-3 bg-black/20 text-center border border-dashed border-white/5">
+          <span className="text-[9px] text-white/30 italic font-mono">No media curated yet.</span>
+        </div>
+      )}
+
+      <button
+        onClick={() => {
+          setIsOpen(true);
+          setLimit(24);
+        }}
+        className="w-full bg-[#202020] border border-white/10 hover:border-brick-copper hover:text-brick-copper py-2 text-[10px] text-white transition-all font-black tracking-widest uppercase cursor-pointer"
+        type="button"
+      >
+        Curate Gallery Media
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 md:p-8">
+          <div 
+            className="w-full max-w-6xl h-[85vh] bg-[#151515] border border-white/10 flex flex-col shadow-2xl overflow-hidden rounded-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-white/5 bg-black/20 flex justify-between items-center">
+              <div>
+                <h3 className="font-display text-2xl italic text-white font-medium">
+                  Curate Portfolio Media
+                </h3>
+                <p className="text-xs text-white/50 mt-1">
+                  Pick images directly from project files. They will be sequenced in the order you select them.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-all text-xl font-bold cursor-pointer border border-white/5"
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="px-6 py-3 border-b border-white/5 bg-black/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="relative w-full sm:w-80">
+                <input
+                  className="w-full bg-black/40 border border-white/10 text-white placeholder-white/30 text-xs py-2 px-3 focus:outline-none focus:border-brick-copper transition-all"
+                  placeholder="Search property title..."
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
+                />
+                {localSearch && (
+                  <button 
+                    onClick={() => setLocalSearch("")} 
+                    className="absolute right-2.5 top-1.5 text-white/30 hover:text-white font-bold"
+                    type="button"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+                {categories.map((cat: string) => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setFilterCategory(cat);
+                      setLimit(24);
+                    }}
+                    className={`text-[9px] uppercase tracking-widest px-3 py-1.5 transition-all border shrink-0 ${filterCategory === cat ? "bg-brick-copper text-charcoal font-black border-brick-copper" : "bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20"}`}
+                    type="button"
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Grid vs Sidebar */}
+            <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+              {/* Left media pool browser */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 bg-[#161616] flex flex-col justify-between">
+                <div>
+                  {paginatedPool.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {paginatedPool.map((media) => {
+                        const selectionIndex = selectedImages.findIndex((img: any) => img.url === media.url);
+                        const isSelected = selectionIndex >= 0;
+
+                        return (
+                          <div
+                            key={media.url}
+                            onClick={() => toggleSelection(media)}
+                            className={`group relative aspect-video bg-black/40 border transition-all duration-300 overflow-hidden cursor-pointer ${isSelected ? "border-brick-copper scale-[0.98]" : "border-white/5 hover:border-white/30"}`}
+                          >
+                            <img
+                              src={media.url}
+                              className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-105 ${isSelected ? "opacity-90" : "opacity-70 group-hover:opacity-100"}`}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                            {isSelected ? (
+                              <div className="absolute top-2 right-2 w-6 h-6 bg-brick-copper text-charcoal rounded-full flex items-center justify-center font-mono text-[10px] font-black shadow-lg">
+                                {selectionIndex + 1}
+                              </div>
+                            ) : (
+                              <div className="absolute top-2 right-2 w-6 h-6 bg-black/60 text-white rounded-full flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition-opacity font-bold">
+                                +
+                              </div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3">
+                              <p className="text-[10px] text-white font-bold truncate">{media.portfolioTitle}</p>
+                              <p className="text-[8px] text-brick-copper uppercase tracking-wider font-semibold">{media.category || "General"}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <p className="text-sm text-white/35 italic">No media items match your search filter.</p>
+                    </div>
+                  )}
+                </div>
+
+                {filteredPool.length > limit && (
+                  <div className="mt-6 flex justify-center pb-4">
+                    <button
+                      onClick={() => setLimit(prev => prev + 24)}
+                      className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white text-[10px] tracking-widest uppercase border border-white/10 hover:border-white/20 transition-all font-bold cursor-pointer"
+                      type="button"
+                    >
+                      Load More Images ({filteredPool.length - limit} remaining)
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Right hand selection queue */}
+              <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-white/5 bg-[#1a1a1a] flex flex-col h-60 lg:h-auto">
+                <div className="px-4 py-3 bg-black/20 border-b border-white/5 flex justify-between items-center">
+                  <span className="text-[10px] uppercase font-bold text-white/40 tracking-widest">Queue Setup</span>
+                  <button
+                    onClick={() => onChange([])}
+                    className="text-[9px] uppercase tracking-widest text-red-400 hover:text-red-300 font-bold"
+                    disabled={selectedImages.length === 0}
+                    type="button"
+                  >
+                    Reset Queue
+                  </button>
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
+                  {selectedImages.length > 0 ? (
+                    selectedImages.map((img: any, index: number) => (
+                      <div key={`${img.url}-queue-${index}`} className="flex items-center gap-2 bg-white/5 border border-white/5 p-2 rounded-sm relative">
+                        <img src={img.url} className="w-10 h-10 object-cover bg-black flex-shrink-0" referrerPolicy="no-referrer" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-white font-bold truncate">{img.portfolioTitle}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[9px] uppercase font-mono font-black text-brick-copper">{index + 1}</span>
+                            <span className="text-[8px] text-white/40 truncate uppercase tracking-tight">{img.category || "General"}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeItem(img.url)}
+                          className="h-6 w-6 flex items-center justify-center text-red-400 hover:bg-red-500/10 rounded-full transition-all text-xs"
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="h-full flex flex-col justify-center items-center text-center p-4">
+                      <p className="text-[10px] text-white/20 italic font-mono">Add images from the pool to build your sequence list.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-black/20 border-t border-white/5">
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="w-full bg-brick-copper hover:bg-white text-charcoal font-black text-[10px] tracking-widest uppercase py-2 transition-all cursor-pointer"
+                    type="button"
+                  >
+                    Confirm Selection Setup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+MediaPickerComponent.displayName = "MediaPickerComponent";
+
+export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], partners: any[] = [], teams: any[] = [], brandResources: any[] = [], popups: any[] = []): Config<PuckConfig> => {
   const pageOptions = pages.map(p => ({ label: p.title || p.slug, value: p.slug }));
   const partnerOptions = partners.map(p => ({ label: p.displayName, value: p.id }));
+  const popupOptions = popups.map(p => ({ id: p.id, label: p.title || p.headline || p.id, value: p.id }));
   
   const LinkField = {
     type: "custom" as const,
@@ -397,6 +747,10 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
               onClick={() => onChange({ ...val, type: "internal" })}
               className={`flex-1 py-1 text-xs border ${val.type === "internal" ? "bg-brick-copper border-brick-copper text-charcoal font-bold" : "bg-transparent border-gray-600 text-gray-300"}`}
             >Internal</button>
+            <button
+              onClick={() => onChange({ ...val, type: "popup" })}
+              className={`flex-1 py-1 text-xs border ${val.type === "popup" ? "bg-brick-copper border-brick-copper text-charcoal font-bold" : "bg-transparent border-gray-600 text-gray-300"}`}
+            >Popup</button>
             <button
               onClick={() => onChange({ ...val, type: "external" })}
               className={`flex-1 py-1 text-xs border ${val.type === "external" ? "bg-brick-copper border-brick-copper text-charcoal font-bold" : "bg-transparent border-gray-600 text-gray-300"}`}
@@ -417,6 +771,17 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
               <option value="">Select a page...</option>
               <option value="/">Home</option>
               {pageOptions.map(p => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          ) : val.type === "popup" ? (
+            <select
+              className="w-full bg-[#202020] border-none p-2 text-xs text-white"
+              value={val.url || ""}
+              onChange={(e) => onChange({ ...val, url: e.target.value })}
+            >
+              <option value="">Select a global popup...</option>
+              {popupOptions.map(p => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
@@ -523,338 +888,12 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
   const MediaPickerField = {
     type: "custom" as const,
     render: ({ name, value, onChange }: any) => {
-      const selectedImages = value || [];
-      const [isOpen, setIsOpen] = React.useState(false);
-
-      // Extract all media items from portfolioItems
-      const allAppMedia = React.useMemo(() => {
-        const pool: Array<{ url: string; portfolioId: string; portfolioTitle: string; category?: string }> = [];
-        const seenUrls = new Set<string>();
-
-        portfolioItems.forEach((item: any) => {
-          if (item?.img && typeof item.img === 'string') {
-            const cleanUrl = item.img.trim();
-            if (cleanUrl && !seenUrls.has(cleanUrl)) {
-              seenUrls.add(cleanUrl);
-              pool.push({
-                url: cleanUrl,
-                portfolioId: item.id || '',
-                portfolioTitle: item.title || 'Untitled Project',
-                category: item.category || 'General'
-              });
-            }
-          }
-
-          if (Array.isArray(item?.gallery)) {
-            item.gallery.forEach((gImg: any) => {
-              if (gImg && typeof gImg === 'string') {
-                const cleanUrl = gImg.trim();
-                if (cleanUrl && !seenUrls.has(cleanUrl)) {
-                  seenUrls.add(cleanUrl);
-                  pool.push({
-                    url: cleanUrl,
-                    portfolioId: item.id || '',
-                    portfolioTitle: item.title || 'Untitled Project',
-                    category: item.category || 'General'
-                  });
-                }
-              }
-            });
-          }
-        });
-
-        return pool;
-      }, [portfolioItems]);
-
-      const categories = React.useMemo(() => {
-        const cats = new Set<string>();
-        allAppMedia.forEach(m => {
-          if (m.category) cats.add(m.category);
-        });
-        return ["All", ...Array.from(cats)];
-      }, [allAppMedia]);
-
-      const [search, setSearch] = React.useState("");
-      const [filterCategory, setFilterCategory] = React.useState("All");
-
-      const filteredPool = React.useMemo(() => {
-        return allAppMedia.filter(m => {
-          const matchSearch = 
-            m.portfolioTitle.toLowerCase().includes(search.toLowerCase()) ||
-            (m.category && m.category.toLowerCase().includes(search.toLowerCase()));
-          const matchCategory = filterCategory === "All" || m.category === filterCategory;
-          return matchSearch && matchCategory;
-        });
-      }, [allAppMedia, search, filterCategory]);
-
-      const toggleSelection = (media: any) => {
-        const exists = selectedImages.some((img: any) => img.url === media.url);
-        if (exists) {
-          onChange(selectedImages.filter((img: any) => img.url !== media.url));
-        } else {
-          onChange([...selectedImages, media]);
-        }
-      };
-
-      const moveItem = (index: number, direction: 'up' | 'down') => {
-        const newList = [...selectedImages];
-        const targetIndex = index + (direction === 'up' ? -1 : 1);
-        if (targetIndex >= 0 && targetIndex < newList.length) {
-          const temp = newList[index];
-          newList[index] = newList[targetIndex];
-          newList[targetIndex] = temp;
-          onChange(newList);
-        }
-      };
-
-      const removeItem = (url: string) => {
-        onChange(selectedImages.filter((img: any) => img.url !== url));
-      };
-
       return (
-        <div className="space-y-3 bg-[#181818] p-3 border border-white/5">
-          <div className="flex items-center justify-between pb-1">
-            <span className="text-[10px] uppercase font-bold text-white/50 tracking-wider">Curated Queue</span>
-            <span className="text-[9px] bg-brick-copper/20 text-brick-copper px-1.5 py-0.5 font-mono font-black">
-              {selectedImages.length} items
-            </span>
-          </div>
-
-          {selectedImages.length > 0 ? (
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
-              {selectedImages.map((img: any, idx: number) => (
-                <div key={`${img.url}-${idx}`} className="flex items-center gap-1.5 bg-black/40 p-1 border border-white/5 rounded-sm">
-                  <img src={img.url} className="w-8 h-8 object-cover bg-black" referrerPolicy="no-referrer" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] text-white font-medium truncate leading-tight">{img.portfolioTitle}</p>
-                    <p className="text-[7px] text-white/40 truncate uppercase font-mono">{img.category || 'General'}</p>
-                  </div>
-                  <div className="flex items-center">
-                    <button
-                      onClick={() => moveItem(idx, 'up')}
-                      disabled={idx === 0}
-                      className="p-1 px-1.5 text-[8px] text-white/40 hover:text-white disabled:opacity-20 select-none bg-white/5 border border-white/5"
-                      type="button"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => moveItem(idx, 'down')}
-                      disabled={idx === selectedImages.length - 1}
-                      className="p-1 px-1.5 text-[8px] text-white/40 hover:text-white disabled:opacity-20 select-none bg-white/5 border-l-0 border-white/5"
-                      type="button"
-                    >
-                      ▼
-                    </button>
-                    <button
-                      onClick={() => removeItem(img.url)}
-                      className="p-1 px-1.5 text-[9px] text-red-400 hover:text-red-300 font-bold bg-white/5 border-l-0 border-white/5"
-                      type="button"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-3 bg-black/20 text-center border border-dashed border-white/5">
-              <span className="text-[9px] text-white/30 italic font-mono">No media curated yet.</span>
-            </div>
-          )}
-
-          <button
-            onClick={() => setIsOpen(true)}
-            className="w-full bg-[#202020] border border-white/10 hover:border-brick-copper hover:text-brick-copper py-2 text-[10px] text-white transition-all font-black tracking-widest uppercase cursor-pointer"
-            type="button"
-          >
-            Curate Gallery Media
-          </button>
-
-          {isOpen && (
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 md:p-8">
-              <div 
-                className="w-full max-w-6xl h-[85vh] bg-[#151515] border border-white/10 flex flex-col shadow-2xl overflow-hidden rounded-md"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-white/5 bg-black/20 flex justify-between items-center">
-                  <div>
-                    <h3 className="font-display text-2xl italic text-white">
-                      Curate Portfolio Media
-                    </h3>
-                    <p className="text-xs text-white/50 mt-1">
-                      Pick images directly from project files. They will be sequenced in the order you select them.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-all text-xl font-bold cursor-pointer border border-white/5"
-                    type="button"
-                  >
-                    ×
-                  </button>
-                </div>
-
-                {/* Filters */}
-                <div className="px-6 py-3 border-b border-white/5 bg-black/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                  <div className="relative w-full sm:w-80">
-                    <input
-                      className="w-full bg-black/40 border border-white/10 text-white placeholder-white/30 text-xs py-2 px-3 focus:outline-none focus:border-brick-copper transition-all"
-                      placeholder="Search property title..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                    {search && (
-                      <button 
-                        onClick={() => setSearch("")} 
-                        className="absolute right-2.5 top-1.5 text-white/30 hover:text-white font-bold"
-                        type="button"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
-                    {categories.map((cat: string) => (
-                      <button
-                        key={cat}
-                        onClick={() => setFilterCategory(cat)}
-                        className={`text-[9px] uppercase tracking-widest px-3 py-1.5 transition-all border shrink-0 ${filterCategory === cat ? 'bg-brick-copper text-charcoal font-black border-brick-copper' : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'}`}
-                        type="button"
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Grid vs Sidebar */}
-                <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-                  {/* Left media pool browser */}
-                  <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 bg-[#161616]">
-                    {filteredPool.length > 0 ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {filteredPool.map((media) => {
-                          const selectionIndex = selectedImages.findIndex((img: any) => img.url === media.url);
-                          const isSelected = selectionIndex >= 0;
-
-                          return (
-                            <div
-                              key={media.url}
-                              onClick={() => toggleSelection(media)}
-                              className={`group relative aspect-video bg-black/40 border transition-all duration-300 overflow-hidden cursor-pointer ${isSelected ? 'border-brick-copper scale-[0.98]' : 'border-white/5 hover:border-white/30'}`}
-                            >
-                              <img
-                                src={media.url}
-                                className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-105 ${isSelected ? 'opacity-90' : 'opacity-70 group-hover:opacity-100'}`}
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
-                              />
-                              {isSelected ? (
-                                <div className="absolute top-2 right-2 w-6 h-6 bg-brick-copper text-charcoal rounded-full flex items-center justify-center font-mono text-[10px] font-black shadow-lg">
-                                  {selectionIndex + 1}
-                                </div>
-                              ) : (
-                                <div className="absolute top-2 right-2 w-6 h-6 bg-black/60 text-white rounded-full flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition-opacity font-bold">
-                                  +
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3">
-                                <p className="text-[10px] text-white font-bold truncate">{media.portfolioTitle}</p>
-                                <p className="text-[8px] text-brick-copper uppercase tracking-wider font-semibold">{media.category || 'General'}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-center">
-                        <p className="text-sm text-white/35 italic">No media items match your search filter.</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right hand selection queue */}
-                  <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-white/5 bg-[#1a1a1a] flex flex-col h-60 lg:h-auto">
-                    <div className="px-4 py-3 bg-black/20 border-b border-white/5 flex justify-between items-center">
-                      <span className="text-[10px] uppercase font-bold text-white/40 tracking-widest">Queue Setup</span>
-                      <button
-                        onClick={() => onChange([])}
-                        className="text-[9px] uppercase tracking-widest text-red-400 hover:text-red-300 font-bold"
-                        disabled={selectedImages.length === 0}
-                        type="button"
-                      >
-                        Reset Queue
-                      </button>
-                    </div>
-
-                    <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-                      {selectedImages.length > 0 ? (
-                        selectedImages.map((img: any, index: number) => (
-                          <div key={`${img.url}-queue-${index}`} className="flex items-center gap-2 bg-white/5 border border-white/5 p-2 rounded-sm relative">
-                            <img src={img.url} className="w-10 h-10 object-cover bg-black flex-shrink-0" referrerPolicy="no-referrer" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[10px] text-white font-bold truncate">{img.portfolioTitle}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[9px] uppercase font-mono font-black text-brick-copper">{index + 1}</span>
-                                <span className="text-[8px] text-white/40 truncate uppercase tracking-tight">{img.category || 'General'}</span>
-                              </div>
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <button
-                                onClick={() => moveItem(index, 'up')}
-                                disabled={index === 0}
-                                className="p-1 px-1.5 text-[8px] bg-black/40 border border-white/5 text-white/40 hover:text-white disabled:opacity-20 cursor-pointer"
-                                type="button"
-                              >
-                                ▲
-                              </button>
-                              <button
-                                onClick={() => moveItem(index, 'down')}
-                                disabled={index === selectedImages.length - 1}
-                                className="p-1 px-1.5 text-[8px] bg-black/40 border border-white/5 text-white/40 hover:text-white disabled:opacity-20 cursor-pointer"
-                                type="button"
-                              >
-                                ▼
-                              </button>
-                              <button
-                                onClick={() => removeItem(img.url)}
-                                className="p-1 px-1.5 text-[10px] bg-red-950/20 hover:bg-red-900 border border-red-900/30 text-red-400 transition-colors font-bold cursor-pointer"
-                                type="button"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-4 opacity-30">
-                          <p className="text-[11px] text-white italic">Curated items will appear here.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer apply */}
-                <div className="px-6 py-4 border-t border-white/5 bg-black/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                  <div className="text-[11px] text-white/40">
-                    Showing <span className="text-white font-bold">{allAppMedia.length}</span> total photos across your portfolio database.
-                  </div>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="bg-brick-copper text-charcoal font-black uppercase text-[10px] tracking-widest px-8 py-3 hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
-                    type="button"
-                  >
-                    Confirm Selection
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <MediaPickerComponent
+          value={value}
+          onChange={onChange}
+          portfolioItems={portfolioItems}
+        />
       );
     }
   };
@@ -1327,6 +1366,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         },
         ctaText: { type: "text" },
         ctaUrl: { type: "text" },
+        cta: LinkField as any,
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
       },
@@ -1337,51 +1377,71 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         mediaType: "video",
         ctaText: "View Portfolio",
         ctaUrl: "/",
+        cta: {
+          type: "internal",
+          label: "View Portfolio",
+          url: "/"
+        },
         spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
       },
-      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl, spacing, entranceAnimation }) => (
-        <ComponentWrapper spacing={spacing} entranceAnimation={entranceAnimation}>
-          <div className="relative h-[80vh] min-h-[600px] w-full flex items-center justify-center overflow-hidden">
-            {mediaType === 'video' ? (
-              <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
-                <source src={mediaUrl} type="video/mp4" />
-              </video>
-            ) : (
-              <img src={mediaUrl} className="absolute inset-0 w-full h-full object-cover" alt="Hero" />
-            )}
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="relative z-10 text-center text-white px-4 max-w-4xl flex flex-col items-center">
-              <motion.h1 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6"
-              >
-                {title}
-              </motion.h1>
-              <motion.p 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="text-xl md:text-2xl text-white/80 mb-8 max-w-2xl font-light"
-              >
-                {subtitle}
-              </motion.p>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Link 
-                  to={ctaUrl}
-                  className="inline-block bg-brick-copper text-charcoal hover:bg-white transition-all duration-500 rounded-none px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-black"
+      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl, cta, spacing, entranceAnimation }) => {
+        const resolvedLink = cta?.label ? cta : {
+          type: ctaUrl && (ctaUrl.startsWith('http') || ctaUrl.startsWith('//') || ctaUrl.startsWith('popup:')) ? 'external' : 'internal',
+          label: ctaText || 'View Details',
+          url: ctaUrl || '/'
+        };
+
+        // If the old format starts with 'popup:', map it
+        if (ctaUrl && ctaUrl.startsWith('popup:')) {
+          resolvedLink.type = 'popup';
+          resolvedLink.url = ctaUrl.replace('popup:', '');
+        }
+
+        return (
+          <ComponentWrapper spacing={spacing} entranceAnimation={entranceAnimation}>
+            <div className="relative h-[80vh] min-h-[600px] w-full flex items-center justify-center overflow-hidden">
+              {mediaType === 'video' ? (
+                <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
+                  <source src={mediaUrl} type="video/mp4" />
+                </video>
+              ) : (
+                <img src={mediaUrl} className="absolute inset-0 w-full h-full object-cover" alt="Hero" />
+              )}
+              <div className="absolute inset-0 bg-black/40" />
+              <div className="relative z-10 text-center text-white px-4 max-w-4xl flex flex-col items-center">
+                <motion.h1 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6"
                 >
-                  {ctaText}
-                </Link>
-              </motion.div>
+                  {title}
+                </motion.h1>
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="text-xl md:text-2xl text-white/80 mb-8 max-w-2xl font-light"
+                >
+                  {subtitle}
+                </motion.p>
+                {resolvedLink && resolvedLink.label && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <LinkButton 
+                      link={resolvedLink}
+                      variant="solid"
+                      className="inline-block bg-brick-copper text-charcoal hover:bg-white transition-all duration-300 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 rounded-none px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-black"
+                    />
+                  </motion.div>
+                )}
+              </div>
             </div>
-          </div>
-        </ComponentWrapper>
-      )
+          </ComponentWrapper>
+        );
+      }
     },
     DynamicGrid: {
       fields: {
