@@ -9,10 +9,44 @@ export const TestimonialCarousel = ({ maxItems = 5 }: { maxItems?: number }) => 
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const q = query(collection(db, 'testimonials'), orderBy('order', 'asc'), limit(maxItems));
-    return onSnapshot(q, (snapshot) => {
-      setTestimonials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+
+    const fetchTestimonials = async () => {
+      try {
+        const res = await fetch("/api/testimonials");
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            setTestimonials(data.slice(0, maxItems));
+          }
+        } else {
+          throw new Error("Aggregator endpoint failed");
+        }
+      } catch (err) {
+        if (!active) return;
+        console.warn("[TestimonialCarousel] Unified API fetch failed, falling back to direct Firestore subscribe:", err);
+        
+        const q = query(collection(db, 'testimonials'), orderBy('order', 'asc'), limit(maxItems));
+        unsubscribe = onSnapshot(q, 
+          (snapshot) => {
+            if (active) {
+              setTestimonials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            }
+          },
+          (firestoreErr) => {
+            console.warn("[TestimonialCarousel] Direct Firestore subscription also failed (Sandbox rules):", firestoreErr.message);
+          }
+        );
+      }
+    };
+
+    fetchTestimonials();
+
+    return () => {
+      active = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, [maxItems]);
 
   if (testimonials.length === 0) return null;
@@ -40,9 +74,16 @@ export const TestimonialCarousel = ({ maxItems = 5 }: { maxItems?: number }) => 
               "{testimonials[currentIndex]?.quote}"
             </p>
             <div className="flex items-center gap-4">
-              <img src={testimonials[currentIndex]?.headshotUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10" loading="lazy" decoding="async" />
+              <img src={testimonials[currentIndex]?.headshotUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150"} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10" loading="lazy" decoding="async" />
               <div className="text-left">
-                <h4 className="text-xs uppercase tracking-widest text-brick-copper font-bold">{testimonials[currentIndex]?.name}</h4>
+                <h4 className="text-xs uppercase tracking-widest text-brick-copper font-bold flex items-center gap-2 flex-wrap">
+                  <span>{testimonials[currentIndex]?.name}</span>
+                  {testimonials[currentIndex]?.source === 'google' && (
+                    <span className="inline-flex items-center text-[7px] bg-[rgba(234,179,8,0.15)] border border-yellow-500/30 text-yellow-500 font-bold px-1.5 py-0.5 rounded-full tracking-wider uppercase">
+                      ★ Google Review
+                    </span>
+                  )}
+                </h4>
                 <p className="text-[9px] uppercase tracking-widest text-white/40">{testimonials[currentIndex]?.brokerage}</p>
               </div>
             </div>

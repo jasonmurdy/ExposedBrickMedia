@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, query, orderBy, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, getDoc, setDoc, serverTimestamp, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ADMIN_EMAILS } from '../constants';
 
@@ -259,11 +259,31 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setPortfolioLoaded(true);
     });
 
-    const unsubPartners = onSnapshot(collection(db, 'users'), (snap) => {
-      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((u: any) => u.role === 'partner' || u.role === 'preferred'));
+    const fetchUnifiedPartners = async () => {
+      try {
+        const res = await fetch('/api/admin/clients');
+        if (res.ok) {
+          const data = await res.json();
+          const filtered = data.filter((u: any) => u.role === 'partner' || u.role === 'preferred');
+          setPartners(filtered);
+        }
+      } catch (err) {
+        console.warn("Failover partners fetch failed:", err);
+      }
+    };
+
+    const qPartners = query(collection(db, 'users'), where('role', 'in', ['partner', 'preferred']));
+    const unsubPartners = onSnapshot(qPartners, (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (items.length > 0) {
+        setPartners(items);
+      } else {
+        fetchUnifiedPartners();
+      }
       setPartnersLoaded(true);
     }, (err) => {
-      console.error("Partners listener failed:", err);
+      console.warn("Partners listener failed, using fallback:", err);
+      fetchUnifiedPartners();
       setPartnersLoaded(true);
     });
 

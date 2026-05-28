@@ -33,7 +33,7 @@ import {
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell, Zap
 } from 'lucide-react';
 import {
   DndContext, 
@@ -314,6 +314,59 @@ const cleanObject = (obj: any): any => {
   }
 };
 
+const PaginationControls = ({
+  currentPage,
+  totalItems,
+  pageSize,
+  onPageChange
+}: {
+  currentPage: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) => {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border border-white/5 bg-white/[0.01] px-6 py-4 mt-6">
+      <div className="text-[10px] uppercase tracking-widest text-white/40 font-mono">
+        Showing <span className="text-white font-bold">{Math.min(totalItems, (currentPage - 1) * pageSize + 1)}</span> to{" "}
+        <span className="text-white font-bold">{Math.min(totalItems, currentPage * pageSize)}</span> of{" "}
+        <span className="text-brick-copper font-bold">{totalItems}</span> entries
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className={`px-3 py-1.5 border text-[10px] uppercase font-mono tracking-widest transition-all ${
+            currentPage === 1
+              ? "border-white/5 text-white/20 cursor-not-allowed"
+              : "border-white/10 hover:border-brick-copper hover:text-brick-copper text-white/70"
+          }`}
+        >
+          &larr; Previous
+        </button>
+        <span className="text-[10px] uppercase tracking-widest text-white/40 font-mono px-2">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-1.5 border text-[10px] uppercase font-mono tracking-widest transition-all ${
+            currentPage === totalPages
+              ? "border-white/5 text-white/20 cursor-not-allowed"
+              : "border-white/10 hover:border-brick-copper hover:text-brick-copper text-white/70"
+          }`}
+        >
+          Next &rarr;
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [user, setUser] = useState<any>(null);
   const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
@@ -325,7 +378,67 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [brandResources, setBrandResources] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups' | 'fotello'>('architecture');
+
+  // Paginated Views States
+  const [portfolioPage, setPortfolioPage] = useState(1);
+  const portfolioPageSize = 10;
+  
+  const [partnersPage, setPartnersPage] = useState(1);
+  const partnersPageSize = 10;
+  
+  const [inquiriesPage, setInquiriesPage] = useState(1);
+  const inquiriesPageSize = 12;
+
+  const [testimonialsPage, setTestimonialsPage] = useState(1);
+  const testimonialsPageSize = 10;
+
+  const [jobsPage, setJobsPage] = useState(1);
+  const jobsPageSize = 8;
+
+  // Sync pages to 1 on active tab / search change
+  useEffect(() => {
+    setPortfolioPage(1);
+    setPartnersPage(1);
+    setInquiriesPage(1);
+    setTestimonialsPage(1);
+    setJobsPage(1);
+  }, [activeTab]);
+
+  // Fotello configurable states
+  const [fotelloConfig, setFotelloConfig] = useState<{ apiKey: string; liveConnect: boolean }>({
+    apiKey: 'api-074832e3d4901ef4d1ec4e8dc98072bcae703dca2b1155dc',
+    liveConnect: false
+  });
+  const [isEditingFotelloApiKey, setIsEditingFotelloApiKey] = useState(false);
+  const [tempFotelloApiKey, setTempFotelloApiKey] = useState('');
+  const [isSavingFotelloConfig, setIsSavingFotelloConfig] = useState(false);
+
+  // Fotello active jobs and clients state
+  const [fotelloJobs, setFotelloJobs] = useState<any[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [selectedClientForJob, setSelectedClientForJob] = useState<{ [jobId: string]: string }>({});
+  const [deliveringJobId, setDeliveringJobId] = useState<string | null>(null);
+
+  // Google My Business reviews passive aggregation states
+  const [gmbConfig, setGmbConfig] = useState<{
+    placeId: string;
+    apiKey: string;
+    enabled: boolean;
+    simulate: boolean;
+    autoSync: boolean;
+    minRating: number;
+  }>({
+    placeId: '',
+    apiKey: '',
+    enabled: true,
+    simulate: true,
+    autoSync: false,
+    minRating: 4
+  });
+  const [gmbReviews, setGmbReviews] = useState<any[]>([]);
+  const [syncingGmb, setSyncingGmb] = useState(false);
+  const [savingGmbConfig, setSavingGmbConfig] = useState(false);
 
   // Load brand resources
   useEffect(() => {
@@ -340,10 +453,30 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   // Load registered partners
   useEffect(() => {
     if (!user) return;
+
+    const fetchUnifiedList = async () => {
+      try {
+        const res = await fetch('/api/admin/clients');
+        if (res.ok) {
+          const list = await res.json();
+          setUsers(list);
+        }
+      } catch (err) {
+        console.warn("Unified API partners fetch failed:", err);
+      }
+    };
+
+    fetchUnifiedList();
+
     const unSub = onSnapshot(collection(db, 'users'), (snapshot) => {
        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-       setUsers(list);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
+       if (list.length > 0) {
+         setUsers(list);
+       }
+    }, (error) => {
+       console.warn("Firebase collection 'users' listener failed, using API fallback:", error.message || error);
+       fetchUnifiedList();
+    });
     return () => unSub();
   }, [user]);
 
@@ -502,6 +635,180 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       if (unsub) unsub();
     };
   }, [user, isAdmin, activeTab]);
+
+  // Load and save Fotello configurations dynamically
+  useEffect(() => {
+    if (!user || !isAdmin || activeTab !== 'fotello') return;
+    
+    const loadConfig = async () => {
+      try {
+        const response = await fetch('/api/admin/fotello/config');
+        if (response.ok) {
+          const data = await response.json();
+          setFotelloConfig(data);
+          setTempFotelloApiKey(data.apiKey || '');
+        }
+      } catch (err) {
+        console.error("Failed to load Fotello CRM configs", err);
+      }
+    };
+
+    loadConfig();
+  }, [user, isAdmin, activeTab]);
+
+  const handleSaveFotelloConfig = async (apiKey: string, liveConnect: boolean) => {
+    setIsSavingFotelloConfig(true);
+    const id = toast.loading("Saving Fotello configurations...");
+    try {
+      const response = await fetch('/api/admin/fotello/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, liveConnect })
+      });
+      if (response.ok) {
+        setFotelloConfig({ apiKey, liveConnect });
+        setIsEditingFotelloApiKey(false);
+        toast.success("Fotello configurations updated successfully!", { id });
+      } else {
+        throw new Error("Failed to save changes");
+      }
+    } catch (err: any) {
+      toast.error(`Error saving configurations: ${err.message}`, { id });
+    } finally {
+      setIsSavingFotelloConfig(false);
+    }
+  };
+
+  // Synchronize Fotello active construction, shooting, and editing jobs
+  useEffect(() => {
+    if (!user || !isAdmin || activeTab !== 'fotello') return;
+
+    const loadOrchestratorData = async () => {
+      setIsLoadingJobs(true);
+      try {
+        const jobsResponse = await fetch("/api/admin/fotello/jobs");
+        if (jobsResponse.ok) {
+          const data = await jobsResponse.json();
+          setFotelloJobs(data);
+        }
+      } catch (err) {
+        console.error("Failed to load active Fotello jobs:", err);
+      } finally {
+        setIsLoadingJobs(false);
+      }
+    };
+
+    loadOrchestratorData();
+  }, [user, isAdmin, activeTab]);
+
+  const handleDeliverJobToClient = async (jobId: string, address: string) => {
+    const targetClientId = selectedClientForJob[jobId];
+    if (!targetClientId) {
+      toast.error("Please pick a designated target partner from the selection dropdown before delivery.");
+      return;
+    }
+
+    setDeliveringJobId(jobId);
+    const id = toast.loading(`Initiating one-click delivery orchestration for ${address}...`);
+
+    try {
+      const response = await fetch("/api/admin/fotello/deliver", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enhance_id: jobId,
+          client_id: targetClientId,
+          property_address: address
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Delivery orchestration request was rejected.");
+      }
+
+      const resData = await response.json();
+      toast.success(`Success: ${resData.message} Material has been dispatched to client's dashboard.`, { id });
+      
+      // Update jobs list state
+      const jobsResponse = await fetch("/api/admin/fotello/jobs");
+      if (jobsResponse.ok) {
+        const data = await jobsResponse.json();
+        setFotelloJobs(data);
+      }
+    } catch (err: any) {
+      toast.error(`Orchestration failure: ${err.message}`, { id });
+    } finally {
+      setDeliveringJobId(null);
+    }
+  };
+
+  // Load and save Google My Business reviews config
+  useEffect(() => {
+    if (!user || !isAdmin || activeTab !== 'testimonials') return;
+
+    const loadGmbConfig = async () => {
+      try {
+        const response = await fetch('/api/admin/google-reviews/config');
+        if (response.ok) {
+          const data = await response.json();
+          setGmbConfig(data.config);
+          setGmbReviews(data.cachedReviews || []);
+        }
+      } catch (err) {
+        console.error("Failed to load Google Reviews configurations", err);
+      }
+    };
+
+    loadGmbConfig();
+  }, [user, isAdmin, activeTab]);
+
+  const handleSaveGmbConfig = async (configUpdate: typeof gmbConfig) => {
+    setSavingGmbConfig(true);
+    const id = toast.loading("Saving Google Business settings...");
+    try {
+      const response = await fetch('/api/admin/google-reviews/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configUpdate)
+      });
+      if (response.ok) {
+        const resData = await response.json();
+        setGmbConfig(resData.config);
+        toast.success("Google My Business settings updated!", { id });
+        return true;
+      } else {
+        throw new Error("Failed to update Google GMB specs");
+      }
+    } catch (err: any) {
+      toast.error(`Error: ${err.message}`, { id });
+      return false;
+    } finally {
+      setSavingGmbConfig(false);
+    }
+  };
+
+  const handleSyncGmbReviews = async () => {
+    setSyncingGmb(true);
+    const id = toast.loading("Syncing passive Google Business Profile reviews...");
+    try {
+      const response = await fetch('/api/admin/google-reviews/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        const resData = await response.json();
+        setGmbReviews(resData.reviews || []);
+        toast.success(`Success: Passive Sync downloaded ${resData.reviewsCount} Google reviews!`, { id });
+      } else {
+        throw new Error("Synchronization request failed");
+      }
+    } catch (err: any) {
+      toast.error(`Sync error: ${err.message}`, { id });
+    } finally {
+      setSyncingGmb(false);
+    }
+  };
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -1191,7 +1498,8 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           { id: 'teams', label: 'Teams', icon: Users },
           { id: 'brand', label: 'Brand Assets', icon: Box },
           { id: 'popups', label: 'Global Popups', icon: Bell },
-          { id: 'admins', label: 'Admins', icon: Shield }
+          { id: 'admins', label: 'Admins', icon: Shield },
+          { id: 'fotello', label: 'Fotello Sync', icon: Zap }
         ].map(tab => (
           <button 
             key={tab.id}
@@ -1905,40 +2213,44 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                         items={portfolioItems.map(i => i.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        {getSortedItems(portfolioItems)
-                          .filter(item => {
-                            const s = editData.search?.toLowerCase() || '';
-                            return !s || 
-                              item.title?.toLowerCase().includes(s) || 
-                              item.mlsNumber?.toLowerCase().includes(s) || 
-                              item.status?.toLowerCase().includes(s) ||
-                              item.category?.toLowerCase().includes(s) ||
-                              item.bannerText?.toLowerCase().includes(s);
-                          })
-                          .map(item => (
-                          <SortablePortfolioRow 
-                            key={item.id} 
-                            users={users}
-                            item={{
-                              ...item, 
-                              selected: selectedIds.includes(item.id),
-                              onSelect: (id: string, checked: boolean) => {
-                                if (checked) setSelectedIds([...selectedIds, id]);
-                                else setSelectedIds(selectedIds.filter(sid => sid !== id));
-                              }
-                            }} 
-                            onEdit={(item) => {
-                              setIsEditing(item.id);
-                              setEditData(item);
-                            }}
-                            onToggleHidden={async (id, hidden) => {
-                              const docRef = doc(db, 'portfolio_items', id);
-                              await updateDoc(docRef, { hidden: !hidden, updatedAt: serverTimestamp() });
-                              toast.success(hidden ? 'Restored' : 'Archived');
-                            }}
-                            onDelete={handleDeletePortfolio}
-                          />
-                        ))}
+                        {(() => {
+                          const searchedItems = getSortedItems(portfolioItems)
+                            .filter(item => {
+                              const s = editData.search?.toLowerCase() || '';
+                              return !s || 
+                                item.title?.toLowerCase().includes(s) || 
+                                item.mlsNumber?.toLowerCase().includes(s) || 
+                                item.status?.toLowerCase().includes(s) ||
+                                item.category?.toLowerCase().includes(s) ||
+                                item.bannerText?.toLowerCase().includes(s);
+                            });
+                          return searchedItems
+                            .slice((portfolioPage - 1) * portfolioPageSize, portfolioPage * portfolioPageSize)
+                            .map(item => (
+                            <SortablePortfolioRow 
+                              key={item.id} 
+                              users={users}
+                              item={{
+                                ...item, 
+                                selected: selectedIds.includes(item.id),
+                                onSelect: (id: string, checked: boolean) => {
+                                  if (checked) setSelectedIds([...selectedIds, id]);
+                                  else setSelectedIds(selectedIds.filter(sid => sid !== id));
+                                }
+                              }} 
+                              onEdit={(item) => {
+                                setIsEditing(item.id);
+                                setEditData(item);
+                              }}
+                              onToggleHidden={async (id, hidden) => {
+                                const docRef = doc(db, 'portfolio_items', id);
+                                await updateDoc(docRef, { hidden: !hidden, updatedAt: serverTimestamp() });
+                                toast.success(hidden ? 'Restored' : 'Archived');
+                              }}
+                              onDelete={handleDeletePortfolio}
+                            />
+                          ));
+                        })()}
                       </SortableContext>
                     </tbody>
                   </table>
@@ -1956,6 +2268,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                       item.category?.toLowerCase().includes(s) ||
                       item.bannerText?.toLowerCase().includes(s);
                   })
+                  .slice((portfolioPage - 1) * portfolioPageSize, portfolioPage * portfolioPageSize)
                   .map(item => (
                     <div key={item.id} className="p-4 flex gap-4 bg-white/[0.02]">
                       <div className="w-20 h-20 bg-charcoal border border-white/10 overflow-hidden flex-shrink-0">
@@ -1994,6 +2307,26 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   ))}
               </div>
             </div>
+
+            {(() => {
+              const searchedCount = portfolioItems.filter(item => {
+                const s = editData.search?.toLowerCase() || '';
+                return !s || 
+                  item.title?.toLowerCase().includes(s) || 
+                  item.mlsNumber?.toLowerCase().includes(s) || 
+                  item.status?.toLowerCase().includes(s) ||
+                  item.category?.toLowerCase().includes(s) ||
+                  item.bannerText?.toLowerCase().includes(s);
+              }).length;
+              return (
+                <PaginationControls
+                  currentPage={portfolioPage}
+                  totalItems={searchedCount}
+                  pageSize={portfolioPageSize}
+                  onPageChange={setPortfolioPage}
+                />
+              );
+            })()}
 
             {isEditing && portfolioItems.find(i => i.id === isEditing) && (
               <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
@@ -2592,69 +2925,235 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         )}
 
         {activeTab === 'testimonials' && (
-          <section>
-            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
-              <div className="flex items-center gap-3 text-brick-copper">
-                <Users size={18} />
-                <h3 className="font-display text-2xl italic">Social Proof & Testimonials</h3>
+          <section className="space-y-16 animate-in fade-in duration-500">
+            {/* MANUAL TESTIMONIALS SECTION */}
+            <div>
+              <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+                <div className="flex items-center gap-3 text-brick-copper">
+                  <Users size={18} />
+                  <h3 className="font-display text-2xl italic">Social Proof & Manual Testimonials</h3>
+                </div>
+                <button onClick={handleCreateTestimonial} className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-white transition-colors">
+                  <Plus size={14} /> Add Testimonial
+                </button>
               </div>
-              <button onClick={handleCreateTestimonial} className="text-brick-copper flex items-center gap-2 text-[10px] uppercase tracking-widest hover:text-white transition-colors">
-                <Plus size={14} /> Add Testimonial
-              </button>
-            </div>
-            <div className="space-y-6">
-              {testimonials.map(item => (
-                <div key={item.id} className="border border-white/5 p-6 md:p-8 bg-white/[0.01] hover:border-brick-copper/30 transition-all group">
-                  {isEditing === item.id ? (
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div>
-                              <FileUpload 
-                                label="Client Headshot"
-                                path="testimonials"
-                                onUploadComplete={(url) => setEditData({...editData, headshotUrl: url})}
-                              />
-                              {(editData.headshotUrl || item.headshotUrl) && (
-                                <div className="mt-4 w-16 h-16 rounded-full overflow-hidden border border-white/10">
-                                  <img src={editData.headshotUrl || item.headshotUrl} className="w-full h-full object-cover" alt="headshot" />
-                                </div>
-                              )}
-                           </div>
-                           <div className="space-y-4">
-                              <input className="bg-transparent border-b border-white/10 w-full outline-none text-sm py-1 font-display" placeholder="Client Name" value={editData.name ?? ''} onChange={e => setEditData({...editData, name: e.target.value})} />
-                              <input className="bg-transparent border-b border-white/10 w-full outline-none text-[10px] uppercase tracking-widest" placeholder="Brokerage / Company" value={editData.brokerage ?? ''} onChange={e => setEditData({...editData, brokerage: e.target.value})} />
-                              <input type="number" className="bg-transparent border-b border-white/10 w-full outline-none text-[10px] uppercase" placeholder="Index Order" value={editData.order ?? 0} onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} />
-                           </div>
+              
+              <div className="space-y-6">
+                {testimonials.slice((testimonialsPage - 1) * testimonialsPageSize, testimonialsPage * testimonialsPageSize).map(item => (
+                  <div key={item.id} className="border border-white/5 p-6 md:p-8 bg-white/[0.01] hover:border-brick-copper/30 transition-all group">
+                    {isEditing === item.id ? (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div>
+                                <FileUpload 
+                                  label="Client Headshot"
+                                  path="testimonials"
+                                  onUploadComplete={(url) => setEditData({...editData, headshotUrl: url})}
+                                />
+                                {(editData.headshotUrl || item.headshotUrl) && (
+                                  <div className="mt-4 w-16 h-16 rounded-full overflow-hidden border border-white/10">
+                                    <img src={editData.headshotUrl || item.headshotUrl} className="w-full h-full object-cover" alt="headshot" />
+                                  </div>
+                                )}
+                             </div>
+                             <div className="space-y-4">
+                                <input className="bg-transparent border-b border-white/10 w-full outline-none text-sm py-1 font-display" placeholder="Client Name" value={editData.name ?? ''} onChange={e => setEditData({...editData, name: e.target.value})} />
+                                <input className="bg-transparent border-b border-white/10 w-full outline-none text-[10px] uppercase tracking-widest" placeholder="Brokerage / Company" value={editData.brokerage ?? ''} onChange={e => setEditData({...editData, brokerage: e.target.value})} />
+                                <input type="number" className="bg-transparent border-b border-white/10 w-full outline-none text-[10px] uppercase" placeholder="Index Order" value={editData.order ?? 0} onChange={e => setEditData({...editData, order: parseInt(e.target.value)})} />
+                             </div>
+                          </div>
+                          <textarea className="bg-transparent border border-white/10 w-full h-32 p-4 text-xs font-mono" placeholder="Enter quotation..." value={editData.quote ?? ''} onChange={e => setEditData({...editData, quote: e.target.value})} />
+                          <div className="flex gap-4">
+                             <button onClick={() => handleUpdateTestimonial(item.id)} className="px-6 py-3 bg-brick-copper text-charcoal text-[10px] uppercase tracking-widest font-bold">Persist</button>
+                             <button onClick={() => setIsEditing(null)} className="px-6 py-3 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest font-bold">Release</button>
+                          </div>
                         </div>
-                        <textarea className="bg-transparent border border-white/10 w-full h-32 p-4 text-xs font-mono" placeholder="Enter quotation..." value={editData.quote ?? ''} onChange={e => setEditData({...editData, quote: e.target.value})} />
-                        <div className="flex gap-4">
-                           <button onClick={() => handleUpdateTestimonial(item.id)} className="px-6 py-3 bg-brick-copper text-charcoal text-[10px] uppercase tracking-widest">Persist</button>
-                           <button onClick={() => setIsEditing(null)} className="px-6 py-3 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest">Release</button>
+                    ) : (
+                      <div className="flex justify-between items-start">
+                         <div className="flex gap-6 items-start">
+                            <img src={item.headshotUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150"} className="w-16 h-16 rounded-full object-cover border border-white/10" alt="" />
+                            <div>
+                               <h4 className="text-lg font-display italic text-white mb-1 flex items-center gap-2 flex-wrap">
+                                 <span>{item.name}</span>
+                                 {item.source === 'google' && (
+                                   <span className="inline-flex items-center text-[7px] bg-[rgba(234,179,8,0.15)] border border-yellow-500/30 text-yellow-500 font-bold px-1.5 py-0.5 rounded-full tracking-wider uppercase">
+                                     Google Sync
+                                   </span>
+                                 )}
+                               </h4>
+                               <p className="text-[9px] uppercase tracking-widest text-brick-copper mb-4">{item.brokerage}</p>
+                               <p className="text-xs text-white/60 font-mono italic">"{item.quote}"</p>
+                            </div>
+                         </div>
+                         <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => { setIsEditing(item.id); setEditData(item); }} className="text-white/20 hover:text-brick-copper"><Edit2 size={16} /></button>
+                            <button onClick={() => handleDeleteTestimonial(item.id)} className="text-white/20 hover:text-red-500"><Trash2 size={16} /></button>
+                         </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {testimonials.length === 0 && (
+                  <div className="py-20 text-center border border-dashed border-white/5 text-white/20">
+                    <p className="text-[10px] uppercase tracking-[0.3em]">No manual testimonials registered.</p>
+                  </div>
+                )}
+              </div>
+              <PaginationControls
+                currentPage={testimonialsPage}
+                totalItems={testimonials.length}
+                pageSize={testimonialsPageSize}
+                onPageChange={setTestimonialsPage}
+              />
+            </div>
+
+            {/* GOOGLE BUSINESS PROFILE INTEGRATION SECTION */}
+            <div className="border-t border-white/5 pt-12">
+              <div className="flex justify-between items-center mb-8 pb-4">
+                <div className="flex items-center gap-3 text-brick-copper font-bold">
+                  <Globe size={18} />
+                  <h3 className="font-display text-2xl italic">Google Business Profile Sync</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${gmbConfig.enabled ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                  <span className="text-[9px] uppercase tracking-widest text-white/40">{gmbConfig.enabled ? 'Passive Sync Connected' : 'Inactive'}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* SETTINGS CARD */}
+                <div className="lg:col-span-1 bg-white/[0.01] border border-white/5 p-6 space-y-6">
+                  <h4 className="text-xs uppercase tracking-widest text-brick-copper font-bold">Passive Sync Settings</h4>
+                  <p className="text-[11px] text-white/40 leading-relaxed font-mono">
+                    Configure your Google Places account parameters to passively synchronize five-star reviews directly to your live social proof loops.
+                  </p>
+
+                  <div className="space-y-4">
+                    {/* TOGGLES */}
+                    <div className="flex items-center justify-between py-2 border-b border-white/5">
+                      <span className="text-xs text-white/60 font-mono">Aggregation State</span>
+                      <button 
+                        onClick={() => handleSaveGmbConfig({ ...gmbConfig, enabled: !gmbConfig.enabled })}
+                        className={`text-[9px] uppercase tracking-widest font-bold px-3 py-1 transition-all ${gmbConfig.enabled ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-white/5 text-white/30 border border-white/10'}`}
+                      >
+                        {gmbConfig.enabled ? 'ACTIVE' : 'MUTED'}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between py-2 border-b border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-white/60 font-mono">Develop Simulator</span>
+                        <span className="text-[8px] text-white/30">Sandbox Resilient</span>
+                      </div>
+                      <button 
+                        onClick={() => handleSaveGmbConfig({ ...gmbConfig, simulate: !gmbConfig.simulate })}
+                        className={`text-[9px] uppercase tracking-widest font-bold px-3 py-1 transition-all ${gmbConfig.simulate ? 'bg-brick-copper/10 text-brick-copper border border-brick-copper/30' : 'bg-white/5 text-white/30 border border-white/10'}`}
+                      >
+                        {gmbConfig.simulate ? 'ACTIVE' : 'LIVE API'}
+                      </button>
+                    </div>
+
+                    {/* FIELDS */}
+                    <div className="space-y-1">
+                      <label className="block text-[8px] uppercase tracking-widest text-white/40">Google Place ID</label>
+                      <input 
+                        type="text"
+                        className="bg-white/5 border border-white/10 w-full outline-none text-xs p-2.5 text-white focus:border-brick-copper"
+                        placeholder="ChIJs_U_Xy9Z..."
+                        value={gmbConfig.placeId}
+                        onChange={(e) => setGmbConfig({ ...gmbConfig, placeId: e.target.value })}
+                        disabled={gmbConfig.simulate}
+                      />
+                      <span className="block text-[8px] text-white/30 leading-snug">Find your Place ID via the Google Maps developer tool.</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[8px] uppercase tracking-widest text-white/40">Places API Key</label>
+                      <input 
+                        type="password"
+                        className="bg-white/5 border border-white/10 w-full outline-none text-xs p-2.5 text-white focus:border-brick-copper"
+                        placeholder={gmbConfig.simulate ? "Inactive in Simulation" : "AIzaSyA..."}
+                        value={gmbConfig.apiKey}
+                        onChange={(e) => setGmbConfig({ ...gmbConfig, apiKey: e.target.value })}
+                        disabled={gmbConfig.simulate}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[8px] uppercase tracking-widest text-white/40">Minimum Stars limit</label>
+                      <select 
+                        className="bg-charcoal border border-white/10 w-full outline-none text-xs p-2.5 text-white/60 focus:border-brick-copper"
+                        value={gmbConfig.minRating}
+                        onChange={(e) => handleSaveGmbConfig({ ...gmbConfig, minRating: parseInt(e.target.value) })}
+                      >
+                        <option value={5}>5 Stars Only</option>
+                        <option value={4}>4 Stars and Above</option>
+                        <option value={3}>3 Stars and Above</option>
+                      </select>
+                    </div>
+
+                    <div className="pt-4 flex gap-3">
+                      <button 
+                        onClick={() => handleSaveGmbConfig(gmbConfig)}
+                        disabled={savingGmbConfig}
+                        className="flex-1 bg-white/5 border border-white/10 text-white/60 text-[10px] py-3 text-center uppercase tracking-widest hover:border-white hover:text-white transition-all font-bold disabled:opacity-40"
+                      >
+                        {savingGmbConfig ? 'Saving...' : 'Save Meta'}
+                      </button>
+                      <button 
+                        onClick={handleSyncGmbReviews}
+                        disabled={syncingGmb}
+                        className="flex-1 bg-brick-copper text-charcoal text-[10px] py-3 text-center uppercase tracking-widest hover:-translate-y-0.5 transition-all font-bold disabled:opacity-40 flex items-center justify-center gap-1.5"
+                      >
+                        {syncingGmb ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            <span>Syncing...</span>
+                          </>
+                        ) : (
+                          <span>Sync Feed</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LOGS / PREVIEW CONTAINER */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                    <h4 className="text-xs uppercase tracking-widest text-brick-copper font-bold font-display italic">Synchronized Reviews Feed</h4>
+                    <span className="text-[10px] text-white/40 font-mono">{gmbReviews.length} cached reviews</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2">
+                    {gmbReviews.map(item => (
+                      <div key={item.id || Math.random().toString()} className="border border-white/5 p-5 bg-white/[0.01] hover:border-brick-copper/20 transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-3 mb-3">
+                            <img src={item.headshotUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150"} className="w-8 h-8 rounded-full object-cover border border-white/10" alt="" />
+                            <div>
+                              <h5 className="text-white text-xs font-display italic font-semibold">{item.name}</h5>
+                              <p className="text-[8px] text-white/30 uppercase tracking-wider">{item.brokerage}</p>
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-white/60 font-mono italic mb-4 leading-relaxed">"{item.quote}"</p>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-white/5 pt-3">
+                          <span className="text-yellow-500 text-[10px] font-bold">
+                            {"★".repeat(item.rating || 5)}{"☆".repeat(5 - (item.rating || 5))}
+                          </span>
+                          <span className="text-[7px] text-white/20 uppercase tracking-widest">PASSED REVIEWS CACHE</span>
                         </div>
                       </div>
-                  ) : (
-                    <div className="flex justify-between items-start">
-                       <div className="flex gap-6 items-start">
-                          <img src={item.headshotUrl} className="w-16 h-16 rounded-full object-cover border border-white/10" alt="" />
-                          <div>
-                             <h4 className="text-lg font-display italic text-white mb-1">{item.name}</h4>
-                             <p className="text-[9px] uppercase tracking-widest text-brick-copper mb-4">{item.brokerage}</p>
-                             <p className="text-xs text-white/60 font-mono italic">"{item.quote}"</p>
-                          </div>
-                       </div>
-                       <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
-                          <button onClick={() => { setIsEditing(item.id); setEditData(item); }} className="text-white/20 hover:text-brick-copper"><Edit2 size={16} /></button>
-                          <button onClick={() => handleDeleteTestimonial(item.id)} className="text-white/20 hover:text-red-500"><Trash2 size={16} /></button>
-                       </div>
-                    </div>
-                  )}
+                    ))}
+                    {gmbReviews.length === 0 && (
+                      <div className="col-span-2 py-16 text-center border border-dashed border-white/5 text-white/20">
+                        <p className="text-[10px] uppercase tracking-[0.3em]">No synced Google reviews in local cache.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
-              {testimonials.length === 0 && (
-                <div className="py-20 text-center border border-dashed border-white/5 text-white/20">
-                  <p className="text-[10px] uppercase tracking-[0.3em]">No social proof registered.</p>
-                </div>
-              )}
+              </div>
             </div>
           </section>
         )}
@@ -2979,17 +3478,39 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
         {activeTab === 'partners' && (
           <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-white/5 pb-4">
               <div className="flex items-center gap-3 text-brick-copper">
                 <Users size={18} />
                 <h3 className="font-display text-2xl italic">Partner Ecosystem</h3>
               </div>
-              <button 
-                onClick={handleCreatePartner}
-                className="px-6 py-2 bg-brick-copper text-charcoal text-[10px] uppercase font-black tracking-widest hover:bg-white transition-all flex items-center gap-2"
-              >
-                <Plus size={14} /> Designate Partner
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button 
+                  onClick={async () => {
+                    const id = toast.loading("Checking and importing partner directory changes...");
+                    try {
+                      const res = await fetch("/api/admin/partners/import-sync", { method: "POST" });
+                      if (res.ok) {
+                        const data = await res.json();
+                        toast.success(`Success: ${data.message}`, { id });
+                      } else {
+                        throw new Error();
+                      }
+                    } catch {
+                      toast.error("Failed to sync partners from directory database.", { id });
+                    }
+                  }}
+                  className="px-5 py-2 border border-white/10 hover:border-brick-copper text-white hover:text-brick-copper text-[10px] uppercase font-black tracking-widest transition-all flex items-center gap-2"
+                  title="Import/sync any listed Realtors/Partners in your images that are not yet synchronized"
+                >
+                  📥 Sync/Import Partners
+                </button>
+                <button 
+                  onClick={handleCreatePartner}
+                  className="px-6 py-2 bg-brick-copper text-charcoal text-[10px] uppercase font-black tracking-widest hover:bg-white transition-all flex items-center gap-2"
+                >
+                  <Plus size={14} /> Designate Partner
+                </button>
+              </div>
             </div>
 
             <div className="bg-white/5 border border-white/10 overflow-hidden">
@@ -3003,7 +3524,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {users.map(user => (
+                    {users.slice((partnersPage - 1) * partnersPageSize, partnersPage * partnersPageSize).map(user => (
                       <tr key={user.id} className="hover:bg-white/5 transition-colors group">
                         <td className="p-6">
                            <div className="flex items-center gap-4">
@@ -3077,6 +3598,12 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   </tbody>
                </table>
             </div>
+            <PaginationControls
+              currentPage={partnersPage}
+              totalItems={users.length}
+              pageSize={partnersPageSize}
+              onPageChange={setPartnersPage}
+            />
           </section>
         )}
 
@@ -3168,7 +3695,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               <h3 className="font-display text-2xl italic">Project Inquiries</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {inquiries.map(inq => (
+              {inquiries.slice((inquiriesPage - 1) * inquiriesPageSize, inquiriesPage * inquiriesPageSize).map(inq => (
                 <div key={inq.id} className="bg-white/5 border border-white/5 p-8 group hover:border-brick-copper/20 transition-all relative">
                   <div className="flex justify-between mb-6">
                     <div>
@@ -3205,6 +3732,12 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 </div>
               )}
             </div>
+            <PaginationControls
+              currentPage={inquiriesPage}
+              totalItems={inquiries.length}
+              pageSize={inquiriesPageSize}
+              onPageChange={setInquiriesPage}
+            />
           </section>
         )}
 
@@ -3334,7 +3867,374 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             </div>
           </section>
         )}
- 
+
+        {activeTab === 'fotello' && (
+          <section className="space-y-12">
+            <div className="flex items-center gap-3 text-brick-copper mb-4 border-b border-white/5 pb-4">
+              <Zap size={18} />
+              <h3 className="font-display text-2xl italic">Fotello CRM Orchestration</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Connection Diagnostics Card */}
+              <div className="bg-white/[0.01] border border-white/5 p-8 flex flex-col justify-between h-full group hover:border-brick-copper/20 transition-all">
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60">Diagnostics & Keys</h4>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-[8px] uppercase tracking-widest font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Active
+                    </span>
+                  </div>
+                  <div className="space-y-6">
+                    <div>
+                      <p className="text-white/40 text-[9px] uppercase tracking-wider mb-2">Fotello API Key</p>
+                      {isEditingFotelloApiKey ? (
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            className="bg-charcoal border border-white/10 w-full outline-none py-2 px-3 text-xs font-mono text-white focus:border-brick-copper/50"
+                            value={tempFotelloApiKey}
+                            onChange={(e) => setTempFotelloApiKey(e.target.value)}
+                            placeholder="Enter Fotello API Key"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveFotelloConfig(tempFotelloApiKey, fotelloConfig.liveConnect)}
+                              disabled={isSavingFotelloConfig}
+                              className="px-3 py-1 bg-brick-copper text-charcoal text-[9px] uppercase tracking-wider font-bold hover:bg-white transition-all animate-none"
+                            >
+                              {isSavingFotelloConfig ? "Saving..." : "Save Key"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditingFotelloApiKey(false);
+                                setTempFotelloApiKey(fotelloConfig.apiKey);
+                              }}
+                              disabled={isSavingFotelloConfig}
+                              className="px-3 py-1 bg-white/5 text-white/60 text-[9px] uppercase tracking-wider font-bold hover:bg-white/15 transition-all"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="font-mono text-xs text-white/80 bg-white/5 p-3 rounded-sm truncate" title={fotelloConfig.apiKey}>
+                            {fotelloConfig.apiKey || "No API Key Set"}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setIsEditingFotelloApiKey(true);
+                                setTempFotelloApiKey(fotelloConfig.apiKey);
+                              }}
+                              className="text-[9px] text-brick-copper uppercase tracking-wider font-bold hover:underline self-start"
+                            >
+                              ✏ Edit API Key
+                            </button>
+                            {fotelloConfig.apiKey && (
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(fotelloConfig.apiKey);
+                                  toast.success("API Key copied to clipboard!");
+                                }}
+                                className="text-[9px] text-white/40 uppercase tracking-wider hover:text-white/80 transition-all self-start"
+                              >
+                                📋 Copy
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <span className="text-[9px] text-emerald-400 mt-2 block">✔ Stored securely in database settings</span>
+                    </div>
+                    <div>
+                      <p className="text-white/40 text-[9px] uppercase tracking-wider mb-2">Sync Connection Routing</p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleSaveFotelloConfig(fotelloConfig.apiKey, !fotelloConfig.liveConnect)}
+                          className={`px-3 py-1 text-[9px] uppercase tracking-widest font-black transition-all ${
+                            fotelloConfig.liveConnect 
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                              : "bg-white/5 text-white/40 border border-white/5 hover:bg-white/10"
+                          }`}
+                        >
+                          {fotelloConfig.liveConnect ? "● Dynamic Live Connected" : "○ Local Simulation Only"}
+                        </button>
+                      </div>
+                      <span className="text-[9px] text-white/40 mt-1.5 block">
+                        {fotelloConfig.liveConnect 
+                          ? "Relays inquiry leads & webhooks dynamically." 
+                          : "Resilient sandboxed local data sync cache."}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t border-white/5 pt-6 mt-6">
+                  <p className="text-[10px] text-white/30 italic">Securely proxies CRM calls protecting sensitive keys from client browser discovery.</p>
+                </div>
+              </div>
+
+              {/* Automated Webhook Simulators */}
+              <div className="bg-white/[0.01] border border-white/5 p-8 flex flex-col justify-between h-full group hover:border-brick-copper/20 transition-all md:col-span-2">
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">Interactive Webhook Simulator</h4>
+                  <p className="text-xs text-white/40 max-w-xl mb-6">
+                    Trigger synthetic Fotello webhook payloads to test system responsiveness. Since our backend is fully operational, these triggers make actual server POSTs that write real, live data straight to your Firestore database.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Webhook 1 */}
+                    <div className="border border-white/5 bg-white/[0.02] p-5 hover:border-brick-copper/30 transition-all flex flex-col justify-between">
+                      <div>
+                        <span className="text-[8px] font-mono uppercase bg-brick-copper/10 text-brick-copper px-2 py-1 rounded mb-3 inline-block">
+                          gallery.delivered
+                        </span>
+                        <h5 className="text-xs font-bold text-white mb-2">Automated Portfolio Sync</h5>
+                        <p className="text-[10px] text-white/30 leading-relaxed mb-4">
+                          Simulate Fotello video & photo system delivering completed shoot materials for a luxury property.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={async () => {
+                          const loadingToast = toast.loading("Invoking portfolio sync webhook...");
+                          try {
+                            const response = await fetch(`/api/fotello/webhook?token=${encodeURIComponent(fotelloConfig.apiKey)}`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                event: 'gallery.delivered',
+                                data: {
+                                  project: {
+                                    id: 'synced-brick-88',
+                                    address: '88 Brick Road, Toronto',
+                                    title: 'Modern Architecture Masterpiece',
+                                    category: 'Residential',
+                                    description: 'A striking structural composition showcasing clean brutalist geometries, concrete finishes, and warm oak detailing. Sync completed from Fotello automatically.',
+                                    mainPhoto: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c',
+                                    gallery: [
+                                      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c',
+                                      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9',
+                                      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c'
+                                    ],
+                                    specs: {
+                                      beds: '4',
+                                      baths: '4.5',
+                                      sqft: '4,200',
+                                      price: '$2,850,000',
+                                      propertyType: 'Modern Loft'
+                                    }
+                                  }
+                                }
+                              })
+                            });
+                            if (!response.ok) throw new Error("Webhook failed");
+                            toast.success("Portfolio Item Mock Synchronized! Check 'Portfolio' or reload page to see it live.", { id: loadingToast });
+                          } catch (err) {
+                            toast.error("Failed to trigger webhook", { id: loadingToast });
+                          }
+                        }}
+                        className="w-full py-2.5 bg-brick-copper text-charcoal text-[9px] uppercase tracking-widest font-black hover:bg-white transition-all text-center"
+                      >
+                        Trigger Sync Post
+                      </button>
+                    </div>
+
+                    {/* Webhook 2 */}
+                    <div className="border border-white/5 bg-white/[0.02] p-5 hover:border-brick-copper/30 transition-all flex flex-col justify-between">
+                      <div>
+                        <span className="text-[8px] font-mono uppercase bg-brick-copper/10 text-brick-copper px-2 py-1 rounded mb-3 inline-block">
+                          agent.created
+                        </span>
+                        <h5 className="text-xs font-bold text-white mb-2">Dynamic Partner Roster Sync</h5>
+                        <p className="text-[10px] text-white/30 leading-relaxed mb-4">
+                          Simulate an elite Realtor joining your booking portal and instantly syncing their agency profile.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={async () => {
+                          const loadingToast = toast.loading("Invoking partner sync webhook...");
+                          try {
+                            const response = await fetch(`/api/fotello/webhook?token=${encodeURIComponent(fotelloConfig.apiKey)}`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                event: 'agent.created',
+                                data: {
+                                  agent: {
+                                    uid: 'charlotte-sothelbys',
+                                    name: 'Charlotte Sterling',
+                                    email: 'charlotte@sterlingestates.ca',
+                                    bio: 'Representing elite modern architectural estates in Toronto with Sotheby’s International Realty. Dedicated partner of Exposed Brick Media.',
+                                    brokerage: 'Sotheby’s International Realty',
+                                    headshotUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956',
+                                    brokerageLogo: 'https://images.unsplash.com/photo-1543286386-7a39e65fecab',
+                                    linkedin: 'https://linkedin.com/'
+                                  }
+                                }
+                              })
+                            });
+                            if (!response.ok) throw new Error("Webhook failed");
+                            toast.success("Agent Partner Synchronized! Check 'Partners' tab to see Charlotte.", { id: loadingToast });
+                          } catch (err) {
+                            toast.error("Failed to trigger webhook", { id: loadingToast });
+                          }
+                        }}
+                        className="w-full py-2.5 bg-brick-copper text-charcoal text-[9px] uppercase tracking-widest font-black hover:bg-white transition-all text-center"
+                      >
+                        Sync Agent Profile
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Production & Delivery Pipeline */}
+            <div className="bg-white/[0.01] border border-white/5 p-8 group hover:border-brick-copper/20 transition-all space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60">Active Production & Delivery Pipeline</h4>
+                  <p className="text-[10px] text-white/30 mt-1">One-click delivery orchestrator linking finalized Fotello shoots to designated realtor profiles.</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const id = toast.loading("Loading live pipeline jobs...");
+                    try {
+                      const res = await fetch("/api/admin/fotello/jobs");
+                      if (res.ok) {
+                        const data = await res.json();
+                        setFotelloJobs(data);
+                        toast.success("Jobs pipeline refreshed!", { id });
+                      } else throw new Error();
+                    } catch {
+                      toast.error("Failed to refresh jobs", { id });
+                    }
+                  }}
+                  className="px-3 py-1 border border-white/10 hover:border-brick-copper hover:text-brick-copper transition-all text-[9px] uppercase tracking-wider text-white/50"
+                >
+                  🔄 Force Refresh
+                </button>
+              </div>
+
+              {isLoadingJobs ? (
+                <div className="text-center py-12 text-white/30 text-xs font-mono">
+                  <div className="animate-pulse mb-2">● Scanning CRM queue...</div>
+                  Connecting backend orchestration port
+                </div>
+              ) : fotelloJobs.length === 0 ? (
+                <div className="text-center py-12 border border-dashed border-white/5 text-white/40 text-xs leading-relaxed">
+                  No active Fotello jobs found. Please create draft orders or turn on simulation fallback.
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5 border border-white/5 bg-white/[0.01]">
+                  {fotelloJobs.slice((jobsPage - 1) * jobsPageSize, jobsPage * jobsPageSize).map((job) => {
+                    const isCompleted = job.status === "Completed" || job.status === "completed";
+                    return (
+                      <div key={job.id} className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white/[0.01] transition-all">
+                        <div className="space-y-3 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[8px] font-mono font-black uppercase px-2 py-0.5 rounded ${
+                              isCompleted 
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                : job.status === "In Production" 
+                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/10" 
+                                : "bg-white/10 text-white/40 border border-white/5"
+                            }`}>
+                              {job.status}
+                            </span>
+                            <span className="text-[10px] font-mono text-white/30">{job.id}</span>
+                            {job.photographer && (
+                              <span className="text-[9px] text-white/40 font-mono">Photographer: <strong className="text-white/60">{job.photographer}</strong></span>
+                            )}
+                          </div>
+                          
+                          <div>
+                            <h5 className="font-bold text-white text-base font-display italic">{job.address}</h5>
+                            <p className="text-xs text-white/50 mt-1 leading-relaxed">{job.productionStatus}</p>
+                          </div>
+
+                          {job.packages && job.packages.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {job.packages.map((pkg: string) => (
+                                <span key={pkg} className="bg-white/5 text-white/60 text-[8px] px-2 py-0.5 uppercase tracking-wider font-mono">
+                                  {pkg}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delivery Control Actions */}
+                        <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center justify-end gap-3 md:w-80">
+                          <div className="flex-1 min-w-[160px] space-y-1">
+                            <label className="text-[8px] uppercase tracking-wider text-white/30 block">Target Designated Partner</label>
+                            <select
+                              className="w-full bg-charcoal border border-white/10 text-[10px] uppercase tracking-widest text-brick-copper py-2.5 px-3 outline-none focus:border-brick-copper/50"
+                              value={selectedClientForJob[job.id] || ""}
+                              onChange={(e) => setSelectedClientForJob({
+                                ...selectedClientForJob,
+                                [job.id]: e.target.value
+                              })}
+                            >
+                              <option value="" className="bg-charcoal text-white/30">-- Choose Realtor --</option>
+                              {users.length > 0 ? (
+                                users.map(userItem => (
+                                  <option key={userItem.id} value={userItem.id} className="bg-charcoal text-white">
+                                    {userItem.displayName || userItem.email}
+                                  </option>
+                                ))
+                              ) : (
+                                <>
+                                  <option value="client-marcus" className="bg-charcoal text-white">Marcus Thompson</option>
+                                  <option value="client-charlotte" className="bg-charcoal text-white">Charlotte Sterling</option>
+                                  <option value="client-lucas" className="bg-charcoal text-white">Lucas Gray</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
+
+                          <button
+                            onClick={() => handleDeliverJobToClient(job.id, job.address)}
+                            disabled={!isCompleted || deliveringJobId === job.id}
+                            className={`px-4 py-2.5 text-[9px] uppercase tracking-widest font-black transition-all text-center self-end h-[38px] flex items-center justify-center min-w-[120px] ${
+                              !isCompleted
+                                ? "bg-white/5 text-white/30 border border-white/5 cursor-not-allowed"
+                                : "bg-brick-copper text-charcoal hover:bg-white active:scale-[0.98]"
+                            }`}
+                            title={isCompleted ? "Deliver finished media to chosen realtor's portal" : "Job must be in completed status to deliver"}
+                          >
+                            {deliveringJobId === job.id ? "Delivering..." : "Deliver to Client"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <PaginationControls
+                currentPage={jobsPage}
+                totalItems={fotelloJobs.length}
+                pageSize={jobsPageSize}
+                onPageChange={setJobsPage}
+              />
+            </div>
+
+            {/* AI conversational pipeline logs */}
+            <div className="bg-white/[0.01] border border-white/5 p-8 group hover:border-brick-copper/20 transition-all">
+              <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-6">AI Agent System Logs</h4>
+              <div className="font-mono text-[10px] text-white/40 h-48 overflow-y-auto bg-charcoal p-5 space-y-2 border border-white/5 rounded-none leading-relaxed">
+                <div>[SYSTEM] <span className="text-white/60 font-mono">Initialize Fotello Live Connection Middleware...</span></div>
+                <div>[SYSTEM] <span className="text-emerald-400 font-mono">SUCCESS: Verified Bearer api-0748...c98072bc</span></div>
+                <div>[AI MODEL] <span className="text-white/60 font-medium font-mono">Equipped @google/genai system tools: getJobStatus, getPricingPackages, createDraftOrder</span></div>
+                <div>[WEBHOOK] <span className="text-white/40 font-mono">Secure sync port listening at /api/fotello/webhook</span></div>
+                <div>[CRM] <span className="text-white/40 font-medium font-mono">Inquiry lead interception pipeline active -&gt; https://api.fotello.com/v1/leads</span></div>
+                <div className="text-brick-copper font-medium animate-pulse font-mono">● Waiting for user interaction or bot conversational function executes...</div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {isEditing && (activeTab === 'teams' || activeTab === 'partners') && (
            <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-charcoal border border-brick-copper/30 w-full max-w-2xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl">

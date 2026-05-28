@@ -120,14 +120,21 @@ export const GlobalPopupHost: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      // Create record in inquiries collection
-      await addDoc(collection(db, 'inquiries'), {
-        propertyAddress: `Popup Lead Capture: ${activePopup?.title || activePopup?.headline}`,
-        realtorName: nameInput || 'Subscribed Lead',
-        email: emailInput,
-        serviceType: activePopup?.type?.toUpperCase() || 'LEAD_GEN',
-        createdAt: serverTimestamp()
+      const response = await fetch('/api/crm/inquire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyAddress: `Popup Lead Capture: ${activePopup?.title || activePopup?.headline}`,
+          realtorName: nameInput || 'Subscribed Lead',
+          email: emailInput,
+          serviceType: activePopup?.type?.toUpperCase() || 'LEAD_GEN'
+        })
       });
+
+      if (!response.ok) {
+        throw new Error("Popup submission failed on backend CRM");
+      }
+
       setIsSuccess(true);
       setEmailInput('');
       setNameInput('');

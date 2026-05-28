@@ -44,34 +44,20 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const path = 'inquiries';
     try {
-      await addDoc(collection(db, path), {
-        ...formData,
-        createdAt: serverTimestamp()
+      const response = await fetch('/api/crm/inquire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyAddress: formData.propertyAddress,
+          realtorName: formData.realtorName,
+          email: formData.email,
+          serviceType: formData.serviceType || 'Photography'
+        })
       });
 
-      // TRIGGER EMAIL NOTIFICATION
-      try {
-        await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: settings.contactInfo?.email || 'jasonmurdy@gmail.com', // Primary admin email
-            subject: `New Inquiry: ${formData.realtorName} - ${formData.propertyAddress}`,
-            body: `
-              <div style="font-family: sans-serif; color: #1a1a1a;">
-                <p><strong>Property Address:</strong> ${formData.propertyAddress}</p>
-                <p><strong>Realtor Name:</strong> ${formData.realtorName}</p>
-                <p><strong>Email:</strong> ${formData.email}</p>
-                <p><strong>Service Type:</strong> ${formData.serviceType || 'Photography'}</p>
-                <p style="margin-top: 20px; color: #c43b2a; font-weight: bold;">A new inquiry has been submitted via the website.</p>
-              </div>
-            `
-          })
-        });
-      } catch (e) {
-        console.error("Failed to send notification email", e);
+      if (!response.ok) {
+        throw new Error("Lead submission was not accepted by the backend CRM");
       }
 
       setSubmitted(true);
@@ -80,7 +66,7 @@ export const BookingForm = ({ override }: { override?: { title: string } }) => {
         service_requested: formData.serviceType
       });
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, path);
+      console.error("Inquiry pipeline submission failed:", err);
     } finally {
       setLoading(false);
     }
