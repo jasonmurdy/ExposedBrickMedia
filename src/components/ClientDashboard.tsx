@@ -16,6 +16,9 @@ import { toast } from 'react-hot-toast';
 import { useSiteContent } from '../lib/SiteContentContext';
 
 import { PDFViewer } from './PDFViewer';
+import { DynamicCuratedGallery } from './DynamicCuratedGallery';
+import { LinkButton } from './LinkButton';
+import { Calendar, Clock, Zap } from 'lucide-react';
 
 export function ClientDashboard() {
   const { settings, isAdmin } = useSiteContent();
@@ -872,44 +875,241 @@ export function ClientDashboard() {
                    className="space-y-16"
                 >
                   <header className="space-y-4">
-                     <h1 className="font-display text-5xl md:text-7xl lowercase italic mt-12 md:mt-0">Archive<span className="text-brick-copper">.</span></h1>
-                     <p className="text-sm text-text-primary/50 max-w-sm">Review your historically delivered projects. Download raw assets or share optimized view-links.</p>
+                     <h1 className="font-display text-5xl md:text-7xl lowercase italic mt-12 md:mt-0">Partner Hub<span className="text-brick-copper">.</span></h1>
+                     <p className="text-sm text-text-primary/50 max-w-sm">Track your scheduled, processing, and historically delivered visual media collections in real time.</p>
                   </header>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-border-subtle border border-border-subtle">
-                    {listings.map(item => (
-                      <div key={item.id} className="bg-bg-primary p-8 md:p-10 flex flex-col group relative overflow-hidden transition-all hover:bg-text-primary/[0.02]">
-                        <div className="aspect-[16/10] bg-text-primary/5 overflow-hidden mb-8">
-                          <img src={item.img} alt={item.title} className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000" />
-                        </div>
-                        
-                        <div className="space-y-6 flex-1 flex flex-col">
-                          <div className="space-y-2">
-                             <div className="flex items-center gap-3 text-[9px] text-brick-copper font-bold uppercase tracking-[0.3em]">
-                                {item.mlsNumber && <span>MLS #{item.mlsNumber}</span>}
-                                <span className="w-1 h-1 rounded-full bg-brick-copper/30" />
-                                <span>{item.category || 'Architecture'}</span>
-                             </div>
-                             <h4 className="text-3xl font-display lowercase italic tracking-tight">{item.title}</h4>
-                          </div>
+                  {(() => {
+                    const scheduledListings = listings.filter(item => item.status?.toLowerCase() === 'scheduled');
+                    const processingListings = listings.filter(item => item.status?.toLowerCase() === 'processing');
+                    const completedListings = listings.filter(item => 
+                      item.status?.toLowerCase() === 'completed' || 
+                      item.status?.toLowerCase() === 'active' || 
+                      item.status?.toLowerCase() === 'sold' || 
+                      item.status?.toLowerCase() === 'pending' || 
+                      !item.status
+                    );
 
-                          <div className="pt-8 border-t border-border-subtle mt-auto flex items-center justify-between">
-                             <div className="flex gap-10">
-                                <Link to={`/listing/${item.id}`} className="text-[10px] uppercase tracking-widest font-black flex items-center gap-3 transition-colors hover:text-brick-copper">
-                                  <Share2 size={14} className="opacity-40" /> Share Hub
-                                </Link>
-                                {item.externalLink && (
-                                  <a href={item.externalLink} target="_blank" rel="noopener noreferrer" className="text-[10px] uppercase tracking-widest font-black flex items-center gap-3 transition-colors hover:text-brick-copper">
-                                    <Copy size={14} className="opacity-40" /> MLS Sync
-                                  </a>
-                                )}
-                             </div>
-                             <span className="text-[9px] uppercase tracking-widest text-text-primary/20 font-mono">ID: {item.id.substring(0,6)}</span>
+                    const getCountdownText = (dateStr?: string) => {
+                      if (!dateStr) return "Scheduled Soon";
+                      try {
+                        const targetDate = new Date(dateStr);
+                        const now = new Date();
+                        now.setHours(0, 0, 0, 0);
+                        const targetTemp = new Date(dateStr);
+                        targetTemp.setHours(0, 0, 0, 0);
+                        const diffTime = targetTemp.getTime() - now.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays < 0) return "Completed";
+                        if (diffDays === 0) return "Today";
+                        if (diffDays === 1) return "Tomorrow";
+                        return `In ${diffDays} Days`;
+                      } catch (e) {
+                        return dateStr;
+                      }
+                    };
+
+                    const formatDateStr = (dateStr?: string) => {
+                      if (!dateStr) return 'TBD';
+                      try {
+                        const d = new Date(dateStr);
+                        if (isNaN(d.getTime())) return dateStr;
+                        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                      } catch {
+                        return dateStr;
+                      }
+                    };
+
+                    return (
+                      <div className="space-y-16">
+                        {/* 1. UPCOMING TRACKER (FUTURE) */}
+                        <section className="space-y-6">
+                          <div className="flex items-center gap-3 border-b border-white/5 pb-3">
+                            <span className="w-2 h-2 rounded-full bg-brick-copper animate-ping" />
+                            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-text-primary/60">Upcoming Productions</h2>
+                            <span className="text-[10px] text-text-primary/40 font-mono bg-text-primary/5 px-2 py-0.5 rounded-sm">{scheduledListings.length}</span>
                           </div>
-                        </div>
+                          {scheduledListings.length === 0 ? (
+                            <div className="bg-text-primary/[0.01] border border-border-subtle p-8 text-center rounded-sm">
+                              <p className="text-[10px] uppercase tracking-wider text-text-primary/30">No upcoming productions currently scheduled.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                              {scheduledListings.map(item => (
+                                <div key={item.id} className="bg-bg-primary border border-border-subtle p-6 flex flex-col justify-between group relative overflow-hidden transition-all hover:bg-text-primary/[0.02] rounded-sm">
+                                  <div className="absolute top-0 left-0 w-1 h-full bg-brick-copper" />
+                                  <div className="space-y-4">
+                                    <div className="flex justify-between items-start">
+                                      <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm border border-brick-copper/30 text-brick-copper bg-brick-copper/5 font-bold">
+                                        Scheduled
+                                      </span>
+                                      <div className="flex items-center gap-1.5 text-xs font-mono text-brick-copper font-medium">
+                                        <Clock size={12} />
+                                        <span>{getCountdownText(item.scheduledDate || item.date)}</span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <h4 className="text-xl font-display lowercase italic tracking-tight">{item.title}</h4>
+                                      <p className="text-xs text-text-primary/40 mt-1">{item.address || 'Address TBD'}{item.city ? `, ${item.city}` : ''}</p>
+                                    </div>
+                                  </div>
+                                  <div className="pt-4 border-t border-border-subtle/50 mt-6 flex items-center justify-between">
+                                    <span className="text-[9px] uppercase tracking-widest text-text-primary/20 font-mono flex items-center gap-1.5">
+                                      <Calendar size={10} /> {formatDateStr(item.scheduledDate || item.date)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </section>
+
+                        {/* 2. PROGRESS BAR (PRESENT) */}
+                        <section className="space-y-6">
+                          <div className="flex items-center gap-3 border-b border-white/5 pb-3">
+                            <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-text-primary/60">In the Darkroom</h2>
+                            <span className="text-[10px] text-text-primary/40 font-mono bg-text-primary/5 px-2 py-0.5 rounded-sm">{processingListings.length}</span>
+                          </div>
+                          {processingListings.length === 0 ? (
+                            <div className="bg-text-primary/[0.01] border border-border-subtle p-8 text-center rounded-sm">
+                              <p className="text-[10px] uppercase tracking-wider text-text-primary/30">No productions currently in the editing stage.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {processingListings.map(item => (
+                                <div key={item.id} className="bg-bg-primary border border-border-subtle p-6 flex flex-col justify-between group relative overflow-hidden transition-all hover:bg-text-primary/[0.02] rounded-sm">
+                                  <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500" />
+                                  <div className="space-y-6">
+                                    <div className="flex justify-between items-start">
+                                      <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm border border-yellow-500/30 text-yellow-500 bg-yellow-500/5 font-bold flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" /> Processing
+                                      </span>
+                                      <span className="text-[9px] uppercase tracking-widest text-text-primary/30 font-mono">{item.category || 'Architecture'}</span>
+                                    </div>
+                                    <div>
+                                      <h4 className="text-2xl font-display lowercase italic tracking-tight">{item.title}</h4>
+                                      <p className="text-xs text-text-primary/40 mt-1">{item.address || 'Address TBD'}{item.city ? `, ${item.city}` : ''}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <div className="flex justify-between text-[9px] uppercase tracking-widest font-mono text-text-primary/40">
+                                        <span>Color Grading & Curation</span>
+                                        <span className="animate-pulse">Active</span>
+                                      </div>
+                                      <div className="w-full h-[3px] bg-border-subtle rounded-full overflow-hidden">
+                                        <div className="h-full bg-yellow-500/80 w-3/4 rounded-full animate-pulse" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="pt-4 border-t border-border-subtle/50 mt-6 text-center">
+                                    <p className="text-[9px] uppercase tracking-wider text-text-primary/40 italic">
+                                      Media features are currently being edited, compiled, and optimized.
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </section>
+
+                        {/* 3. PAST JOBS ARCHIVE (PAST) */}
+                        <section className="space-y-6">
+                          <div className="flex items-center gap-3 border-b border-white/5 pb-3">
+                            <span className="w-2 h-2 rounded-full bg-green-500" />
+                            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-text-primary/60">Delivered Property Vault</h2>
+                            <span className="text-[10px] text-text-primary/40 font-mono bg-text-primary/5 px-2 py-0.5 rounded-sm">{completedListings.length}</span>
+                          </div>
+                          {completedListings.length === 0 ? (
+                            <div className="bg-text-primary/[0.01] border border-border-subtle p-12 text-center rounded-sm">
+                              <p className="text-[10px] uppercase tracking-wider text-text-primary/30">No historical listings archived in your vault.</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-12">
+                              {completedListings.map(item => {
+                                const hasThumbnails = item.previewThumbnails && item.previewThumbnails.length > 0;
+                                const hasGallery = item.gallery && item.gallery.length > 0;
+                                const originalSource = hasThumbnails ? item.previewThumbnails : (hasGallery ? item.gallery : [item.img]);
+                                const imagesToRender = originalSource.filter(Boolean).map((url: string) => ({
+                                  url,
+                                  portfolioId: item.id,
+                                  portfolioTitle: item.title,
+                                  category: item.category
+                                }));
+
+                                return (
+                                  <div key={item.id} className="bg-bg-primary border border-border-subtle p-8 md:p-10 flex flex-col md:flex-row gap-8 group relative overflow-hidden transition-all rounded-sm hover:border-text-primary/10">
+                                    <div className="w-full md:w-3/5 space-y-4">
+                                      <div className="border border-white/5 p-2 bg-black/20 rounded-sm">
+                                        <DynamicCuratedGallery 
+                                          title={`Previews of ${item.title}`}
+                                          subtitle="Live imagery from real-time CDN stream"
+                                          images={imagesToRender}
+                                          layout="grid"
+                                          columns={imagesToRender.length > 3 ? 4 : 3}
+                                          aspectRatio="16/9"
+                                          grayscaleEffect="hover-color"
+                                          lightbox={true}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="w-full md:w-2/5 flex flex-col justify-between">
+                                      <div className="space-y-6">
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-3 text-[9px] text-brick-copper font-bold uppercase tracking-[0.3em]">
+                                            {item.mlsNumber && <span>MLS #{item.mlsNumber}</span>}
+                                            {item.mlsNumber && <span className="w-1 h-1 rounded-full bg-brick-copper/30" />}
+                                            <span>{item.category || 'Architecture'}</span>
+                                          </div>
+                                          <h3 className="text-3xl font-display lowercase italic tracking-tight">{item.title}</h3>
+                                          <p className="text-xs text-text-primary/40">{item.address || 'Delivered Listing'}{item.city ? `, ${item.city}` : ''}</p>
+                                        </div>
+
+                                        <p className="text-xs text-text-primary/50 leading-relaxed font-light">
+                                          {item.description || 'Optimized architectural representations loaded directly from Source Stream.'}
+                                        </p>
+                                      </div>
+
+                                      <div className="pt-8 border-t border-border-subtle mt-10 space-y-4">
+                                        {(item.fotelloUrl || item.externalLink) ? (
+                                          <div className="w-full">
+                                            <LinkButton
+                                              link={{
+                                                url: item.fotelloUrl || item.externalLink,
+                                                label: "Access Full Media Hub",
+                                                type: "external"
+                                              }}
+                                              variant="solid"
+                                              className="w-full py-3 bg-brick-copper hover:bg-white text-charcoal shadow-sm hover:shadow-md text-[10px] tracking-widest font-bold uppercase text-center block"
+                                            />
+                                          </div>
+                                        ) : (
+                                          <div className="text-[9px] text-brick-copper font-mono uppercase tracking-wider text-center py-2 bg-brick-copper/5 rounded-sm border border-brick-copper/20">
+                                            Assets Fully Delivered
+                                          </div>
+                                        )}
+
+                                        <div className="flex justify-between items-center pt-2">
+                                          <div className="flex gap-6">
+                                            <Link to={`/listing/${item.id}`} className="text-[9px] uppercase tracking-widest font-black flex items-center gap-2 transition-colors hover:text-brick-copper text-text-primary/60">
+                                              <Share2 size={12} className="opacity-40" /> Share Page
+                                            </Link>
+                                          </div>
+                                          <span className="text-[9px] uppercase tracking-widest text-text-primary/20 font-mono">ID: {item.id.substring(0, 8)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </section>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
+
+
                 </motion.div>
               )}
             </AnimatePresence>

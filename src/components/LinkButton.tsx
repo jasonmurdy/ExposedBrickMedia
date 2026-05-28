@@ -13,10 +13,15 @@ export const LinkButton = ({ link, variant = "solid", className: passedClassName
   const variantClass = variants[variant] || variants.solid;
   const finalClass = passedClassName || `${baseClass} ${variantClass}`;
   
-  if (link.type === 'popup') {
+  const isPopupType = link.type === 'popup' || (typeof link.url === 'string' && link.url.startsWith('popup:'));
+  if (isPopupType) {
+    const popupId = typeof link.url === 'string' && link.url.startsWith('popup:') 
+      ? link.url.replace('popup:', '') 
+      : link.url;
+
     const triggerPopup = (e: React.MouseEvent) => {
       e.preventDefault();
-      window.dispatchEvent(new CustomEvent('trigger-global-popup', { detail: { popupId: link.url } }));
+      window.dispatchEvent(new CustomEvent('trigger-global-popup', { detail: { popupId } }));
     };
     return (
       <button onClick={triggerPopup} className={finalClass}>

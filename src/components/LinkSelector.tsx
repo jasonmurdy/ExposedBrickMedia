@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSiteContent } from '../lib/SiteContentContext';
-import { Link2, FileText, ExternalLink, Box } from 'lucide-react';
+import { FileText, ExternalLink, Box, Bell } from 'lucide-react';
 
 interface LinkSelectorProps {
   value: string;
@@ -10,16 +10,17 @@ interface LinkSelectorProps {
 }
 
 export const LinkSelector: React.FC<LinkSelectorProps> = ({ value, onChange, label, allowListing = true }) => {
-  const { pages } = useSiteContent();
+  const { pages, popups } = useSiteContent();
 
   const isCustomPage = value.startsWith('/p/');
   const isListing = value === 'listing' || value.startsWith('/listing/');
   const isExternal = value.startsWith('http');
-  const isNone = value === '';
+  const isPopup = value.startsWith('popup:');
 
   const getActiveType = () => {
     if (isListing) return 'listing';
     if (isCustomPage) return 'page';
+    if (isPopup) return 'popup';
     if (isExternal) return 'external';
     return 'none';
   };
@@ -30,24 +31,34 @@ export const LinkSelector: React.FC<LinkSelectorProps> = ({ value, onChange, lab
     <div className="space-y-2">
       {label && <label className="text-[9px] uppercase tracking-widest text-brick-copper mb-1 block font-bold">{label}</label>}
       
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 flex-wrap mb-3">
         {allowListing && (
           <button 
+            type="button"
             onClick={() => onChange('listing')}
-            className={`flex-1 py-2 px-3 rounded border text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeType === 'listing' ? 'bg-brick-copper text-charcoal border-brick-copper' : 'border-white/10 text-white/40 hover:border-white/30'}`}
+            className={`flex-1 py-2 px-3 rounded border text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeType === 'listing' ? 'bg-brick-copper text-charcoal border-brick-copper font-bold' : 'border-white/10 text-white/40 hover:border-white/30'}`}
           >
             <Box size={14} /> Listing
           </button>
         )}
         <button 
+          type="button"
           onClick={() => onChange('/p/')}
-          className={`flex-1 py-2 px-3 rounded border text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeType === 'page' ? 'bg-brick-copper text-charcoal border-brick-copper' : 'border-white/10 text-white/40 hover:border-white/30'}`}
+          className={`flex-1 py-2 px-3 rounded border text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeType === 'page' ? 'bg-brick-copper text-charcoal border-brick-copper font-bold' : 'border-white/10 text-white/40 hover:border-white/30'}`}
         >
           <FileText size={14} /> Page
         </button>
         <button 
+          type="button"
+          onClick={() => onChange('popup:')}
+          className={`flex-1 py-2 px-3 rounded border text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeType === 'popup' ? 'bg-brick-copper text-charcoal border-brick-copper font-bold' : 'border-white/10 text-white/40 hover:border-white/30'}`}
+        >
+          <Bell size={14} /> Popup
+        </button>
+        <button 
+          type="button"
           onClick={() => onChange('https://')}
-          className={`flex-1 py-2 px-3 rounded border text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeType === 'external' ? 'bg-brick-copper text-charcoal border-brick-copper' : 'border-white/10 text-white/40 hover:border-white/30'}`}
+          className={`flex-1 py-2 px-3 rounded border text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeType === 'external' ? 'bg-brick-copper text-charcoal border-brick-copper font-bold' : 'border-white/10 text-white/40 hover:border-white/30'}`}
         >
           <ExternalLink size={14} /> URL
         </button>
@@ -55,7 +66,7 @@ export const LinkSelector: React.FC<LinkSelectorProps> = ({ value, onChange, lab
 
       {activeType === 'page' && (
         <select 
-          className="w-full bg-charcoal border border-border-subtle p-2 text-xs outline-none focus:border-brick-copper transition-colors uppercase tracking-widest"
+          className="w-full bg-charcoal border border-border-subtle p-2 text-xs outline-none focus:border-brick-copper transition-colors uppercase tracking-widest text-white"
           value={value}
           onChange={e => onChange(e.target.value)}
         >
@@ -66,9 +77,22 @@ export const LinkSelector: React.FC<LinkSelectorProps> = ({ value, onChange, lab
         </select>
       )}
 
+      {activeType === 'popup' && (
+        <select 
+          className="w-full bg-charcoal border border-border-subtle p-2 text-xs outline-none focus:border-brick-copper transition-colors uppercase tracking-widest text-white"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+        >
+          <option value="popup:">Select a Global Popup...</option>
+          {popups.map(popup => (
+            <option key={popup.id} value={`popup:${popup.id}`}>{popup.title || popup.headline || popup.id}</option>
+          ))}
+        </select>
+      )}
+
       {activeType === 'external' && (
         <input 
-          className="w-full bg-transparent border border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10"
+          className="w-full bg-transparent border border-border-subtle p-2 text-sm outline-none focus:border-brick-copper transition-colors placeholder:text-white/10 text-white"
           placeholder="https://example.com"
           value={value === 'https://' ? '' : value}
           onChange={e => onChange(e.target.value)}

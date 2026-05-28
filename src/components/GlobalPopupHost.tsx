@@ -4,14 +4,18 @@ import { X, Bell, Megaphone, Check, Loader2, Mail } from 'lucide-react';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useLocation } from 'react-router-dom';
 
 export const GlobalPopupHost: React.FC = () => {
   const { popups } = useSiteContent();
+  const location = useLocation();
   const [activePopup, setActivePopup] = useState<any | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const currentPath = location.pathname;
 
   // Suppress auto-triggering if already shown in this session
   const getDismissedPopups = (): string[] => {
@@ -39,8 +43,40 @@ export const GlobalPopupHost: React.FC = () => {
 
     const dismissed = getDismissedPopups();
     
-    // Find active popups to auto-trigger
-    const autoPopups = popups.filter(p => p.isActive && p.trigger !== 'onclick_only' && !dismissed.includes(p.id));
+    // Find active popups that match this specific route restriction and triggers
+    const autoPopups = popups.filter(p => {
+      // Must be active and not onclick only
+      if (!p.isActive || p.trigger === 'onclick_only') return false;
+
+      // Must not have been dismissed in this session
+      if (dismissed.includes(p.id)) return false;
+
+      // Match page restriction if specified
+      if (p.targetPage && p.targetPage !== 'all') {
+        const target = p.targetPage.trim().toLowerCase();
+        const current = currentPath.trim().toLowerCase();
+
+        // Standard matches
+        if (current === target) return true;
+        
+        // Special mapping aliases
+        if (target === 'home' && current === '/') return true;
+        if (target === '/' && current === '/') return true;
+        if (target === 'about' && current === '/about') return true;
+        if (target === 'services' && current === '/services') return true;
+        if (target === 'inquiry' && current === '/inquiry') return true;
+        if (target === 'portal' && current === '/portal') return true;
+        if (target === 'listing' && current.startsWith('/listing/')) return true;
+
+        // Custom page formatting safeguards
+        if (target.startsWith('/p/') && current === target) return true;
+        if (!target.startsWith('/') && !target.startsWith('http') && current === `/p/${target}`) return true;
+
+        return false;
+      }
+
+      return true; // No restriction means show everywhere
+    });
 
     // 1. Trigger "on_load" popups
     const onLoadPopup = autoPopups.find(p => p.trigger === 'on_load');
@@ -82,7 +118,7 @@ export const GlobalPopupHost: React.FC = () => {
         document.removeEventListener('mouseleave', handleMouseLeave);
       };
     }
-  }, [popups]);
+  }, [popups, currentPath]);
 
   // Listen to custom dispatch events for onclick manual popup trigger
   useEffect(() => {

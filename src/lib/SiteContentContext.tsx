@@ -41,6 +41,7 @@ interface SiteSettings {
   portalImg?: string;
   portalSupportEmail?: string;
   portalNotifyEmail?: string;
+  portalSupportName?: string;
 }
 
 interface CustomPage {
@@ -75,6 +76,7 @@ export interface CustomPopup {
   isActive: boolean;
   trigger: 'onclick_only' | 'on_load' | 'exit_intent' | 'time_delay';
   delaySeconds?: number;
+  targetPage?: string;
   createdAt?: any;
 }
 

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { auth, db, storage } from '../lib/firebase';
 import { 
   signInWithPopup, 
@@ -33,7 +33,7 @@ import {
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell, Zap
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell, Zap, ChevronDown
 } from 'lucide-react';
 import {
   DndContext, 
@@ -378,7 +378,20 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [brandResources, setBrandResources] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups' | 'fotello'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups' | 'fotello' | 'communications'>('architecture');
+
+  // Unified Real-time Notification Hub & Alerts States
+  const [hubInquiries, setHubInquiries] = useState<any[]>([]);
+  const [hubNotifications, setHubNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationHubOpen, setNotificationHubOpen] = useState(false);
+  const [draftReplyModalContent, setDraftReplyModalContent] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isAdmin = !!user?.email && (
+    ADMIN_EMAILS.includes(user.email) || 
+    admins.some(a => a.email === user.email)
+  );
 
   // Paginated Views States
   const [portfolioPage, setPortfolioPage] = useState(1);
@@ -396,6 +409,13 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [jobsPage, setJobsPage] = useState(1);
   const jobsPageSize = 8;
 
+  // Partner Search & Filtering & Sorting States
+  const [partnerSearch, setPartnerSearch] = useState('');
+  const [partnerRoleFilter, setPartnerRoleFilter] = useState('all');
+  const [partnerTeamFilter, setPartnerTeamFilter] = useState('all');
+  const [partnerSortField, setPartnerSortField] = useState<'displayName' | 'email' | 'createdAt' | 'role'>('displayName');
+  const [partnerSortOrder, setPartnerSortOrder] = useState<'asc' | 'desc'>('asc');
+
   // Sync pages to 1 on active tab / search change
   useEffect(() => {
     setPortfolioPage(1);
@@ -404,6 +424,234 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     setTestimonialsPage(1);
     setJobsPage(1);
   }, [activeTab]);
+
+  // Reset page when any partner filter or sort changes
+  useEffect(() => {
+    setPartnersPage(1);
+  }, [partnerSearch, partnerRoleFilter, partnerTeamFilter, partnerSortField, partnerSortOrder]);
+
+  // Merge and sort all logged entries (Inbound CRM leads + Outbound Brevo Mailer dispatches)
+  const mergedHubLogs = useMemo(() => {
+    const combined = [...hubInquiries, ...hubNotifications];
+    return combined.sort((a, b) => b.createdAt - a.createdAt).slice(0, 10);
+  }, [hubInquiries, hubNotifications]);
+
+  // Persistent background onSnapshot listener for both leads and outbound dispatches
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+
+    const mountTime = Date.now();
+    let initialInquiriesLoaded = false;
+    let initialNotificationsLoaded = false;
+
+    // A. Listen to incoming inquiry submissions in real-time
+    const inquiriesQuery = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'), limit(15));
+    const unsubInquiries = onSnapshot(inquiriesQuery, (snap) => {
+      const parsedInquiries = snap.docs.map(d => {
+        const data = d.data();
+        let timestamp = mountTime;
+        if (data.createdAt) {
+          timestamp = data.createdAt.seconds 
+            ? data.createdAt.seconds * 1000 
+            : new Date(data.createdAt).getTime();
+        }
+        return {
+          id: d.id,
+          type: 'inquiry',
+          title: `Inquiry: ${data.realtorName || 'Customer Lead'}`,
+          description: data.propertyAddress || 'No property specified',
+          email: data.email || '',
+          service: data.serviceType || 'Photography',
+          createdAt: timestamp
+        };
+      });
+
+      if (!initialInquiriesLoaded) {
+        initialInquiriesLoaded = true;
+        setHubInquiries(parsedInquiries);
+      } else {
+        // Look for items that didn't exist before and were added since mountTime
+        setHubInquiries(prev => {
+          const previousIds = new Set(prev.map(x => x.id));
+          const newlyAdded = parsedInquiries.filter(x => !previousIds.has(x.id));
+
+          newlyAdded.forEach(newItem => {
+            if (newItem.createdAt > mountTime - 10000) {
+              setUnreadCount(c => c + 1);
+              toast.custom((t) => (
+                <div 
+                  id={`noti-toast-${newItem.id}`}
+                  className={`${
+                    t.visible ? 'animate-in fade-in slide-in-from-bottom-5 duration-300' : 'animate-out fade-out duration-300'
+                  } max-w-sm w-full bg-charcoal/95 border border-brick-copper p-5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col gap-2 rounded-none font-sans`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2 text-brick-copper">
+                      <span className="w-1.5 h-1.5 bg-brick-copper rounded-full animate-ping" />
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-extrabold">CRM Lead Capture</span>
+                    </div>
+                    <button onClick={() => toast.dismiss(t.id)} className="text-white/30 hover:text-white transition-colors">✕</button>
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-sm font-semibold text-white font-display italic">{newItem.title}</h5>
+                    <p className="text-[10px] text-white/50 leading-relaxed max-w-[280px] truncate">{newItem.description}</p>
+                    <p className="text-[8px] font-mono text-brick-copper uppercase tracking-wider">{newItem.service} project request</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab('inquiries');
+                      setNotificationHubOpen(false);
+                      toast.dismiss(t.id);
+                    }}
+                    className="mt-2 text-[9px] uppercase tracking-[0.2em] font-black py-2 bg-brick-copper text-charcoal hover:bg-white transition-all text-center"
+                  >
+                    Manage Lead ➔
+                  </button>
+                </div>
+              ), { duration: 10000 });
+            }
+          });
+          return parsedInquiries;
+        });
+      }
+    });
+
+    // B. Listen to outgoing emails and campaign logs in real-time
+    const notificationsQuery = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(15));
+    const unsubNotifications = onSnapshot(notificationsQuery, (snap) => {
+      const parsedNotifications = snap.docs.map(d => {
+        const data = d.data();
+        let timestamp = mountTime;
+        if (data.createdAt) {
+          timestamp = new Date(data.createdAt).getTime();
+        }
+        return {
+          id: d.id,
+          type: 'notification',
+          title: `Dispatch: ${data.subject || 'System Mailer'}`,
+          description: `Recipient: ${data.to || 'Admin'}`,
+          status: data.status,
+          error: data.error,
+          createdAt: timestamp
+        };
+      });
+
+      if (!initialNotificationsLoaded) {
+        initialNotificationsLoaded = true;
+        setHubNotifications(parsedNotifications);
+      } else {
+        // Look for new dispatches since initial mount
+        setHubNotifications(prev => {
+          const previousIds = new Set(prev.map(x => x.id));
+          const newlyAdded = parsedNotifications.filter(x => !previousIds.has(x.id));
+
+          newlyAdded.forEach(newItem => {
+            if (newItem.createdAt > mountTime - 10000) {
+              setUnreadCount(c => c + 1);
+              toast.custom((t) => (
+                <div 
+                  id={`noti-toast-${newItem.id}`}
+                  className={`${
+                    t.visible ? 'animate-in fade-in slide-in-from-bottom-5 duration-300' : 'animate-out fade-out duration-300'
+                  } max-w-sm w-full bg-charcoal/95 border border-white/10 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col gap-2 rounded-none font-sans`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2 text-white/50">
+                      <span className={`w-1.5 h-1.5 rounded-full ${newItem.status === 'delivered' ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-extrabold font-sans">Outbound Telemetry</span>
+                    </div>
+                    <button onClick={() => toast.dismiss(t.id)} className="text-white/30 hover:text-white transition-colors">✕</button>
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-[11px] font-semibold text-white/90 truncate max-w-[280px]">{newItem.title}</h5>
+                    <p className="text-[10px] text-white/50">{newItem.description}</p>
+                    <p className="text-[8px] font-mono text-[#ccd0d4]/80 uppercase">
+                      {newItem.status === 'delivered' ? '✔ Routed successfully through Brevo' : `✕ Delivery Refused: ${newItem.error || 'Server error'}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab('communications');
+                      setNotificationHubOpen(false);
+                      toast.dismiss(t.id);
+                    }}
+                    className="mt-2 text-[9px] uppercase tracking-[0.2em] font-black py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all text-center"
+                  >
+                    View Mail Audits ➔
+                  </button>
+                </div>
+              ), { duration: 8000 });
+            }
+          });
+          return parsedNotifications;
+        });
+      }
+    });
+
+    return () => {
+      unsubInquiries();
+      unsubNotifications();
+    };
+  }, [user, isAdmin]);
+
+  // Filter and Sort calculation for Partners
+  const filteredAndSortedPartners = useMemo(() => {
+    let result = [...users];
+
+    // Search term filtering
+    if (partnerSearch.trim()) {
+      const query = partnerSearch.toLowerCase();
+      result = result.filter(u => {
+        const name = (u.displayName || '').toLowerCase();
+        const email = (u.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+      });
+    }
+
+    // Role filtering
+    if (partnerRoleFilter !== 'all') {
+      result = result.filter(u => {
+        const role = u.role || 'client';
+        return role === partnerRoleFilter;
+      });
+    }
+
+    // Team filtering
+    if (partnerTeamFilter !== 'all') {
+      result = result.filter(u => {
+        if (partnerTeamFilter === 'independent') {
+          return !u.teamId;
+        }
+        return u.teamId === partnerTeamFilter;
+      });
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      if (partnerSortField === 'displayName') {
+        valA = (a.displayName || 'Unnamed Partner').toLowerCase();
+        valB = (b.displayName || 'Unnamed Partner').toLowerCase();
+      } else if (partnerSortField === 'email') {
+        valA = (a.email || '').toLowerCase();
+        valB = (b.email || '').toLowerCase();
+      } else if (partnerSortField === 'role') {
+        valA = (a.role || 'client').toLowerCase();
+        valB = (b.role || 'client').toLowerCase();
+      } else if (partnerSortField === 'createdAt') {
+        valA = a.createdAt?.seconds || 0;
+        valB = b.createdAt?.seconds || 0;
+      }
+
+      if (valA < valB) return partnerSortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return partnerSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [users, partnerSearch, partnerRoleFilter, partnerTeamFilter, partnerSortField, partnerSortOrder]);
 
   // Fotello configurable states
   const [fotelloConfig, setFotelloConfig] = useState<{ apiKey: string; liveConnect: boolean }>({
@@ -502,6 +750,154 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [fotelloImportLink, setFotelloImportLink] = useState('');
+  const [isImportingLink, setIsImportingLink] = useState(false);
+
+  // Communications Hub states & functions
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notiSearch, setNotiSearch] = useState('');
+  const [notiStatusFilter, setNotiStatusFilter] = useState<'all' | 'delivered' | 'failed'>('all');
+  const [notiTypeFilter, setNotiTypeFilter] = useState<string>('all');
+  const [notiPage, setNotiPage] = useState(1);
+  const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
+  const [broadcastTo, setBroadcastTo] = useState<'all-partners' | 'custom'>('all-partners');
+  const [broadcastCustomEmail, setBroadcastCustomEmail] = useState('');
+  const [broadcastSubject, setBroadcastSubject] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+
+  const filteredNotifications = useMemo(() => {
+    let result = [...notifications];
+
+    if (notiSearch.trim()) {
+      const q = notiSearch.toLowerCase();
+      result = result.filter(n => 
+        (n.to || '').toLowerCase().includes(q) || 
+        (n.subject || '').toLowerCase().includes(q) ||
+        (n.body || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (notiStatusFilter !== 'all') {
+      result = result.filter(n => n.status === notiStatusFilter);
+    }
+
+    if (notiTypeFilter !== 'all') {
+      result = result.filter(n => n.type === notiTypeFilter);
+    }
+
+    result.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+    return result;
+  }, [notifications, notiSearch, notiStatusFilter, notiTypeFilter]);
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
+      toast.error("Subject and Message body are required");
+      return;
+    }
+
+    let recipients: string[] = [];
+    if (broadcastTo === 'custom') {
+      if (!broadcastCustomEmail.trim()) {
+        toast.error("Please provide a custom recipient email");
+        return;
+      }
+      recipients = [broadcastCustomEmail.trim()];
+    } else {
+      const partnerEmails = users
+        .filter(u => u.role === 'partner' || u.role === 'preferred')
+        .map(u => u.email)
+        .filter(Boolean);
+      
+      if (partnerEmails.length === 0) {
+        toast.error("No registered partners found to broadcast to.");
+        return;
+      }
+      recipients = Array.from(new Set(partnerEmails));
+    }
+
+    setIsSendingBroadcast(true);
+    const toastId = toast.loading(`Sending broadcast to ${recipients.length} recipients...`);
+
+    try {
+      let successCount = 0;
+      let failCount = 0;
+
+      const sendPromises = recipients.map(async (email) => {
+        try {
+          const res = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: email,
+              subject: broadcastSubject,
+              body: broadcastMessage,
+              type: 'custom_broadcast'
+            })
+          });
+          if (res.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (e) {
+          failCount++;
+        }
+      });
+
+      await Promise.all(sendPromises);
+
+      if (failCount === 0) {
+        toast.success(`Successfully broadcasted email to all ${successCount} recipients!`, { id: toastId });
+        setBroadcastSubject('');
+        setBroadcastMessage('');
+        setBroadcastCustomEmail('');
+      } else {
+        toast.success(`Broadcast partially completed: ${successCount} sent, ${failCount} failed. Check the communication logs below.`, { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(`Broadcast failed: ${err.message}`, { id: toastId });
+    } finally {
+      setIsSendingBroadcast(false);
+    }
+  };
+
+  const handlePullPreviewsFromLink = async () => {
+    if (!fotelloImportLink.trim()) {
+      toast.error("Please paste a valid delivery or asset hub link first.");
+      return;
+    }
+    setIsImportingLink(true);
+    const toastId = toast.loading("Connecting to source and compiling low-res thumbnails...");
+    try {
+      const response = await fetch('/api/admin/fotello/extract-previews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: fotelloImportLink.trim() })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // Merge extracted external URLs into the current editing session state
+        setEditData((prev: any) => ({
+          ...prev,
+          img: data.coverImg || prev.img,
+          gallery: data.gallery ? [...(prev.gallery || []), ...data.gallery] : prev.gallery,
+          fotelloUrl: fotelloImportLink.trim(),
+          // If the source has a parsed address or title, populate it as a fallback
+          title: prev.title === 'New Project' && data.title ? data.title : prev.title
+        }));
+        toast.success("Source links resolved successfully! Previews populated.", { id: toastId });
+        setFotelloImportLink('');
+      } else {
+        throw new Error("Source rejected lookup or link pattern unrecognized.");
+      }
+    } catch (err: any) {
+      toast.error(`Sync Error: ${err.message || 'Unable to scan target page assets.'}`, { id: toastId });
+    } finally {
+      setIsImportingLink(false);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -594,11 +990,6 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     return () => unsub();
   }, []);
 
-  const isAdmin = !!user?.email && (
-    ADMIN_EMAILS.includes(user.email) || 
-    admins.some(a => a.email === user.email)
-  );
-
   useEffect(() => {
     if (!user || !isAdmin) return;
 
@@ -628,6 +1019,11 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       const q = query(collection(db, 'admins'), orderBy('addedAt', 'desc'));
       unsub = onSnapshot(q, (snap) => {
         setAdmins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    } else if (activeTab === 'communications') {
+      const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(100));
+      unsub = onSnapshot(q, (snap) => {
+        setNotifications(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       });
     }
 
@@ -1170,7 +1566,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
   const handleDeleteAdmin = async (id: string, email: string) => {
     if (ADMIN_EMAILS.includes(email)) {
-      alert("This guardian is part of the core narrative and cannot be erased.");
+      toast.error("This guardian is part of the core narrative and cannot be erased.");
       return;
     }
     if (confirm(`Relinquish administrative privileges for ${email}?`)) {
@@ -1215,6 +1611,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       isActive: true,
       trigger: 'on_load',
       delaySeconds: 5,
+      targetPage: 'all',
       createdAt: serverTimestamp()
     };
     try {
@@ -1334,12 +1731,24 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const handleUpdateUserTeam = async (userId: string, teamId: string | null) => {
     try {
       const team = teamId ? teams.find(t => t.id === teamId) : null;
+      
+      // Keep backend server cache in sync in real-time
+      await fetch('/api/admin/partners/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: userId,
+          teamId,
+          teamName: team ? team.name : null
+        })
+      });
+
       await updateDoc(doc(db, 'users', userId), {
         teamId: teamId,
         teamName: team ? team.name : null,
         updatedAt: serverTimestamp()
       });
-      toast.success("Partner team updated");
+      toast.success("Partner team updated and synchronized");
       await logAction('UPDATE_USER_TEAM', { userId, teamId });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
@@ -1363,6 +1772,20 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         teamName: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
+      });
+
+      // Synchronize creation with backend server cache too
+      await fetch('/api/admin/partners/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: email,
+          displayName,
+          email,
+          role: 'partner',
+          teamId: null,
+          teamName: null
+        })
       });
 
       // TRIGGER EMAIL NOTIFICATION TO NEW PARTNER
@@ -1397,6 +1820,13 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const handleDeletePartner = async (userId: string) => {
     if (!confirm("Permanently remove this partner profile? This cannot be undone.")) return;
     try {
+      // Deletion sync
+      await fetch('/api/admin/partners/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId })
+      });
+
       await deleteDoc(doc(db, 'users', userId));
       toast.success("Partner profile removed");
       await logAction('DELETE_PARTNER', { userId });
@@ -1408,11 +1838,22 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const handleUpdatePartner = async (id: string) => {
     try {
       const { id: _, createdAt: __, ...dataToUpdate } = editData;
+
+      // Keep backend server cache fully in sync dynamically in real-time
+      await fetch('/api/admin/partners/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          ...dataToUpdate
+        })
+      });
+
       await updateDoc(doc(db, 'users', id), {
         ...dataToUpdate,
         updatedAt: serverTimestamp()
       });
-      toast.success("Partner profile updated");
+      toast.success("Partner profile updated and synchronized");
       await logAction('UPDATE_PARTNER', { id, displayName: editData.displayName });
       setIsEditing(null);
     } catch (error) {
@@ -1449,6 +1890,44 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
+  const groupedTabs = [
+    {
+      category: "Design & Identity",
+      items: [
+        { id: 'architecture', label: 'Home Meta', icon: Compass },
+        { id: 'layout', label: 'Visual Builder', icon: Layout },
+        { id: 'pages', label: 'Pages', icon: FileText },
+        { id: 'brand', label: 'Brand Assets', icon: Box }
+      ]
+    },
+    {
+      category: "Portfolio & Offers",
+      items: [
+        { id: 'portfolio', label: 'Portfolio', icon: Layout },
+        { id: 'services', label: 'Services', icon: Briefcase },
+        { id: 'testimonials', label: 'Social Proof', icon: Users },
+        { id: 'popups', label: 'Global Popups', icon: Bell }
+      ]
+    },
+    {
+      category: "Client Relations",
+      items: [
+        { id: 'inquiries', label: 'Inquiries', icon: MessageSquare },
+        { id: 'communications', label: 'Emails & Alerts', icon: Mail },
+        { id: 'fotello', label: 'Fotello Sync', icon: Zap }
+      ]
+    },
+    {
+      category: "Access & Personnel",
+      items: [
+        { id: 'portal', label: 'Portal', icon: Shield },
+        { id: 'partners', label: 'Partners', icon: Users },
+        { id: 'teams', label: 'Teams', icon: Users },
+        { id: 'admins', label: 'Admins', icon: Shield }
+      ]
+    }
+  ];
+
   return (
     <div className="fixed inset-0 bg-charcoal z-[100] flex flex-col p-4 md:p-16 overflow-y-auto no-scrollbar font-sans">
       <Toaster position="bottom-right" />
@@ -1459,7 +1938,112 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           <h2 className="font-display text-3xl md:text-4xl mb-2 italic">Admin Dashboard</h2>
           <p className="text-brick-copper text-[10px] uppercase tracking-[0.3em] font-medium font-sans">User: {user.email}</p>
         </div>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap items-center gap-4 relative">
+          {/* Real-time Notification Hub Dropdown */}
+          <div className="relative font-sans inline-block">
+            <button
+              onClick={() => {
+                setNotificationHubOpen(!notificationHubOpen);
+                setUnreadCount(0); // Clear on view
+              }}
+              className={`p-3 relative outline-none transition-all border ${
+                notificationHubOpen 
+                  ? 'bg-brick-copper text-charcoal border-brick-copper hover:bg-brick-copper/90' 
+                  : 'bg-white/5 text-white border-white/10 hover:bg-white/10 hover:border-white/20'
+              }`}
+              title="Real-time Notification Hub"
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-brick-copper text-charcoal font-black text-[8px] px-1.5 py-0.5 rounded-full ring-2 ring-charcoal animate-bounce">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            <AnimatePresence>
+              {notificationHubOpen && (
+                <>
+                  {/* Overlay background to handle clicking away and closing drop-down */}
+                  <div className="fixed inset-0 z-40 cursor-default" onClick={() => setNotificationHubOpen(false)} />
+                  
+                  <motion.div
+                    initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="absolute right-0 mt-3 w-80 bg-charcoal border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.85)] z-50 text-white p-4 font-sans flex flex-col max-h-[480px] rounded-none before:content-[''] before:absolute before:top-[-6px] before:right-[15px] before:w-3 before:h-3 before:bg-charcoal before:rotate-45 before:border-l before:border-t before:border-white/10 cursor-default"
+                  >
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3 relative z-10">
+                      <div className="flex items-center gap-2">
+                        <Bell size={13} className="text-brick-copper animate-pulse" />
+                        <h4 className="text-[10px] uppercase tracking-[0.25em] font-extrabold text-white">Live Event Stream</h4>
+                      </div>
+                      <span className="text-[8px] uppercase tracking-wider text-brick-copper bg-brick-copper/10 px-2 py-0.5 font-bold font-mono">Live</span>
+                    </div>
+
+                    <div className="overflow-y-auto no-scrollbar flex-1 space-y-2.5 pr-0.5 max-h-[320px] relative z-10">
+                      {mergedHubLogs.map((log) => (
+                        <div
+                          key={log.id}
+                          onClick={() => {
+                            if (log.type === 'inquiry') {
+                              setActiveTab('inquiries');
+                            } else {
+                              setActiveTab('communications');
+                            }
+                            setNotificationHubOpen(false);
+                          }}
+                          className="p-3 bg-white/[0.02] border border-white/5 hover:border-brick-copper/30 hover:bg-white/[0.04] transition-all cursor-pointer flex flex-col gap-1 text-left group relative"
+                        >
+                          <div className="flex justify-between items-start gap-1">
+                            <span className={`text-[8px] tracking-[0.05em] uppercase font-bold font-mono ${
+                              log.type === 'inquiry' 
+                                ? 'text-brick-copper' 
+                                : log.status === 'delivered' 
+                                  ? 'text-emerald-400' 
+                                  : 'text-red-400'
+                            }`}>
+                              {log.type === 'inquiry' ? '● Lead Capture' : log.status === 'delivered' ? '✓ Dispatch' : '✕ Outbound Err'}
+                            </span>
+                            <span className="text-[7px] font-mono text-white/30 whitespace-nowrap">
+                              {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-semibold text-white/95 group-hover:text-brick-copper transition-colors truncate max-w-[240px]">
+                            {log.title}
+                          </p>
+                          <p className="text-[9.5px] text-white/50 leading-relaxed truncate max-w-[240px]">
+                            {log.description}
+                          </p>
+                        </div>
+                      ))}
+
+                      {mergedHubLogs.length === 0 && (
+                        <div className="py-12 text-center text-white/20 uppercase tracking-[0.25em] text-[8px] font-bold">
+                          No active events in stream.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-white/10 pt-3 mt-3 flex justify-between items-center text-[7.5px] uppercase tracking-widest text-white/40 relative z-10 font-mono">
+                      <span>Telemetry Logs</span>
+                      <button 
+                        onClick={() => {
+                          setActiveTab('communications');
+                          setNotificationHubOpen(false);
+                        }} 
+                        className="text-brick-copper hover:text-white hover:underline transition-all font-bold"
+                      >
+                        All Audits ➔
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button 
             onClick={handleUpdateSettings} 
             disabled={isSaving}
@@ -1484,44 +2068,110 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
         </div>
       </div>
 
-      <nav className="flex items-center gap-x-8 overflow-x-auto no-scrollbar -mx-4 px-4 md:-mx-16 md:px-16 mb-12 border-b border-white/5 pt-4 pb-4">
-        {[
-          { id: 'architecture', label: 'Home Meta', icon: Compass },
-          { id: 'layout', label: 'Visual Builder', icon: Layout },
-          { id: 'portfolio', label: 'Portfolio', icon: Layout },
-          { id: 'services', label: 'Services', icon: Briefcase },
-          { id: 'testimonials', label: 'Social Proof', icon: Users },
-          { id: 'inquiries', label: 'Inquiries', icon: MessageSquare },
-          { id: 'pages', label: 'Pages', icon: FileText },
-          { id: 'portal', label: 'Portal', icon: Shield },
-          { id: 'partners', label: 'Partners', icon: Users },
-          { id: 'teams', label: 'Teams', icon: Users },
-          { id: 'brand', label: 'Brand Assets', icon: Box },
-          { id: 'popups', label: 'Global Popups', icon: Bell },
-          { id: 'admins', label: 'Admins', icon: Shield },
-          { id: 'fotello', label: 'Fotello Sync', icon: Zap }
-        ].map(tab => (
-          <button 
-            key={tab.id}
-            onClick={() => { setActiveTab(tab.id as any); setIsEditing(null); }}
-            className={`text-[10px] uppercase tracking-[0.4em] transition-all flex items-center gap-3 whitespace-nowrap font-sans font-bold relative py-2 ${
-              activeTab === tab.id ? 'text-brick-copper' : 'text-white/40 hover:text-white'
-            }`}
-          >
-            <tab.icon size={14} />
-            {tab.label}
-            {activeTab === tab.id && (
-              <motion.div 
-                layoutId="activeTab"
-                className="absolute -bottom-4 left-0 right-0 h-0.5 bg-brick-copper"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-              />
-            )}
-          </button>
-        ))}
-      </nav>
+      {/* Mobile Selector Dropdown */}
+      <div className="lg:hidden mb-12 relative font-sans">
+        <button 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="w-full flex justify-between items-center bg-white/5 border border-white/10 p-4 text-white uppercase tracking-[0.2em] text-[10.5px] font-bold"
+        >
+          <span className="flex items-center gap-3">
+            {(() => {
+              const currentTabItem = groupedTabs.flatMap(g => g.items).find(i => i.id === activeTab);
+              if (currentTabItem) {
+                const Icon = currentTabItem.icon;
+                return (
+                  <>
+                    <Icon size={14} className="text-brick-copper animate-pulse" />
+                    <span>{currentTabItem.label}</span>
+                  </>
+                );
+              }
+              return 'Select View';
+            })()}
+          </span>
+          <ChevronDown size={14} className={`text-white/55 transition-transform duration-200 ${mobileMenuOpen ? 'rotate-180': ''}`} />
+        </button>
+        
+        {mobileMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
+            <div className="absolute left-0 right-0 mt-2 bg-charcoal border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-40 max-h-[360px] overflow-y-auto no-scrollbar p-2 flex flex-col gap-2">
+              {groupedTabs.map((group, groupIdx) => (
+                <div key={groupIdx} className="border-b border-white/5 last:border-b-0 pb-2 mb-2 last:pb-0 last:mb-0">
+                  <span className="text-[7.5px] uppercase tracking-[0.25em] font-extrabold text-white/30 px-3 py-1.5 block">
+                    {group.category}
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    {group.items.map((tab) => {
+                      const Icon = tab.icon;
+                      const isCur = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => {
+                            setActiveTab(tab.id as any);
+                            setIsEditing(null);
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-[10px] uppercase tracking-wider text-left font-bold transition-all ${
+                            isCur 
+                              ? 'bg-brick-copper/10 text-brick-copper border border-brick-copper/20' 
+                              : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
+                          }`}
+                        >
+                          <Icon size={12} />
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
-      <div className="grid grid-cols-1 gap-16 pb-32">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-12 items-start pb-32">
+        {/* Sidebar for Desktop navigation */}
+        <aside className="hidden lg:flex flex-col gap-8 sticky top-6 bg-white/[0.01] border border-white/5 p-6 max-h-[85vh] overflow-y-auto no-scrollbar font-sans">
+          {groupedTabs.map((group, groupIdx) => (
+            <div key={groupIdx} className="flex flex-col gap-2 border-b border-white/5 last:border-b-0 pb-6 last:pb-0">
+              <span className="text-[8.5px] uppercase tracking-[0.25em] font-extrabold text-white/30 mb-2 block px-1">
+                {group.category}
+              </span>
+              <div className="flex flex-col gap-1.5">
+                {group.items.map((tab) => {
+                  const Icon = tab.icon;
+                  const isCur = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id as any);
+                        setIsEditing(null);
+                      }}
+                      className={`flex items-center justify-between px-4 py-3 text-[10px] uppercase tracking-[0.2em] text-left font-semibold transition-all border ${
+                        isCur 
+                          ? 'bg-brick-copper/10 text-brick-copper border-brick-copper/20 font-black' 
+                          : 'text-white/50 hover:text-white hover:bg-white/[0.03] border-transparent'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Icon size={13} className={isCur ? 'text-brick-copper animate-pulse' : 'text-white/30'} />
+                        <span>{tab.label}</span>
+                      </span>
+                      {isCur && <span className="w-1.5 h-1.5 bg-brick-copper rounded-full" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        {/* Content Panel Workspace */}
+        <div className="space-y-16">
         {activeTab === 'layout' && (
           <section className="space-y-12">
             <div className="bg-brick-copper/5 border border-brick-copper/20 p-12 flex flex-col items-center text-center">
@@ -2362,6 +3012,44 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
                     {activeEditTab === 'media' && (
                       <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                        {/* NEW: AUTOMATED PASTE-LINK CONSOLE */}
+                        <div className="bg-brick-copper/[0.03] p-6 border border-brick-copper/20 rounded-sm space-y-4">
+                          <div>
+                            <h5 className="text-[10px] uppercase tracking-[0.3em] text-brick-copper font-black flex items-center gap-2">
+                              <Zap size={12} className="animate-pulse" /> Source Stream Auto-Populate
+                            </h5>
+                            <p className="text-[8px] text-white/40 uppercase tracking-widest mt-1">
+                              Paste your external delivery link below to fetch web-previews automatically.
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
+                              <input
+                                type="text"
+                                placeholder="Paste Fotello or asset hub delivery URL (https://...)"
+                                className="w-full bg-charcoal/60 border border-white/10 py-3 pl-10 pr-4 outline-none text-[11px] font-mono text-white focus:border-brick-copper transition-all"
+                                value={fotelloImportLink}
+                                onChange={e => setFotelloImportLink(e.target.value)}
+                                disabled={isImportingLink}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handlePullPreviewsFromLink}
+                              disabled={isImportingLink || !fotelloImportLink}
+                              className={`px-6 text-[10px] uppercase tracking-widest font-bold transition-all flex items-center gap-2 h-[40px] ${
+                                !fotelloImportLink
+                                  ? 'bg-white/5 text-white/20 border border-white/5 cursor-not-allowed'
+                                  : 'bg-brick-copper text-charcoal hover:bg-white'
+                              }`}
+                            >
+                              {isImportingLink ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                              {isImportingLink ? 'Extracting...' : 'Sync Previews'}
+                            </button>
+                          </div>
+                        </div>
+
                         <ImageSelector 
                           label="Primary Showcase Image"
                           path="portfolio"
@@ -3230,6 +3918,29 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                             </div>
                           </div>
 
+                          <div>
+                            <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">Restrict Active Trigger to Specific Page</label>
+                            <select 
+                              className="bg-white/5 border border-white/10 w-full outline-none text-xs p-3 text-white focus:border-brick-copper focus:bg-white/[0.08]" 
+                              value={editData.targetPage ?? 'all'} 
+                              onChange={e => setEditData({...editData, targetPage: e.target.value})}
+                            >
+                              <option value="all" className="bg-[#121212] text-white">Show on All Pages</option>
+                              <option value="home" className="bg-[#121212] text-white">Home Page Only</option>
+                              <option value="/about" className="bg-[#121212] text-white">About Page Only</option>
+                              <option value="/services" className="bg-[#121212] text-white">Services Page Only</option>
+                              <option value="/inquiry" className="bg-[#121212] text-white">Inquiry Booking Only</option>
+                              <option value="/portal" className="bg-[#121212] text-white">Client Portal Only</option>
+                              <option value="listing" className="bg-[#121212] text-white">MLS Listing Details Only</option>
+                              {pages.map(p => (
+                                <option key={p.id} value={`/p/${p.slug}`} className="bg-[#121212] text-white">Custom Page: {p.title || p.slug}</option>
+                              ))}
+                            </select>
+                            <p className="text-[9px] text-white/30 mt-1 font-sans">
+                              If "Button / Click Trigger Only" is selected as the mechanism, page restriction has no effect since the popup is only triggered by custom button onclick events.
+                            </p>
+                          </div>
+
                           {editData.trigger === 'time_delay' && (
                             <div>
                               <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1">Delay Duration (Seconds)</label>
@@ -3338,7 +4049,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white/[0.01] border border-white/[0.03] p-4 text-[10px] font-sans">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-white/[0.01] border border-white/[0.03] p-4 text-[10px] font-sans">
                           <div>
                             <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5">Headline</span>
                             <span className="text-white/80 font-medium truncate block max-w-[120px]">{item.headline}</span>
@@ -3348,12 +4059,16 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                             <span className="text-white/80 font-mono capitalize">{item.trigger?.replace('_', ' ')}</span>
                           </div>
                           <div>
+                            <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5 font-sans">Page Target</span>
+                            <span className="text-brick-copper font-mono font-bold capitalize truncate block max-w-[110px]">{item.targetPage || 'All Pages'}</span>
+                          </div>
+                          <div>
                             <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5 font-sans">CTA Button Copy</span>
                             <span className="text-white/80">{item.ctaText || 'None'}</span>
                           </div>
                           <div>
                             <span className="block text-white/30 uppercase tracking-widest text-[8px] mb-0.5 flex items-center gap-1 font-sans">Popup Slug (ID)</span>
-                            <span className="text-brick-copper font-mono font-bold select-all">{item.id}</span>
+                            <span className="text-brick-copper font-mono font-semibold select-all truncate block max-w-[100px]">{item.id}</span>
                           </div>
                         </div>
 
@@ -3478,7 +4193,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
         {activeTab === 'partners' && (
           <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-white/5 pb-4">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-white/5 pb-4">
               <div className="flex items-center gap-3 text-brick-copper">
                 <Users size={18} />
                 <h3 className="font-display text-2xl italic">Partner Ecosystem</h3>
@@ -3513,18 +4228,145 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               </div>
             </div>
 
+            {/* Filter and Sorting Control Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 bg-white/[0.02] border border-white/5 p-4 rounded-xs">
+              <div>
+                <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1 font-bold">Search Directory</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={partnerSearch}
+                    onChange={(e) => setPartnerSearch(e.target.value)}
+                    placeholder="NAME, EMAIL..."
+                    className="w-full bg-charcoal border border-white/10 p-2.5 pl-3 pr-8 text-xs text-white placeholder-white/20 outline-none focus:border-brick-copper transition-colors uppercase tracking-widest font-sans"
+                  />
+                  {partnerSearch && (
+                    <button 
+                      onClick={() => setPartnerSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1 font-bold">Filter By Role</label>
+                <select
+                  value={partnerRoleFilter}
+                  onChange={(e) => setPartnerRoleFilter(e.target.value)}
+                  className="w-full bg-charcoal border border-white/10 p-2.5 text-xs text-white outline-none focus:border-brick-copper transition-colors uppercase tracking-widest font-sans"
+                >
+                  <option value="all">All Roles</option>
+                  <option value="preferred">preferred</option>
+                  <option value="partner">partner</option>
+                  <option value="client">client</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1 font-bold">Team Allocation</label>
+                <select
+                  value={partnerTeamFilter}
+                  onChange={(e) => setPartnerTeamFilter(e.target.value)}
+                  className="w-full bg-charcoal border border-white/10 p-2.5 text-xs text-white outline-none focus:border-brick-copper transition-colors uppercase tracking-widest font-sans"
+                >
+                  <option value="all">All Teams</option>
+                  <option value="independent">Independent</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[8px] uppercase tracking-widest text-white/40 mb-1 font-bold">Sort Settings</label>
+                <div className="flex gap-1">
+                  <select
+                    value={partnerSortField}
+                    onChange={(e) => setPartnerSortField(e.target.value as any)}
+                    className="flex-1 bg-charcoal border border-white/10 p-2.5 text-xs text-white outline-none focus:border-brick-copper transition-colors uppercase tracking-widest font-sans"
+                  >
+                    <option value="displayName">Name</option>
+                    <option value="email">Email</option>
+                    <option value="role">Role</option>
+                    <option value="createdAt">Registration Date</option>
+                  </select>
+                  <button
+                    onClick={() => setPartnerSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="bg-charcoal border border-white/10 hover:border-brick-copper px-3 text-xs text-white transition-all uppercase tracking-widest flex items-center justify-center font-bold"
+                    title={partnerSortOrder === 'asc' ? "Ascending order" : "Descending order"}
+                  >
+                    {partnerSortOrder === 'asc' ? '▲' : '▼'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white/5 border border-white/10 overflow-hidden">
                <table className="w-full text-left">
                   <thead className="bg-white/5 text-[10px] uppercase tracking-[0.2em] text-white/40">
                     <tr>
-                      <th className="p-6 font-normal">Partner</th>
-                      <th className="p-6 font-normal">Team Allocation</th>
-                      <th className="p-6 font-normal">Registered</th>
+                      <th 
+                        className="p-6 font-normal cursor-pointer hover:text-white transition-colors"
+                        onClick={() => {
+                          if (partnerSortField === 'displayName') {
+                            setPartnerSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setPartnerSortField('displayName');
+                            setPartnerSortOrder('asc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5 select-none">
+                          Partner
+                          {partnerSortField === 'displayName' && (
+                            <span className="text-brick-copper text-[8px]">{partnerSortOrder === 'asc' ? '▲' : '▼'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="p-6 font-normal cursor-pointer hover:text-white transition-colors"
+                        onClick={() => {
+                          if (partnerSortField === 'role') {
+                            setPartnerSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setPartnerSortField('role');
+                            setPartnerSortOrder('asc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5 select-none">
+                          Team Allocation & Role
+                          {partnerSortField === 'role' && (
+                            <span className="text-brick-copper text-[8px]">{partnerSortOrder === 'asc' ? '▲' : '▼'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="p-6 font-normal cursor-pointer hover:text-white transition-colors"
+                        onClick={() => {
+                          if (partnerSortField === 'createdAt') {
+                            setPartnerSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setPartnerSortField('createdAt');
+                            setPartnerSortOrder('asc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5 select-none">
+                          Registered
+                          {partnerSortField === 'createdAt' && (
+                            <span className="text-brick-copper text-[8px]">{partnerSortOrder === 'asc' ? '▲' : '▼'}</span>
+                          )}
+                        </div>
+                      </th>
                       <th className="p-6 font-normal text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {users.slice((partnersPage - 1) * partnersPageSize, partnersPage * partnersPageSize).map(user => (
+                    {filteredAndSortedPartners.slice((partnersPage - 1) * partnersPageSize, partnersPage * partnersPageSize).map(user => (
                       <tr key={user.id} className="hover:bg-white/5 transition-colors group">
                         <td className="p-6">
                            <div className="flex items-center gap-4">
@@ -3595,12 +4437,19 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                         </td>
                       </tr>
                     ))}
+                    {filteredAndSortedPartners.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="p-16 text-center text-white/20 italic uppercase tracking-widest text-xs">
+                          No partners found matching search terms or filters.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                </table>
             </div>
             <PaginationControls
               currentPage={partnersPage}
-              totalItems={users.length}
+              totalItems={filteredAndSortedPartners.length}
               pageSize={partnersPageSize}
               onPageChange={setPartnersPage}
             />
@@ -3718,8 +4567,14 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
 
                   <div className="flex gap-4 border-t border-white/5 pt-6">
                     <button onClick={async () => {
-                      const reply = await getAiSuggestion("Draft a professional architectural project acceptance/follow-up", `${inq.realtorName} from ${inq.firmName} for ${inq.propertyAddress}`);
-                      alert(reply);
+                      const toastId = toast.loading("Invoking Gemini smart draft companion...");
+                      try {
+                        const reply = await getAiSuggestion("Draft a professional architectural project acceptance/follow-up", `${inq.realtorName} for ${inq.propertyAddress}`);
+                        setDraftReplyModalContent(reply);
+                        toast.success("Correspondence outline compiled!", { id: toastId });
+                      } catch (err) {
+                        toast.error("Failed to compile suggestion", { id: toastId });
+                      }
                     }} className="flex-1 py-3 bg-brick-copper/10 text-brick-copper text-[10px] uppercase tracking-widest border border-brick-copper/20 hover:bg-brick-copper hover:text-charcoal transition-all font-bold">
                       Draft Correspondence
                     </button>
@@ -3802,7 +4657,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                       });
                     }
                   }
-                  alert("Narratives seeded and linked.");
+                  toast.success("Narratives seeded and linked successfully!");
                 }}
                 className="px-6 py-2 border border-brick-copper text-brick-copper text-[10px] uppercase tracking-widest font-bold hover:bg-brick-copper hover:text-charcoal transition-all"
               >
@@ -4235,6 +5090,273 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
+        {activeTab === 'communications' && (
+          <section className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
+            <div className="flex items-center gap-3 text-brick-copper mb-4 border-b border-white/5 pb-4">
+              <Mail size={18} />
+              <h3 className="font-display text-2xl italic">Communications & Notification Hub</h3>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column: Send Campaign/Broadcast */}
+              <div className="lg:col-span-2 bg-white/[0.01] border border-white/5 p-8 space-y-6">
+                <div className="flex items-center gap-2 text-brick-copper">
+                  <Mail size={16} />
+                  <h4 className="text-[10px] uppercase tracking-[0.3em] font-bold font-sans">Send Broadcast Mailer</h4>
+                </div>
+                <p className="text-xs text-white/40 leading-relaxed font-sans">
+                  Instantly dispatch professional, real-estate brand-aligned HTML announcements to selected preferred partners or single addresses. This campaign uses Exposed Brick's customized templates and colors.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+                  <div>
+                    <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-2">Recipient Scope</label>
+                    <select
+                      className="w-full bg-white/5 border border-white/10 text-xs font-sans text-white p-3 outline-none focus:border-brick-copper"
+                      value={broadcastTo}
+                      onChange={(e) => setBroadcastTo(e.target.value as any)}
+                    >
+                      <option value="all-partners" className="bg-charcoal text-white">All Preferred Partners & Realtors</option>
+                      <option value="custom" className="bg-charcoal text-white">Single Custom Email Address</option>
+                    </select>
+                  </div>
+
+                  {broadcastTo === 'custom' && (
+                    <div>
+                      <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-2 font-sans">Recipient Email</label>
+                      <input
+                        type="email"
+                        placeholder="e.g. agent@brokerage.com"
+                        className="w-full bg-white/5 border border-white/10 text-xs p-3 outline-none text-white focus:border-brick-copper"
+                        value={broadcastCustomEmail}
+                        onChange={(e) => setBroadcastCustomEmail(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4 font-sans">
+                  <div>
+                    <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-2">Campaign Subject Line</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Elite Spring Drone Flight Scheduling Hold Open"
+                      className="w-full bg-white/5 border border-white/10 text-xs p-3 outline-none text-white focus:border-brick-copper"
+                      value={broadcastSubject}
+                      onChange={(e) => setBroadcastSubject(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-2 font-sans">Body Content (HTML/Paragraph Text)</label>
+                    <textarea
+                      placeholder="Write the announcement message body. You can use standard formatting..."
+                      className="w-full bg-white/5 border border-white/10 text-xs text-white p-4 h-48 outline-none focus:border-brick-copper resize-none leading-relaxed"
+                      value={broadcastMessage}
+                      onChange={(e) => setBroadcastMessage(e.target.value)}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleSendBroadcast}
+                    disabled={isSendingBroadcast}
+                    className="flex items-center justify-center gap-2 px-8 py-3.5 bg-brick-copper text-charcoal font-sans text-[10px] uppercase tracking-[0.25em] font-black self-start hover:bg-white active:scale-95 disabled:bg-brick-copper/50 disabled:cursor-wait transition-all"
+                  >
+                    {isSendingBroadcast && <Loader2 size={12} className="animate-spin" />}
+                    {isSendingBroadcast ? "Dispatched Announcements..." : "Send Campaign Broadcast"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Template & Settings Config */}
+              <div className="bg-white/[0.01] border border-white/5 p-8 flex flex-col justify-between h-full group hover:border-brick-copper/20 transition-all font-sans">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 text-brick-copper">
+                    <Shield size={16} />
+                    <h4 className="text-[10px] uppercase tracking-[0.3em] font-bold">Email Config & Branding</h4>
+                  </div>
+                  <p className="text-xs text-white/40 leading-relaxed font-sans">
+                    Configure the sender profiles, brand accents, and fallback notification redirects. Always hit the "Save Changes" button in the top menu to lock these configurations into Firestore.
+                  </p>
+
+                  <div className="space-y-4 font-sans">
+                    <div>
+                      <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-1.5 font-sans">Sender Visual Name</label>
+                      <input
+                        className="w-full bg-white/5 border border-white/10 text-xs text-white p-3 outline-none focus:border-brick-copper"
+                        value={localSettings.portalSupportName || ''}
+                        onChange={(e) => setLocalSettings({ ...localSettings, portalSupportName: e.target.value })}
+                        placeholder="e.g. Exposed Brick Media Support"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-1.5 font-sans">Sender Outbound Email</label>
+                      <input
+                        className="w-full bg-white/5 border border-white/10 text-xs text-white p-3 outline-none focus:border-brick-copper"
+                        value={localSettings.portalSupportEmail || ''}
+                        onChange={(e) => setLocalSettings({ ...localSettings, portalSupportEmail: e.target.value })}
+                        placeholder="e.g. info@exposedbrickmedia.ca"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-1.5 font-sans">Inquiry Alerts email</label>
+                      <input
+                        className="w-full bg-white/5 border border-white/10 text-xs text-white p-3 outline-none focus:border-brick-copper"
+                        value={localSettings.portalNotifyEmail || ''}
+                        onChange={(e) => setLocalSettings({ ...localSettings, portalNotifyEmail: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] uppercase tracking-[0.2em] text-white/40 mb-1.5 block font-sans">Accent Color (Hex)</label>
+                      <div className="flex gap-2 font-sans">
+                        <input
+                          className="w-full bg-white/5 border border-white/10 text-xs font-mono text-white p-3 outline-none focus:border-brick-copper"
+                          value={localSettings.accentColor || '#c43b2a'}
+                          onChange={(e) => setLocalSettings({ ...localSettings, accentColor: e.target.value })}
+                        />
+                        <div
+                          className="w-10 h-10 border border-white/15 rounded-none self-center shadow-inner"
+                          style={{ backgroundColor: localSettings.accentColor || '#c43b2a' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-brick-copper/5 border border-brick-copper/10 p-5 mt-6 font-sans">
+                  <p className="text-[9px] uppercase tracking-[0.25em] text-brick-copper font-bold mb-2">Passive Logging active</p>
+                  <p className="text-[10px] text-white/40 leading-relaxed font-sans">
+                    Every outbound mail dispatched by the platform (invitations, referrals, chatbot holds, automated CRM listings) is recorded below with Delivery telemetry.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Email & Audit logs list */}
+            <div className="space-y-6 font-sans">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4 font-sans">
+                <div className="flex items-center gap-2 font-sans">
+                  <FileText size={16} className="text-brick-copper" />
+                  <h4 className="text-[10px] uppercase tracking-[0.3em] font-bold font-sans">Outbound Telemetry & Audit Logs</h4>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap items-center gap-4 font-sans">
+                  {/* Search */}
+                  <input
+                    type="text"
+                    placeholder="Search recipient / subject..."
+                    className="bg-white/5 border border-white/10 outline-none text-xs px-3 py-2 text-white placeholder:text-white/20 min-w-[200px]"
+                    value={notiSearch}
+                    onChange={(e) => { setNotiSearch(e.target.value); setNotiPage(1); }}
+                  />
+
+                  {/* Status Dropdown */}
+                  <select
+                    className="bg-white/5 border border-white/10 text-xs text-white px-3 py-2 outline-none"
+                    value={notiStatusFilter}
+                    onChange={(e) => { setNotiStatusFilter(e.target.value as any); setNotiPage(1); }}
+                  >
+                    <option value="all" className="bg-charcoal text-white">All Deliveries</option>
+                    <option value="delivered" className="bg-charcoal text-emerald-400">✔ Delivered</option>
+                    <option value="failed" className="bg-charcoal text-red-400">❌ Failed</option>
+                  </select>
+
+                  {/* Type Dropdown */}
+                  <select
+                    className="bg-white/5 border border-white/10 text-xs text-white px-3 py-2 outline-none"
+                    value={notiTypeFilter}
+                    onChange={(e) => { setNotiTypeFilter(e.target.value); setNotiPage(1); }}
+                  >
+                    <option value="all" className="bg-charcoal text-white">All Message Types</option>
+                    <option value="custom_broadcast" className="bg-charcoal text-white">Broadcast/Campaign</option>
+                    <option value="inquiry_notification" className="bg-charcoal text-white">CRM Inquiries</option>
+                    <option value="ai_booking_notification" className="bg-charcoal text-white">AI Assistant hold</option>
+                    <option value="system_notification" className="bg-charcoal text-white">System notifications</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Logs Table */}
+              <div className="bg-white/[0.01] border border-white/5 overflow-hidden font-sans">
+                <div className="overflow-x-auto select-none no-scrollbar font-sans">
+                  <table className="w-full text-left border-collapse font-sans">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest text-white/30 font-bold bg-white/[0.01]">
+                        <th className="p-4 pl-6 uppercase">Timestamp</th>
+                        <th className="p-4 uppercase">Recipient</th>
+                        <th className="p-4 uppercase">Subject</th>
+                        <th className="p-4 uppercase">Template / Type</th>
+                        <th className="p-4 uppercase text-center">Status</th>
+                        <th className="p-4 pr-6 text-right uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.03] text-xs font-sans">
+                      {filteredNotifications.slice((notiPage - 1) * 10, notiPage * 10).map((item) => (
+                        <tr key={item.id} className="hover:bg-white/[0.01] transition-all group font-sans">
+                          {/* Time */}
+                          <td className="p-4 pl-6 font-mono text-[10px] text-white/40 whitespace-nowrap">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}
+                          </td>
+                          {/* Recipient */}
+                          <td className="p-4 font-semibold text-white/80 whitespace-nowrap max-w-[150px] truncate">
+                            {item.to || 'Unknown'}
+                          </td>
+                          {/* Subject */}
+                          <td className="p-4 text-white/60 max-w-xs truncate font-medium">
+                            {item.subject}
+                          </td>
+                          {/* Type */}
+                          <td className="p-4 whitespace-nowrap font-mono text-[9px] tracking-wider text-brick-copper font-bold uppercase">
+                            {item.type?.replace(/_/g, ' ')}
+                          </td>
+                          {/* Status */}
+                          <td className="p-4 whitespace-nowrap text-center">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                              item.status === 'delivered'
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                : 'bg-red-500/10 border-red-500/20 text-red-400'
+                            }`}>
+                              {item.status === 'delivered' ? '✔ Delivered' : '❌ Failed'}
+                            </span>
+                          </td>
+                          {/* Actions */}
+                          <td className="p-4 pr-6 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedNotification(item)}
+                              className="text-[9px] uppercase tracking-widest font-black text-brick-copper hover:text-white transition-all underline outline-none"
+                            >
+                              Inspect Payload
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {filteredNotifications.length === 0 && (
+                        <tr className="font-sans">
+                          <td colSpan={6} className="p-12 text-center text-white/20 uppercase tracking-widest text-[9px] font-bold font-sans">
+                            No logs matched the selected filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <PaginationControls
+                  currentPage={notiPage}
+                  totalItems={filteredNotifications.length}
+                  pageSize={10}
+                  onPageChange={setNotiPage}
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
         {isEditing && (activeTab === 'teams' || activeTab === 'partners') && (
            <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-charcoal border border-brick-copper/30 w-full max-w-2xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl">
@@ -4377,6 +5499,8 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             </div>
            </section>
         )}
+        </div>
+      </div>
 
         {isEditing && activeTab === 'partners' && (
            <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
@@ -4463,7 +5587,94 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             </div>
           </div>
         )}
-      </div>
+
+        {selectedNotification && (
+          <div className="fixed inset-0 z-[120] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-charcoal border border-brick-copper/30 w-full max-w-3xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl font-sans">
+              <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80 font-sans">
+                <div>
+                  <h4 className="text-xl font-display italic text-white truncate max-w-sm md:max-w-md">{selectedNotification.subject}</h4>
+                  <p className="text-[10px] text-brick-copper uppercase tracking-widest font-bold font-sans tracking-[0.2em] mt-1">
+                    Recipient: {selectedNotification.to} &bull; Type: {selectedNotification.type?.replace(/_/g, ' ')}
+                  </p>
+                </div>
+                <button onClick={() => setSelectedNotification(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
+              </header>
+              
+              <div className="flex-1 bg-white p-6 overflow-y-auto min-h-[400px]">
+                {selectedNotification.body ? (
+                  <iframe
+                    title="Branded Outbound Email Preview"
+                    srcDoc={selectedNotification.body}
+                    className="w-full h-full border-none min-h-[380px]"
+                    sandbox="allow-same-origin"
+                  />
+                ) : (
+                  <p className="text-xs text-charcoal/40 italic font-sans text-center mt-8">No content template available.</p>
+                )}
+              </div>
+
+              <footer className="p-4 border-t border-white/5 bg-charcoal/50 flex justify-between items-center text-[10px] text-white/30 font-sans">
+                <span>Timestamp: {selectedNotification.createdAt ? new Date(selectedNotification.createdAt).toLocaleString() : 'N/A'}</span>
+                {selectedNotification.error && (
+                  <span className="text-red-400 font-bold">Error Info: {selectedNotification.error}</span>
+                )}
+                <button 
+                  onClick={() => setSelectedNotification(null)} 
+                  className="px-6 py-2 bg-white/5 border border-white/10 text-white/70 uppercase tracking-widest hover:bg-white/15 transition-all text-[8px] font-bold"
+                >
+                  Close Inspector
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
+
+        {draftReplyModalContent && (
+          <div className="fixed inset-0 z-[120] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-charcoal border border-brick-copper/30 w-full max-w-2xl overflow-hidden flex flex-col shadow-3xl font-sans">
+              <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80 font-sans">
+                <div>
+                  <h4 className="text-lg font-display italic text-white flex items-center gap-2">
+                    <Sparkles size={16} className="text-brick-copper" />
+                    Gemini Smart Correspondence Pilot
+                  </h4>
+                  <p className="text-[9px] text-[#ccd0d4]/80 uppercase tracking-widest font-bold mt-1">
+                    AI-Powered Actionable Lead Draft
+                  </p>
+                </div>
+                <button onClick={() => setDraftReplyModalContent(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
+              </header>
+              
+              <div className="p-6 overflow-y-auto max-h-[50vh] bg-neutral-900 border-b border-white/5">
+                <p className="text-xs text-white/90 font-mono leading-relaxed whitespace-pre-wrap select-all selection:bg-brick-copper selection:text-charcoal p-4 bg-white/[0.02] border border-white/5">
+                  {draftReplyModalContent}
+                </p>
+              </div>
+
+              <footer className="p-4 bg-charcoal/50 flex justify-between items-center gap-4">
+                <span className="text-[8px] uppercase tracking-wider text-white/30 font-mono">Tip: Text is fully selectable & copyable</span>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(draftReplyModalContent);
+                      toast.success("Draft copied to clipboard!");
+                    }}
+                    className="px-6 py-2.5 bg-brick-copper text-charcoal uppercase tracking-widest text-[9px] hover:bg-white font-bold transition-all"
+                  >
+                    Copy to Clipboard
+                  </button>
+                  <button 
+                    onClick={() => setDraftReplyModalContent(null)} 
+                    className="px-6 py-2.5 bg-white/5 border border-white/10 text-white/70 uppercase tracking-widest hover:bg-white/15 transition-all text-[9px] font-bold"
+                  >
+                    Close Draft
+                  </button>
+                </div>
+              </footer>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

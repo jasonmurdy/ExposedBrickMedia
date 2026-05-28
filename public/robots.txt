@@ -1,0 +1,40 @@
+# Robots.txt for Exposed Brick Media
+# Optimized for SEO (Search Engine Optimization) and AEO (Answer Engine Optimization)
+
+User-agent: *
+Allow: /
+Allow: /services/
+Allow: /portfolio/
+Allow: /partners/
+Allow: /about
+Allow: /inquiry
+Disallow: /admin
+Disallow: /api/
+
+# Explicitly welcome Answer Engine crawlers to build semantic groundings
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+User-agent: Applebot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://exposedbrickmedia.ca/sitemap.xml
