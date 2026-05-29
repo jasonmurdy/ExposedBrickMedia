@@ -1516,15 +1516,35 @@ Make sure every component in the returned JSON has a unique "id" string generate
     if (payload.event === "gallery.delivered") {
       try {
         const proj = payload.data?.project || {};
-        const docId = `fotello-${proj.id || Math.floor(Math.random() * 90000 + 10000)}`;
         
-        // 1. Double commit: first save to a robust local cache file for resilient sandbox support
+        // 1. Establish resilient duplicate guardrails by matching existing id, address/location, or matching title
+        const listPath = path.resolve(process.cwd(), "fotello-synchronized-portfolio.json");
+        let currentList = [];
         try {
-          const listPath = path.resolve(process.cwd(), "fotello-synchronized-portfolio.json");
-          let currentList = [];
           if (fs.existsSync(listPath)) {
             currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
           }
+        } catch (err) {
+          console.warn("[Portfolio Sync] Failed reading local backup while checking duplicates:", err);
+        }
+
+        let docId = proj.id ? `fotello-${proj.id}` : null;
+        if (!docId) {
+          // Fall back to matching dynamic fields to resolve already-synced target
+          const duplicateMatch = currentList.find((item: any) => 
+            (proj.address && (item.description?.includes(proj.address) || item.title?.includes(proj.address) || item.address === proj.address)) ||
+            (proj.title && item.title === proj.title)
+          );
+          if (duplicateMatch) {
+            docId = duplicateMatch.id;
+            console.log(`[Fotello Webhook Portfolio Sync] Duplicate check guardrail matched existing item: ${docId}`);
+          } else {
+            docId = `fotello-${Math.floor(Math.random() * 90000 + 10000)}`;
+          }
+        }
+        
+        // 2. Double commit: first save to a robust local cache file for resilient sandbox support
+        try {
           currentList = currentList.filter((item: any) => item.id !== docId);
           currentList.push({
             id: docId,
@@ -1534,7 +1554,10 @@ Make sure every component in the returned JSON has a unique "id" string generate
             status: "Completed",
             img: proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
             description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
+            address: proj.address || "",
             url: proj.matterportUrl || "",
+            fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
+            matterportUrl: proj.matterportUrl || "",
             gallery: proj.gallery || [],
             beds: proj.specs?.beds || "",
             baths: proj.specs?.baths || "",
@@ -1564,6 +1587,8 @@ Make sure every component in the returned JSON has a unique "id" string generate
             img: proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
             description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
             url: proj.matterportUrl || "",
+            fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
+            matterportUrl: proj.matterportUrl || "",
             gallery: proj.gallery || [],
             beds: proj.specs?.beds || "",
             baths: proj.specs?.baths || "",
@@ -1600,19 +1625,39 @@ Make sure every component in the returned JSON has a unique "id" string generate
     if (payload.event === "agent.updated" || payload.event === "agent.created") {
       try {
         const agent = payload.data?.agent || {};
-        const agentDocId = `agent-${agent.uid || agent.email?.replace(/[^a-zA-Z0-9]/g, "_") || Math.floor(Math.random() * 90000 + 10000)}`;
-
-        // 1. Double commit: first save to a robust local cache file for resilient sandbox support
+        
+        // 1. Establish resilient duplicate checks for partner agent syncing
+        const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+        let currentList = [];
         try {
-          const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
-          let currentList = [];
           if (fs.existsSync(listPath)) {
             currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
           }
-          currentList = currentList.filter((item: any) => item.uid !== agentDocId);
+        } catch (err) {
+          console.warn("[Partner Sync] Failed reading local partner backup:", err);
+        }
+
+        let agentDocId = agent.uid ? `agent-${agent.uid}` : (agent.email ? `agent-${agent.email.replace(/[^a-zA-Z0-9]/g, "_")}` : null);
+        if (!agentDocId) {
+          const duplicateMatch = currentList.find((item: any) => 
+            (agent.email && item.email === agent.email) ||
+            (agent.name && item.displayName === agent.name)
+          );
+          if (duplicateMatch) {
+            agentDocId = duplicateMatch.uid || duplicateMatch.id;
+            console.log(`[Fotello Webhook Partner Sync] Duplicate check matched existing agent profile: ${agentDocId}`);
+          } else {
+            agentDocId = `agent-${Math.floor(Math.random() * 90000 + 10000)}`;
+          }
+        }
+
+        // 2. Double commit: first save to a robust local cache file for resilient sandbox support
+        try {
+          currentList = currentList.filter((item: any) => (item.uid !== agentDocId && item.id !== agentDocId));
           currentList.push({
             email: agent.email || "partner@exposedbrickmedia.ca",
-            uid: agent.uid || agentDocId,
+            uid: agentDocId,
+            id: agentDocId,
             displayName: agent.name || "Custom Partner Agent",
             bio: agent.bio || `${agent.name || 'Our Partner'} is an elite preferred industry partner representing ${agent.brokerage || 'premier local agencies'}.`,
             headshotUrl: agent.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
@@ -1664,7 +1709,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
 
   // B. Direct Lead Ingestion Proxy route for Inquiry submission
   app.post("/api/crm/inquire", async (req, res) => {
-    const { propertyAddress, realtorName, email, serviceType } = req.body;
+    const { propertyAddress, realtorName, email, serviceType, skipAdminNotification } = req.body;
     
     if (!propertyAddress || !realtorName || !email) {
       return res.status(400).json({ error: "Missing required fields (propertyAddress, realtorName, email)" });
@@ -1755,67 +1800,71 @@ Make sure every component in the returned JSON has a unique "id" string generate
       });
 
       // 3. Dispatch admin email alert
-      try {
-        let recipientEmail = process.env.ADMIN_EMAIL || "jasonmurdy@gmail.com";
+      if (!skipAdminNotification) {
         try {
-          const siteDoc = await adminDb.collection("settings").doc("site").get();
-          if (siteDoc.exists) {
-            const siteSettings = siteDoc.data();
-            if (siteSettings && siteSettings.portalNotifyEmail) {
-              recipientEmail = siteSettings.portalNotifyEmail;
+          let recipientEmail = process.env.ADMIN_EMAIL || "jasonmurdy@gmail.com";
+          try {
+            const siteDoc = await adminDb.collection("settings").doc("site").get();
+            if (siteDoc.exists) {
+              const siteSettings = siteDoc.data();
+              if (siteSettings && siteSettings.portalNotifyEmail) {
+                recipientEmail = siteSettings.portalNotifyEmail;
+              }
             }
+          } catch (settingsErr: any) {
+            console.log("[CRM Inquire] Site settings notify email look-up bypassed:", settingsErr.message);
           }
-        } catch (settingsErr: any) {
-          console.log("[CRM Inquire] Site settings notify email look-up bypassed:", settingsErr.message);
+
+          const emailBody = `
+            <h3 style="color: #1a1a1a; font-family: 'Helvetica Neue', Arial, sans-serif; margin-top: 0; margin-bottom: 20px; font-weight: 600;">CRM Inquiry Lead Capture Alert</h3>
+            <p style="margin-bottom: 25px;">A new photography or media booking inquiry has been recorded and synchronized in your CRM pipeline.</p>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+              <tr style="background-color: #fcfcfc;">
+                <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; width: 35%; font-size: 13px;">Property Address</td>
+                <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;">${propertyAddress}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Realtor / Partner</td>
+                <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;">${realtorName}</td>
+              </tr>
+              <tr style="background-color: #fcfcfc;">
+                <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Email Address</td>
+                <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;"><a href="mailto:${email}" style="color: #c43b2a; text-decoration: none;">${email}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Required Services</td>
+                <td style="padding: 10px; border: 1px solid #eee; font-size: 13px; font-weight: 500;">${serviceType || "Photography"}</td>
+              </tr>
+              <tr style="background-color: #fcfcfc;">
+                <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Fotello CRM Sync</td>
+                <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;">
+                  <span style="color: ${isSentToFotello ? '#2e7d32' : '#c62828'}; font-weight: bold;">
+                    ${isSentToFotello ? "SUCCESS ✔" : "FAILED ❌"}
+                  </span>
+                </td>
+              </tr>
+              ${fotelloOrderData ? `
+              <tr>
+                <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Fotello Reference</td>
+                <td style="padding: 10px; border: 1px solid #eee; font-mono; font-size: 12px; background-color: #fafafa;">${fotelloOrderData.orderId}</td>
+              </tr>` : ""}
+            </table>
+            <p style="margin-top: 10px; font-size: 12px; color: #7f8c8d;">You can manage this lead directly by navigating to your admin portal and selecting the Inquiries or Fotello sync dashboard.</p>
+          `;
+
+          const brandedHtml = await buildBrandedEmail(emailBody);
+
+          await sendEmail(
+            recipientEmail,
+            `New Lead Capture Alert: ${realtorName} - ${propertyAddress}`,
+            brandedHtml,
+            'inquiry_notification'
+          );
+        } catch (mailErr) {
+          console.error("[CRM Ingestion] Notification dispatch failed:", mailErr);
         }
-
-        const emailBody = `
-          <h3 style="color: #1a1a1a; font-family: 'Helvetica Neue', Arial, sans-serif; margin-top: 0; margin-bottom: 20px; font-weight: 600;">CRM Inquiry Lead Capture Alert</h3>
-          <p style="margin-bottom: 25px;">A new photography or media booking inquiry has been recorded and synchronized in your CRM pipeline.</p>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
-            <tr style="background-color: #fcfcfc;">
-              <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; width: 35%; font-size: 13px;">Property Address</td>
-              <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;">${propertyAddress}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Realtor / Partner</td>
-              <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;">${realtorName}</td>
-            </tr>
-            <tr style="background-color: #fcfcfc;">
-              <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Email Address</td>
-              <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;"><a href="mailto:${email}" style="color: #c43b2a; text-decoration: none;">${email}</a></td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Required Services</td>
-              <td style="padding: 10px; border: 1px solid #eee; font-size: 13px; font-weight: 500;">${serviceType || "Photography"}</td>
-            </tr>
-            <tr style="background-color: #fcfcfc;">
-              <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Fotello CRM Sync</td>
-              <td style="padding: 10px; border: 1px solid #eee; font-size: 13px;">
-                <span style="color: ${isSentToFotello ? '#2e7d32' : '#c62828'}; font-weight: bold;">
-                  ${isSentToFotello ? "SUCCESS ✔" : "FAILED ❌"}
-                </span>
-              </td>
-            </tr>
-            ${fotelloOrderData ? `
-            <tr>
-              <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; font-size: 13px;">Fotello Reference</td>
-              <td style="padding: 10px; border: 1px solid #eee; font-mono; font-size: 12px; background-color: #fafafa;">${fotelloOrderData.orderId}</td>
-            </tr>` : ""}
-          </table>
-          <p style="margin-top: 10px; font-size: 12px; color: #7f8c8d;">You can manage this lead directly by navigating to your admin portal and selecting the Inquiries or Fotello sync dashboard.</p>
-        `;
-
-        const brandedHtml = await buildBrandedEmail(emailBody);
-
-        await sendEmail(
-          recipientEmail,
-          `New Lead Capture Alert: ${realtorName} - ${propertyAddress}`,
-          brandedHtml,
-          'inquiry_notification'
-        );
-      } catch (mailErr) {
-        console.error("[CRM Ingestion] Notification dispatch failed:", mailErr);
+      } else {
+        console.log(`[CRM Inquire] Skipping admin notification email block as requested (listing belongs to Partner).`);
       }
 
       return res.json({

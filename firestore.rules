@@ -17,9 +17,12 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
+        request.auth.token.email == 'jasonmurdy@gmail.com' || 
+        request.auth.token.email == 'sherwin.131986@gmail.com' ||
         request.auth.token.get('email', '') == 'jasonmurdy@gmail.com' || 
         request.auth.token.get('email', '') == 'sherwin.131986@gmail.com' ||
-        (request.auth.token.get('email_verified', false) == true && exists(/databases/$(database)/documents/admins/$(request.auth.token.get('email', ''))))
+        (request.auth.token.get('email_verified', false) == true && exists(/databases/$(database)/documents/admins/$(request.auth.token.get('email', '')))) ||
+        (request.auth.token.email_verified == true && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)))
       );
     }
 
@@ -275,9 +278,9 @@ service cloud.firestore {
     match /puck_templates/{templateId} {
       allow read: if true;
       allow create: if isAdmin() && isValidPuckTemplate(incoming()) && isValidId(templateId)
-        && incoming().createdAt == request.time;
+        && (incoming().createdAt == request.time || (incoming().createdAt is string && incoming().createdAt.size() <= 100));
       allow update: if isAdmin() && isValidPuckTemplate(incoming())
-        && incoming().createdAt == existing().createdAt;
+        && (incoming().createdAt == existing().createdAt || (incoming().createdAt is string && existing().createdAt is string && incoming().createdAt == existing().createdAt));
       allow delete: if isAdmin();
     }
 

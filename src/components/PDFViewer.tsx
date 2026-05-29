@@ -17,9 +17,10 @@ interface PDFViewerProps {
   fileUrl: string;
   title?: string;
   width?: number;
+  height?: number;
 }
 
-export const PDFViewer = ({ fileUrl, title, width: initialWidth }: PDFViewerProps) => {
+export const PDFViewer = ({ fileUrl, title, width: initialWidth, height }: PDFViewerProps) => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [containerWidth, setContainerWidth] = useState<number>(initialWidth || 800);
@@ -159,7 +160,10 @@ export const PDFViewer = ({ fileUrl, title, width: initialWidth }: PDFViewerProp
       </div>
 
       {/* PDF VIEWER SURFACE */}
-      <div className={`flex justify-center p-4 md:p-8 overflow-y-auto overflow-x-hidden no-scrollbar ${isFullScreen ? 'flex-1' : 'min-h-[400px] max-h-[800px]'}`}>
+      <div 
+        style={!isFullScreen && height ? { height: `${height}px` } : undefined}
+        className={`flex justify-center p-4 md:p-8 overflow-y-auto overflow-x-hidden no-scrollbar ${isFullScreen ? 'flex-1' : (!height ? 'min-h-[400px] max-h-[800px]' : '')}`}
+      >
         <div className="shadow-2xl shadow-black/80">
           <Document
             file={processedUrl}

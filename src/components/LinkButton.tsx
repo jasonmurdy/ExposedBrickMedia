@@ -31,8 +31,11 @@ export const LinkButton = ({ link, variant = "solid", className: passedClassName
   }
 
   if (link.type === 'internal') {
+    const toUrl = link.url === '/' || link.url.startsWith('/')
+      ? link.url
+      : `/p/${link.url}`;
     return (
-      <Link to={link.url === '/' ? '/' : `/p/${link.url}`} className={finalClass}>
+      <Link to={toUrl} className={finalClass}>
         {link.label}
       </Link>
     );

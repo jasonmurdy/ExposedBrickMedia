@@ -286,6 +286,7 @@ export type PuckConfig = {
       spacing?: any;
       entranceAnimation?: string;
       styles?: string;
+      customHeight?: number;
     };
     PropertyHighlight: {
       mediaUrl: string;
@@ -358,6 +359,7 @@ export type PuckConfig = {
     PDFReader: {
       url: string;
       title?: string;
+      height?: number;
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
@@ -1207,6 +1209,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         fields: {
           url: MediaField("PDF URL", "image/*", "documents") as any, // Using image/* for file selection UI, but it will store any URL
           title: { type: "text" },
+          height: { type: "number" },
           width: WidthField as any,
           spacing: SpacingControl as any,
           entranceAnimation: EntranceAnimationField as any,
@@ -1214,15 +1217,16 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         defaultProps: {
           url: "",
           title: "Technical Archive",
+          height: 600,
           width: "full",
           spacing: { pt: "40", pb: "40", mt: "0", mb: "0" },
         },
-        render: ({ url, title, width, spacing, entranceAnimation }) => {
+        render: ({ url, title, height, width, spacing, entranceAnimation }) => {
           if (!url) return <div className="p-12 text-center opacity-20 italic">Upload a PDF to initialize the reader.</div>;
           return (
             <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
               <div className="px-4 md:px-8">
-                <PDFViewer fileUrl={url} title={title} />
+                <PDFViewer fileUrl={url} title={title} height={height} />
               </div>
             </ComponentWrapper>
           );
@@ -2010,6 +2014,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             { label: "4:5", value: "4/5" },
           ]
         },
+        customHeight: { type: "number" },
         objectFit: {
           type: "radio",
           options: [
@@ -2031,6 +2036,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         mediaType: "image",
         widthPercentage: 100,
         aspectRatio: "16/9",
+        customHeight: 0,
         objectFit: "cover",
         autoPlay: true,
         loop: true,
@@ -2039,11 +2045,18 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: "full",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ url, mediaType, widthPercentage, aspectRatio, objectFit, autoPlay, loop, muted, showControls, width, spacing, entranceAnimation, styles }) => {
+      render: ({ url, mediaType, widthPercentage, aspectRatio, customHeight, objectFit, autoPlay, loop, muted, showControls, width, spacing, entranceAnimation, styles }) => {
         return (
           <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation} styles={styles}>
             <div className="w-full flex justify-center">
-              <div style={{ width: `${widthPercentage}%`, aspectRatio: aspectRatio }} className="overflow-hidden bg-white/5 relative group border border-white/10">
+              <div 
+                style={{ 
+                  width: `${widthPercentage}%`, 
+                  aspectRatio: customHeight ? undefined : aspectRatio, 
+                  height: customHeight ? `${customHeight}px` : undefined 
+                }} 
+                className="overflow-hidden bg-white/5 relative group border border-white/10"
+              >
                 {mediaType === 'video' ? (
                   url ? <video src={url} autoPlay={autoPlay} loop={loop} muted={muted} controls={showControls} playsInline className={`w-full h-full object-${objectFit}`} /> : null
                 ) : (
@@ -2150,6 +2163,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         html: "<div style=\"padding: 20px; background: #eee; text-align: center;\">Custom HTML content</div>",
         wrapInIframe: false,
         title: "HTML Embed",
+        height: 400,
         width: "full",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },

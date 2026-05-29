@@ -9,7 +9,7 @@ import {
   Copy, Plus, Image as ImageIcon, Briefcase, Share2, LogOut, 
   CheckCircle2, CopyCheck, UserPlus, CreditCard, Shield,
   Folder, Box, Users as UsersIcon, ChevronRight, Globe,
-  Download, ExternalLink, Mail, Phone, FileText
+  Download, ExternalLink, Mail, Phone, FileText, Search, X, Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
@@ -34,9 +34,33 @@ export function ClientDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Media Archive state managers
+  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [listingsSearch, setListingsSearch] = useState('');
+  const [listingsStatusFilter, setListingsStatusFilter] = useState<'all' | 'scheduled' | 'processing' | 'delivered'>('all');
+
   // Referral Draft
   const [newReferral, setNewReferral] = useState({ name: '', phone: '', email: '', notes: '' });
   const [showReferralForm, setShowReferralForm] = useState(false);
+
+  const formatDateStr = (dateStr?: string) => {
+    if (!dateStr) return 'TBD';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const handleCopyShareLink = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/listing/${id}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      toast.success("Shareable property catalog node link copied!");
+    });
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -168,6 +192,32 @@ export function ClientDashboard() {
     };
   }, [currentUser, userProfile?.teamId]);
 
+  // Preload all listing cover images upon initial sync for instant list rendering
+  useEffect(() => {
+    if (listings && listings.length > 0) {
+      listings.forEach((item) => {
+        if (item.img) {
+          const img = new Image();
+          img.src = item.img;
+        }
+      });
+    }
+  }, [listings]);
+
+  // Preload all preview/gallery assets when a listing is clicked and selected, so switching inside the popup modal is instantaneous
+  useEffect(() => {
+    if (selectedListing) {
+      const hasThumb = selectedListing.previewThumbnails && selectedListing.previewThumbnails.length > 0;
+      const hasGall = selectedListing.gallery && selectedListing.gallery.length > 0;
+      const srcArr = hasThumb ? selectedListing.previewThumbnails : (hasGall ? selectedListing.gallery : [selectedListing.img]);
+      const urls = srcArr.filter(Boolean);
+      urls.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+    }
+  }, [selectedListing]);
+
   const handleProfileUpdate = async (field: string, value: string) => {
     if (!currentUser) return;
     try {
@@ -229,28 +279,96 @@ export function ClientDashboard() {
 
       // TRIGGER EMAIL NOTIFICATION
       try {
+        const adminEmail = settings.portalNotifyEmail || settings.contactInfo?.email || 'jasonmurdy@gmail.com';
+        
+        // 1. Send detailed referral alert to Admin Team
         await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to: settings.contactInfo?.email || 'jasonmurdy@gmail.com', // Admin email
-            subject: `New Referral Activation from ${userProfile?.displayName || currentUser?.email}`,
+            to: adminEmail,
+            subject: `New Partner Referral Submitted: ${newReferral.name}`,
             body: `
-              <div style="font-family: sans-serif; color: #1a1a1a;">
-                <p><strong>Referrer:</strong> ${userProfile?.displayName || currentUser?.email}</p>
-                <div style="margin: 20px 0; padding: 15px; border-left: 4px solid #c43b2a; background: #f9f9f9;">
-                  <p><strong>Target Agent:</strong> ${newReferral.name}</p>
-                  <p><strong>Email:</strong> ${newReferral.email || 'N/A'}</p>
-                  <p><strong>Phone:</strong> ${newReferral.phone || 'N/A'}</p>
-                  <p><strong>Strategic Notes:</strong> ${newReferral.notes || 'No additional notes provided.'}</p>
-                </div>
-                <p style="font-size: 11px; color: #666;">This referral was dispatched via the Brand Hub Partner Portal.</p>
+              <h3>New Partner Referral Submitted</h3>
+              <p>A new client referral has been registered through the Partner Portal by <strong>${userProfile?.displayName || currentUser?.email}</strong>.</p>
+              
+              <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;" />
+              
+              <h4 style="margin-bottom: 12px; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 0.1em; color: #555;">Referral Contact Details</h4>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #666; width: 35%; font-size: 13px;">Referral Agent Name:</td>
+                  <td style="padding: 8px 0; font-size: 13px;">${newReferral.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #666; font-size: 13px;">Email Address:</td>
+                  <td style="padding: 8px 0; font-size: 13px;"><a href="mailto:${newReferral.email || ''}" style="color: #c43b2a; text-decoration: none;">${newReferral.email || 'Not provided'}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #666; font-size: 13px;">Phone Contact:</td>
+                  <td style="padding: 8px 0; font-size: 13px;">${newReferral.phone || 'Not provided'}</td>
+                </tr>
+              </table>
+              
+              <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;" />
+              
+              <div style="margin: 20px 0; padding: 15px; border-left: 3px solid #c43b2a; background-color: #fafafa; border-radius: 2px;">
+                <p style="margin: 0; font-weight: bold; font-size: 10px; text-transform: uppercase; color: #c43b2a; letter-spacing: 0.1em;">Strategic Referral Notes:</p>
+                <p style="margin: 8px 0 0 0; font-style: italic; font-size: 13px; color: #2c3e50; line-height: 1.5;">"${newReferral.notes || 'No additional notes provided.'}"</p>
               </div>
-            `
+              
+              <p style="font-size: 11px; color: #888; margin-top: 30px;">
+                This referral entry has been locked and archived in your internal database pipeline for automated rewards tracking.
+              </p>
+            `,
+            type: "referral_notification"
           })
         });
+
+        // 2. Clear receipt email confirmation directly to the Submitting Partner
+        if (currentUser?.email) {
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: currentUser.email,
+              subject: `Referral Submission Confirmed - ${newReferral.name}`,
+              body: `
+                <h3>Referral Submission Confirmed</h3>
+                <p>Hello ${userProfile?.displayName || 'Partner'},</p>
+                <p>We've successfully received and logged the new client referral you submitted in your Brand Hub portal. Thank you for connecting us with your network!</p>
+                
+                <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;" />
+                
+                <h4 style="margin-bottom: 12px; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 0.1em; color: #555;">Logged Referral Details</h4>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0; font-weight: bold; color: #666; width: 35%; font-size: 13px;">Agent Name:</td>
+                    <td style="padding: 8px 0; font-size: 13px;">${newReferral.name}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; font-weight: bold; color: #666; font-size: 13px;">Email Address:</td>
+                    <td style="padding: 8px 0; font-size: 13px;">${newReferral.email || 'Not provided'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; font-weight: bold; color: #666; font-size: 13px;">Phone Contact:</td>
+                    <td style="padding: 8px 0; font-size: 13px;">${newReferral.phone || 'Not provided'}</td>
+                  </tr>
+                </table>
+                
+                <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;" />
+                
+                <p style="font-size: 13px; line-height: 1.6; color: #333;">Our account managers are initiating contact immediately. You can track this client's onboarding progress and view pending rewards at any time inside your <strong>Referral Tracker</strong> dashboard.</p>
+                
+                <p style="margin-top: 25px; margin-bottom: 0; font-size: 13px; font-weight: 500; color: #555;">Best regards,</p>
+                <p style="margin: 4px 0 0 0; color: #c43b2a; font-weight: bold; font-size: 14px;">The Broker Support Team</p>
+              `,
+              type: "referral_receipt"
+            })
+          });
+        }
       } catch (e) {
-        console.error("Failed to send referral notification email", e);
+        console.error("Failed to send referral notification emails", e);
       }
 
       toast.success("Referral submitted successfully!");
@@ -872,244 +990,512 @@ export function ClientDashboard() {
                    key="listings"
                    initial={{ opacity: 0, y: 10 }} 
                    animate={{ opacity: 1, y: 0 }}
-                   className="space-y-16"
+                   className="space-y-8"
                 >
                   <header className="space-y-4">
-                     <h1 className="font-display text-5xl md:text-7xl lowercase italic mt-12 md:mt-0">Partner Hub<span className="text-brick-copper">.</span></h1>
-                     <p className="text-sm text-text-primary/50 max-w-sm">Track your scheduled, processing, and historically delivered visual media collections in real time.</p>
+                     <h1 className="font-display text-5xl md:text-7xl lowercase italic mt-12 md:mt-0">Media Archive<span className="text-brick-copper">.</span></h1>
+                     <p className="text-sm text-text-primary/50 max-w-xl font-light">
+                       Access, search, and download your scheduled, in-production, and historically delivered architectural visual assets in a consolidated tabular catalog.
+                     </p>
                   </header>
-                  
+
                   {(() => {
-                    const scheduledListings = listings.filter(item => item.status?.toLowerCase() === 'scheduled');
-                    const processingListings = listings.filter(item => item.status?.toLowerCase() === 'processing');
-                    const completedListings = listings.filter(item => 
+                    const scheduledCount = listings.filter(item => item.status?.toLowerCase() === 'scheduled').length;
+                    const processingCount = listings.filter(item => item.status?.toLowerCase() === 'processing').length;
+                    const deliveredCount = listings.filter(item => 
                       item.status?.toLowerCase() === 'completed' || 
                       item.status?.toLowerCase() === 'active' || 
                       item.status?.toLowerCase() === 'sold' || 
                       item.status?.toLowerCase() === 'pending' || 
                       !item.status
-                    );
+                    ).length;
 
-                    const getCountdownText = (dateStr?: string) => {
-                      if (!dateStr) return "Scheduled Soon";
-                      try {
-                        const targetDate = new Date(dateStr);
-                        const now = new Date();
-                        now.setHours(0, 0, 0, 0);
-                        const targetTemp = new Date(dateStr);
-                        targetTemp.setHours(0, 0, 0, 0);
-                        const diffTime = targetTemp.getTime() - now.getTime();
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        if (diffDays < 0) return "Completed";
-                        if (diffDays === 0) return "Today";
-                        if (diffDays === 1) return "Tomorrow";
-                        return `In ${diffDays} Days`;
-                      } catch (e) {
-                        return dateStr;
-                      }
-                    };
+                    const filteredListings = listings.filter(item => {
+                      // 1. Search Query Match
+                      const queryStr = listingsSearch.toLowerCase().trim();
+                      const matchSearch = !queryStr || (
+                        (item.title || '').toLowerCase().includes(queryStr) ||
+                        (item.address || '').toLowerCase().includes(queryStr) ||
+                        (item.city || '').toLowerCase().includes(queryStr) ||
+                        (item.mlsNumber || '').toLowerCase().includes(queryStr) ||
+                        (item.category || '').toLowerCase().includes(queryStr)
+                      );
 
-                    const formatDateStr = (dateStr?: string) => {
-                      if (!dateStr) return 'TBD';
-                      try {
-                        const d = new Date(dateStr);
-                        if (isNaN(d.getTime())) return dateStr;
-                        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                      } catch {
-                        return dateStr;
+                      // 2. Status Filter Match
+                      const statusVal = (item.status || 'delivered').toLowerCase();
+                      let matchStatus = true;
+                      if (listingsStatusFilter === 'scheduled') {
+                        matchStatus = statusVal === 'scheduled';
+                      } else if (listingsStatusFilter === 'processing') {
+                        matchStatus = statusVal === 'processing';
+                      } else if (listingsStatusFilter === 'delivered') {
+                        matchStatus = statusVal === 'completed' || statusVal === 'active' || statusVal === 'sold' || statusVal === 'pending' || !item.status;
                       }
-                    };
+
+                      return matchSearch && matchStatus;
+                    });
 
                     return (
-                      <div className="space-y-16">
-                        {/* 1. UPCOMING TRACKER (FUTURE) */}
-                        <section className="space-y-6">
-                          <div className="flex items-center gap-3 border-b border-white/5 pb-3">
-                            <span className="w-2 h-2 rounded-full bg-brick-copper animate-ping" />
-                            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-text-primary/60">Upcoming Productions</h2>
-                            <span className="text-[10px] text-text-primary/40 font-mono bg-text-primary/5 px-2 py-0.5 rounded-sm">{scheduledListings.length}</span>
+                      <div className="space-y-6">
+                        {/* Control Bar: Flexible Search & Filter Navigation */}
+                        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-text-primary/[0.02] border border-white/5 p-4 rounded-sm">
+                          {/* Search Input */}
+                          <div className="relative w-full md:w-80">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-white/30">
+                              <Search size={14} />
+                            </span>
+                            <input
+                              type="text"
+                              value={listingsSearch}
+                              onChange={(e) => setListingsSearch(e.target.value)}
+                              placeholder="Search address, MLS#, or category..."
+                              className="w-full bg-white/5 border border-white/10 text-white placeholder-white/35 text-xs pl-9 pr-4 py-2.5 rounded-sm focus:border-brick-copper focus:outline-none transition-colors"
+                            />
+                            {listingsSearch && (
+                              <button 
+                                onClick={() => setListingsSearch('')}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
                           </div>
-                          {scheduledListings.length === 0 ? (
-                            <div className="bg-text-primary/[0.01] border border-border-subtle p-8 text-center rounded-sm">
-                              <p className="text-[10px] uppercase tracking-wider text-text-primary/30">No upcoming productions currently scheduled.</p>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                              {scheduledListings.map(item => (
-                                <div key={item.id} className="bg-bg-primary border border-border-subtle p-6 flex flex-col justify-between group relative overflow-hidden transition-all hover:bg-text-primary/[0.02] rounded-sm">
-                                  <div className="absolute top-0 left-0 w-1 h-full bg-brick-copper" />
-                                  <div className="space-y-4">
-                                    <div className="flex justify-between items-start">
-                                      <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm border border-brick-copper/30 text-brick-copper bg-brick-copper/5 font-bold">
-                                        Scheduled
-                                      </span>
-                                      <div className="flex items-center gap-1.5 text-xs font-mono text-brick-copper font-medium">
-                                        <Clock size={12} />
-                                        <span>{getCountdownText(item.scheduledDate || item.date)}</span>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <h4 className="text-xl font-display lowercase italic tracking-tight">{item.title}</h4>
-                                      <p className="text-xs text-text-primary/40 mt-1">{item.address || 'Address TBD'}{item.city ? `, ${item.city}` : ''}</p>
-                                    </div>
-                                  </div>
-                                  <div className="pt-4 border-t border-border-subtle/50 mt-6 flex items-center justify-between">
-                                    <span className="text-[9px] uppercase tracking-widest text-text-primary/20 font-mono flex items-center gap-1.5">
-                                      <Calendar size={10} /> {formatDateStr(item.scheduledDate || item.date)}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </section>
 
-                        {/* 2. PROGRESS BAR (PRESENT) */}
-                        <section className="space-y-6">
-                          <div className="flex items-center gap-3 border-b border-white/5 pb-3">
-                            <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-text-primary/60">In the Darkroom</h2>
-                            <span className="text-[10px] text-text-primary/40 font-mono bg-text-primary/5 px-2 py-0.5 rounded-sm">{processingListings.length}</span>
+                          {/* Quick Filter Tabs */}
+                          <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+                            <button
+                              onClick={() => setListingsStatusFilter('all')}
+                              className={`px-3 py-2 text-[10px] tracking-wider uppercase font-bold transition-all rounded-xs flex items-center gap-1.5 ${listingsStatusFilter === 'all' ? 'bg-brick-copper text-charcoal' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                            >
+                              All Assets <span className="text-[8px] font-mono opacity-60 bg-black/15 px-1.5 py-0.5 rounded-sm">{listings.length}</span>
+                            </button>
+                            <button
+                              onClick={() => setListingsStatusFilter('scheduled')}
+                              className={`px-3 py-2 text-[10px] tracking-wider uppercase font-bold transition-all rounded-xs flex items-center gap-1.5 ${listingsStatusFilter === 'scheduled' ? 'bg-amber-500 text-charcoal' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                            >
+                              Scheduled <span className="text-[8px] font-mono opacity-60 bg-black/15 px-1.5 py-0.5 rounded-sm">{scheduledCount}</span>
+                            </button>
+                            <button
+                              onClick={() => setListingsStatusFilter('processing')}
+                              className={`px-3 py-2 text-[10px] tracking-wider uppercase font-bold transition-all rounded-xs flex items-center gap-1.5 ${listingsStatusFilter === 'processing' ? 'bg-yellow-400 text-charcoal animation-pulse' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                            >
+                              In Production <span className="text-[8px] font-mono opacity-60 bg-black/15 px-1.5 py-0.5 rounded-sm">{processingCount}</span>
+                            </button>
+                            <button
+                              onClick={() => setListingsStatusFilter('delivered')}
+                              className={`px-3 py-2 text-[10px] tracking-wider uppercase font-bold transition-all rounded-xs flex items-center gap-1.5 ${listingsStatusFilter === 'delivered' ? 'bg-emerald-600 text-white' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                            >
+                              Delivered <span className="text-[8px] font-mono opacity-60 bg-black/15 px-1.5 py-0.5 rounded-sm">{deliveredCount}</span>
+                            </button>
                           </div>
-                          {processingListings.length === 0 ? (
-                            <div className="bg-text-primary/[0.01] border border-border-subtle p-8 text-center rounded-sm">
-                              <p className="text-[10px] uppercase tracking-wider text-text-primary/30">No productions currently in the editing stage.</p>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {processingListings.map(item => (
-                                <div key={item.id} className="bg-bg-primary border border-border-subtle p-6 flex flex-col justify-between group relative overflow-hidden transition-all hover:bg-text-primary/[0.02] rounded-sm">
-                                  <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500" />
-                                  <div className="space-y-6">
-                                    <div className="flex justify-between items-start">
-                                      <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm border border-yellow-500/30 text-yellow-500 bg-yellow-500/5 font-bold flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" /> Processing
-                                      </span>
-                                      <span className="text-[9px] uppercase tracking-widest text-text-primary/30 font-mono">{item.category || 'Architecture'}</span>
-                                    </div>
-                                    <div>
-                                      <h4 className="text-2xl font-display lowercase italic tracking-tight">{item.title}</h4>
-                                      <p className="text-xs text-text-primary/40 mt-1">{item.address || 'Address TBD'}{item.city ? `, ${item.city}` : ''}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                      <div className="flex justify-between text-[9px] uppercase tracking-widest font-mono text-text-primary/40">
-                                        <span>Color Grading & Curation</span>
-                                        <span className="animate-pulse">Active</span>
-                                      </div>
-                                      <div className="w-full h-[3px] bg-border-subtle rounded-full overflow-hidden">
-                                        <div className="h-full bg-yellow-500/80 w-3/4 rounded-full animate-pulse" />
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="pt-4 border-t border-border-subtle/50 mt-6 text-center">
-                                    <p className="text-[9px] uppercase tracking-wider text-text-primary/40 italic">
-                                      Media features are currently being edited, compiled, and optimized.
-                                    </p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </section>
+                        </div>
 
-                        {/* 3. PAST JOBS ARCHIVE (PAST) */}
-                        <section className="space-y-6">
-                          <div className="flex items-center gap-3 border-b border-white/5 pb-3">
-                            <span className="w-2 h-2 rounded-full bg-green-500" />
-                            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-text-primary/60">Delivered Property Vault</h2>
-                            <span className="text-[10px] text-text-primary/40 font-mono bg-text-primary/5 px-2 py-0.5 rounded-sm">{completedListings.length}</span>
+                        {/* List / Table Implementation */}
+                        {filteredListings.length === 0 ? (
+                          <div className="bg-text-primary/[0.01] border border-border-subtle p-16 text-center rounded-sm">
+                            <p className="text-[10px] uppercase tracking-wider text-text-primary/30 mb-2">No matching archive assets found.</p>
+                            <p className="text-[8px] text-text-primary/20 tracking-normal font-mono mb-4">Try refining your selection filters or search terms.</p>
+                            <button 
+                              onClick={() => { setListingsSearch(''); setListingsStatusFilter('all'); }}
+                              className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all font-bold text-[9px] uppercase tracking-widest text-text-primary/70"
+                            >
+                              Reset Active Filter
+                            </button>
                           </div>
-                          {completedListings.length === 0 ? (
-                            <div className="bg-text-primary/[0.01] border border-border-subtle p-12 text-center rounded-sm">
-                              <p className="text-[10px] uppercase tracking-wider text-text-primary/30">No historical listings archived in your vault.</p>
+                        ) : (
+                          <>
+                            {/* Desktops / Tables View */}
+                            <div className="hidden md:block overflow-x-auto border border-border-subtle bg-bg-primary/40 rounded-sm">
+                              <table className="min-w-full text-left border-collapse">
+                                <thead>
+                                  <tr className="border-b border-border-subtle bg-white/[0.02]">
+                                    <th className="px-6 py-4 text-[9px] uppercase tracking-[0.2em] text-text-primary/40 font-bold">Property Resource</th>
+                                    <th className="px-6 py-4 text-[9px] uppercase tracking-[0.2em] text-text-primary/40 font-bold">MLS / Ref #</th>
+                                    <th className="px-6 py-4 text-[9px] uppercase tracking-[0.2em] text-text-primary/40 font-bold text-center">Category</th>
+                                    <th className="px-6 py-4 text-[9px] uppercase tracking-[0.2em] text-text-primary/40 font-bold">Shoot / Delivery</th>
+                                    <th className="px-6 py-4 text-[9px] uppercase tracking-[0.2em] text-text-primary/40 font-bold text-center">Status</th>
+                                    <th className="px-6 py-4 text-right text-[9px] uppercase tracking-[0.2em] text-text-primary/40 font-bold pr-8">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                  {filteredListings.map(item => {
+                                    const statusVal = (item.status || 'delivered').toLowerCase();
+                                    const isScheduled = statusVal === 'scheduled';
+                                    const isProcessing = statusVal === 'processing';
+                                    const isDelivered = !isScheduled && !isProcessing;
+
+                                    return (
+                                      <tr 
+                                        key={item.id} 
+                                        onClick={() => setSelectedListing(item)}
+                                        className="hover:bg-white/[0.02] active:bg-white/[0.04] cursor-pointer transition-colors group"
+                                      >
+                                        {/* Property Column */}
+                                        <td className="px-6 py-4">
+                                          <div className="flex items-center gap-4">
+                                            <div className="w-14 h-10 bg-charcoal border border-white/10 rounded-xs overflow-hidden flex-shrink-0 relative">
+                                              {item.img ? (
+                                                <img src={item.img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
+                                              ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-[8px] text-white/30 uppercase tracking-widest font-mono">Photo</div>
+                                              )}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p className="text-xs font-bold text-text-primary group-hover:text-brick-copper transition-colors truncate max-w-[200px]">{item.title}</p>
+                                              <p className="text-[10px] text-text-primary/40 truncate max-w-[200px]">{item.address || 'Address TBD'}</p>
+                                            </div>
+                                          </div>
+                                        </td>
+
+                                        {/* MLS / ID Column */}
+                                        <td className="px-6 py-4 font-mono text-[10px] text-text-primary/60">
+                                          {item.mlsNumber ? `#${item.mlsNumber}` : `#LN-${item.id.substring(0, 8).toUpperCase()}`}
+                                        </td>
+
+                                        {/* Category Column */}
+                                        <td className="px-6 py-4 text-center">
+                                          <span className="text-[9px] uppercase tracking-wider px-2 py-0.5 border border-white/5 bg-white/[0.02] text-text-primary/50 font-medium">
+                                            {item.category || 'Architecture'}
+                                          </span>
+                                        </td>
+
+                                        {/* Date Column */}
+                                        <td className="px-6 py-4 text-xs font-mono text-text-primary/60">
+                                          {formatDateStr(item.scheduledDate || item.date)}
+                                        </td>
+
+                                        {/* Status Column */}
+                                        <td className="px-6 py-4 text-center">
+                                          <div className="flex justify-center">
+                                            {isScheduled ? (
+                                              <span className="inline-flex items-center gap-1 text-[8px] uppercase tracking-widest px-2.5 py-0.5 border border-amber-500/20 text-amber-500 bg-amber-500/5 font-bold rounded-full">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Scheduled
+                                              </span>
+                                            ) : isProcessing ? (
+                                              <span className="inline-flex items-center gap-1 text-[8px] uppercase tracking-widest px-2.5 py-0.5 border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 font-bold rounded-full">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" /> Darkroom
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center gap-1 text-[8px] uppercase tracking-widest px-2.5 py-0.5 border border-emerald-500/20 text-emerald-400 bg-emerald-500/5 font-bold rounded-full">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Delivered
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
+
+                                        {/* Actions Column */}
+                                        <td className="px-6 py-4 text-right pr-8">
+                                          <div className="flex items-center justify-end gap-2.5">
+                                            <button 
+                                              type="button"
+                                              onClick={(e) => handleCopyShareLink(item.id, e)}
+                                              className="p-1 px-2 border border-white/5 hover:border-white/10 bg-white/[0.01] hover:bg-white/5 text-text-primary/40 hover:text-white transition-all text-[8px] uppercase tracking-wider font-mono flex items-center gap-1 rounded-sm"
+                                              title="Copy direct share links to clipboard"
+                                            >
+                                              <Share2 size={10} /> Link
+                                            </button>
+                                            {(() => {
+                                              const tableAssetUrl = item.fotelloUrl || item.externalLink || item.matterportUrl || item.url || item.specsUrl || item.img;
+                                              if (tableAssetUrl && tableAssetUrl.startsWith('http')) {
+                                                return (
+                                                  <a 
+                                                    href={tableAssetUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-1.5 bg-white/5 hover:bg-brick-copper border border-white/10 hover:border-transparent text-white/60 hover:text-charcoal hover:scale-105 rounded-full transition-all flex items-center justify-center shadow-sm"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    title="Directly access asset package / source link in a new tab"
+                                                  >
+                                                    <ExternalLink size={11} />
+                                                  </a>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                            <button 
+                                              type="button"
+                                              className="p-1.5 bg-brick-copper hover:bg-white text-charcoal hover:scale-105 rounded-full transition-all flex items-center justify-center shadow-sm"
+                                              onClick={(e) => { e.stopPropagation(); setSelectedListing(item); }}
+                                              title="Inspect listing details & asset catalog"
+                                            >
+                                              <Eye size={11} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
                             </div>
-                          ) : (
-                            <div className="space-y-12">
-                              {completedListings.map(item => {
-                                const hasThumbnails = item.previewThumbnails && item.previewThumbnails.length > 0;
-                                const hasGallery = item.gallery && item.gallery.length > 0;
-                                const originalSource = hasThumbnails ? item.previewThumbnails : (hasGallery ? item.gallery : [item.img]);
-                                const imagesToRender = originalSource.filter(Boolean).map((url: string) => ({
-                                  url,
-                                  portfolioId: item.id,
-                                  portfolioTitle: item.title,
-                                  category: item.category
-                                }));
+
+                            {/* Mobile User-Friendly Responsive Cards Layout */}
+                            <div className="grid grid-cols-1 gap-4 md:hidden">
+                              {filteredListings.map(item => {
+                                const statusVal = (item.status || 'delivered').toLowerCase();
+                                const isScheduled = statusVal === 'scheduled';
+                                const isProcessing = statusVal === 'processing';
 
                                 return (
-                                  <div key={item.id} className="bg-bg-primary border border-border-subtle p-8 md:p-10 flex flex-col md:flex-row gap-8 group relative overflow-hidden transition-all rounded-sm hover:border-text-primary/10">
-                                    <div className="w-full md:w-3/5 space-y-4">
-                                      <div className="border border-white/5 p-2 bg-black/20 rounded-sm">
-                                        <DynamicCuratedGallery 
-                                          title={`Previews of ${item.title}`}
-                                          subtitle="Live imagery from real-time CDN stream"
-                                          images={imagesToRender}
-                                          layout="grid"
-                                          columns={imagesToRender.length > 3 ? 4 : 3}
-                                          aspectRatio="16/9"
-                                          grayscaleEffect="hover-color"
-                                          lightbox={true}
-                                        />
+                                  <div 
+                                    key={item.id}
+                                    onClick={() => setSelectedListing(item)}
+                                    className="bg-bg-primary border border-border-subtle p-4 rounded-sm flex flex-col justify-between hover:border-brick-copper/30 transition-all active:bg-text-primary/[0.01] relative overflow-hidden group"
+                                  >
+                                    <div className="flex gap-3.5 items-start">
+                                      <div className="w-16 h-12 bg-charcoal border border-white/5 rounded-xs overflow-hidden flex-shrink-0">
+                                        {item.img ? (
+                                          <img src={item.img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                        ) : (
+                                          <div className="w-full h-full bg-white/5" />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] font-bold text-brick-copper uppercase font-mono tracking-widest">{item.category || 'Architecture'}</p>
+                                        <p className="text-sm font-bold text-text-primary mt-0.5 truncate">{item.title}</p>
+                                        <p className="text-[10px] text-text-primary/40 truncate">{item.address || 'Address TBD'}</p>
                                       </div>
                                     </div>
 
-                                    <div className="w-full md:w-2/5 flex flex-col justify-between">
-                                      <div className="space-y-6">
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-3 text-[9px] text-brick-copper font-bold uppercase tracking-[0.3em]">
-                                            {item.mlsNumber && <span>MLS #{item.mlsNumber}</span>}
-                                            {item.mlsNumber && <span className="w-1 h-1 rounded-full bg-brick-copper/30" />}
-                                            <span>{item.category || 'Architecture'}</span>
-                                          </div>
-                                          <h3 className="text-3xl font-display lowercase italic tracking-tight">{item.title}</h3>
-                                          <p className="text-xs text-text-primary/40">{item.address || 'Delivered Listing'}{item.city ? `, ${item.city}` : ''}</p>
-                                        </div>
-
-                                        <p className="text-xs text-text-primary/50 leading-relaxed font-light">
-                                          {item.description || 'Optimized architectural representations loaded directly from Source Stream.'}
-                                        </p>
+                                    <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                                      <div>
+                                        <span className="text-[9px] text-text-primary/30 block tracking-wider font-mono">DATE</span>
+                                        <span className="text-[10px] text-text-primary/60 font-mono font-bold">{formatDateStr(item.scheduledDate || item.date)}</span>
                                       </div>
-
-                                      <div className="pt-8 border-t border-border-subtle mt-10 space-y-4">
-                                        {(item.fotelloUrl || item.externalLink) ? (
-                                          <div className="w-full">
-                                            <LinkButton
-                                              link={{
-                                                url: item.fotelloUrl || item.externalLink,
-                                                label: "Access Full Media Hub",
-                                                type: "external"
-                                              }}
-                                              variant="solid"
-                                              className="w-full py-3 bg-brick-copper hover:bg-white text-charcoal shadow-sm hover:shadow-md text-[10px] tracking-widest font-bold uppercase text-center block"
-                                            />
-                                          </div>
+                                      <div className="flex items-center gap-2">
+                                        {isScheduled ? (
+                                          <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 border border-amber-500/20 text-amber-500 bg-amber-500/5 font-bold rounded-full">
+                                            Scheduled
+                                          </span>
+                                        ) : isProcessing ? (
+                                          <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 font-bold rounded-full animate-pulse">
+                                            Darkroom
+                                          </span>
                                         ) : (
-                                          <div className="text-[9px] text-brick-copper font-mono uppercase tracking-wider text-center py-2 bg-brick-copper/5 rounded-sm border border-brick-copper/20">
-                                            Assets Fully Delivered
-                                          </div>
+                                          <span className="text-[8px] uppercase tracking-widest px-2 py-0.5 border border-emerald-500/20 text-emerald-400 bg-emerald-500/5 font-bold rounded-full">
+                                            Delivered
+                                          </span>
                                         )}
-
-                                        <div className="flex justify-between items-center pt-2">
-                                          <div className="flex gap-6">
-                                            <Link to={`/listing/${item.id}`} className="text-[9px] uppercase tracking-widest font-black flex items-center gap-2 transition-colors hover:text-brick-copper text-text-primary/60">
-                                              <Share2 size={12} className="opacity-40" /> Share Page
-                                            </Link>
-                                          </div>
-                                          <span className="text-[9px] uppercase tracking-widest text-text-primary/20 font-mono">ID: {item.id.substring(0, 8)}</span>
-                                        </div>
+                                        <ChevronRight size={14} className="text-text-primary/30 group-hover:text-brick-copper transition-colors" />
                                       </div>
                                     </div>
                                   </div>
                                 );
                               })}
                             </div>
-                          )}
-                        </section>
+                          </>
+                        )}
                       </div>
                     );
                   })()}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
+            {/* HIGH-FIDELITY INTERACTIVE PREVIEW POPUP MODAL */}
+            <AnimatePresence>
+              {selectedListing && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-6 lg:p-12"
+                >
+                  <motion.div 
+                    initial={{ scale: 0.95, y: 15 }}
+                    animate={{ scale: 1, y: 0 }}
+                    exit={{ scale: 0.95, y: 15 }}
+                    transition={{ type: "spring", duration: 0.5 }}
+                    className="bg-charcoal border border-white/10 w-full max-w-5xl h-full max-h-[90vh] md:max-h-[85vh] rounded-sm flex flex-col md:flex-row overflow-hidden shadow-2xl relative text-left"
+                  >
+                    {/* Close Control Top-Right */}
+                    <button 
+                      onClick={() => setSelectedListing(null)}
+                      className="absolute top-4 right-4 z-20 w-9 h-9 bg-black/50 hover:bg-brick-copper border border-white/10 flex items-center justify-center text-white hover:text-charcoal transition-all rounded-xs"
+                    >
+                      <X size={16} />
+                    </button>
 
+                    {/* Media Show Area (Left Frame) */}
+                    <div className="w-full md:w-3/5 bg-black/40 border-r border-white/5 flex flex-col p-6 overflow-y-auto no-scrollbar justify-center min-h-[250px] md:min-h-0">
+                      {(() => {
+                        const hasThumb = selectedListing.previewThumbnails && selectedListing.previewThumbnails.length > 0;
+                        const hasGall = selectedListing.gallery && selectedListing.gallery.length > 0;
+                        const srcArr = hasThumb ? selectedListing.previewThumbnails : (hasGall ? selectedListing.gallery : [selectedListing.img]);
+                        const galleryItems = srcArr.filter(Boolean).map((url: string) => ({
+                          url,
+                          portfolioId: selectedListing.id,
+                          portfolioTitle: selectedListing.title,
+                          category: selectedListing.category
+                        }));
+
+                        if (galleryItems.length > 0) {
+                          return (
+                            <div className="space-y-4">
+                              <DynamicCuratedGallery 
+                                title={`Asset Catalog Preview`}
+                                subtitle="Live high-fidelity imagery CDN server sync stream"
+                                images={galleryItems}
+                                layout="grid"
+                                columns={galleryItems.length > 3 ? 4 : 3}
+                                aspectRatio="16/9"
+                                grayscaleEffect="hover-color"
+                                lightbox={true}
+                              />
+                              <p className="text-[9px] uppercase tracking-widest text-white/30 text-center select-none font-mono">
+                                Interactive Sandbox: Click thumbnail tiles to toggle preview lightbox view mode.
+                              </p>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="w-full text-center py-12 space-y-3">
+                              <ImageIcon size={32} className="mx-auto text-brick-copper/40 animate-pulse" />
+                              <div className="space-y-1">
+                                <p className="text-[10px] tracking-widest uppercase font-mono text-white/40">Visual Cache Processing</p>
+                                <p className="text-[11px] text-white/60 font-light max-w-xs mx-auto">
+                                  Currently aligning property coordinates with CDN image servers. Direct asset folders are linked on the specifications sidebar.
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+
+                    {/* Specifications Details Area (Right Frame) */}
+                    <div className="w-full md:w-2/5 p-6 md:p-8 flex flex-col justify-between overflow-y-auto bg-bg-primary/95">
+                      <div className="space-y-6">
+                        <div className="space-y-1.5 border-b border-white/5 pb-4">
+                          <span className="text-[8px] uppercase px-2 py-0.5 rounded-sm border border-brick-copper/20 text-brick-copper bg-brick-copper/5 font-black tracking-[0.2em]">
+                            {selectedListing.category || 'Architecture'}
+                          </span>
+                          <h2 className="text-3xl font-display lowercase italic tracking-tight text-white mt-2 leading-tight">
+                            {selectedListing.title}
+                          </h2>
+                          <p className="text-xs text-text-primary/40 font-mono tracking-tight">{selectedListing.address || 'Address pending setup'}{selectedListing.city ? `, ${selectedListing.city}` : ''}</p>
+                        </div>
+
+                        {/* Property Specs Monospace Matrix */}
+                        <div className="grid grid-cols-2 gap-3.5 bg-black/20 p-3.5 border border-white/5 rounded-xs font-mono text-[9px]">
+                          <div>
+                            <span className="text-white/30 block uppercase tracking-wider">SYSTEM RESOURCE ID</span>
+                            <span className="text-white font-bold">{selectedListing.id.substring(0, 10).toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <span className="text-white/30 block uppercase tracking-wider">REALTOR / MLS REF</span>
+                            <span className="text-white font-bold">{selectedListing.mlsNumber ? `#${selectedListing.mlsNumber}` : 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-white/30 block uppercase tracking-wider">RESOURCE ASSIGNMENT</span>
+                            <span className="text-brick-copper font-bold uppercase">Direct Hub Partner</span>
+                          </div>
+                          <div>
+                            <span className="text-white/30 block uppercase tracking-wider">PRODUCTION STAGE</span>
+                            <span className="text-emerald-400 font-bold uppercase">{selectedListing.status || 'Delivered'}</span>
+                          </div>
+                        </div>
+
+                        {/* Copy details */}
+                        <div className="space-y-2">
+                          <h4 className="text-[10px] uppercase font-bold tracking-widest text-text-primary/40 font-mono">Production Narrative</h4>
+                          <p className="text-xs text-text-primary/60 leading-relaxed font-light">
+                            {selectedListing.description || 'Fully custom visual media suite processed, graded, and optimized for strategic property marketing deployments.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Download/Copy Direct Hub Links */}
+                      <div className="pt-6 border-t border-white/5 mt-8 space-y-3.5">
+                        {(() => {
+                          const linksToRender = [];
+                          if (selectedListing.fotelloUrl) {
+                            linksToRender.push({
+                              url: selectedListing.fotelloUrl,
+                              label: "Access Complete Media Package",
+                              type: "external"
+                            });
+                          }
+                          if (selectedListing.externalLink) {
+                            linksToRender.push({
+                              url: selectedListing.externalLink,
+                              label: "View Listing Agent Page",
+                              type: "external"
+                            });
+                          }
+                          const mUrl = selectedListing.matterportUrl || selectedListing.url;
+                          if (mUrl && mUrl.startsWith('http')) {
+                            linksToRender.push({
+                              url: mUrl,
+                              label: "Launch Virtual Matterport 3D Tour",
+                              type: "external"
+                            });
+                          }
+                          if (selectedListing.specsUrl) {
+                            linksToRender.push({
+                              url: selectedListing.specsUrl,
+                              label: "Download Specifications PDF",
+                              type: "external"
+                            });
+                          }
+
+                          // If totally empty, implement robust fallback to image asset or listing showcase page
+                          if (linksToRender.length === 0) {
+                            if (selectedListing.img) {
+                              linksToRender.push({
+                                url: selectedListing.img,
+                                label: "Download Property Cover Photo",
+                                type: "external"
+                              });
+                            } else {
+                              linksToRender.push({
+                                url: `/listing/${selectedListing.id}`,
+                                label: "View Public Showcase Page",
+                                type: "internal"
+                              });
+                            }
+                          }
+
+                          return (
+                            <div className="space-y-2.5">
+                              {linksToRender.map((linkItem, idx) => (
+                                <LinkButton
+                                  key={idx}
+                                  link={linkItem}
+                                  variant={idx === 0 ? "solid" : "outline"}
+                                  className={`w-full py-2.5 shadow-sm hover:shadow-md text-[10px] tracking-widest font-black uppercase text-center block rounded-xs transition-colors ${
+                                    idx === 0 
+                                      ? "bg-brick-copper hover:bg-white text-charcoal" 
+                                      : "bg-transparent border border-brick-copper/40 hover:border-brick-copper text-brick-copper hover:text-white"
+                                  }`}
+                                />
+                              ))}
+                              <p className="text-[8px] font-mono text-white/30 text-center mt-2">
+                                Safe verification links directed to primary high-speed content delivery networks.
+                              </p>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Share Page & Close Matrix */}
+                        <div className="flex justify-between items-center gap-4 pt-2">
+                          <button 
+                            type="button"
+                            onClick={(e) => handleCopyShareLink(selectedListing.id, e)}
+                            className="text-[9px] uppercase tracking-widest font-bold font-mono text-text-primary/55 hover:text-white flex items-center gap-1.5 transition-colors"
+                          >
+                            <Share2 size={12} /> Clipboard share links
+                          </button>
+                          <Link 
+                            to={`/listing/${selectedListing.id}`}
+                            className="text-[9px] uppercase tracking-widest font-bold font-mono text-brick-copper hover:text-white hover:underline transition-colors flex items-center gap-1"
+                          >
+                            Public Page <ChevronRight size={10} />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>

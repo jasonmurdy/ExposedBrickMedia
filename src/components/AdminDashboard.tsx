@@ -4538,55 +4538,109 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
         {activeTab === 'inquiries' && (
-          <section className="space-y-8">
-            <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4">
+          <section className="space-y-8 font-sans">
+            <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4 font-sans">
               <MessageSquare size={18} />
               <h3 className="font-display text-2xl italic">Project Inquiries</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {inquiries.slice((inquiriesPage - 1) * inquiriesPageSize, inquiriesPage * inquiriesPageSize).map(inq => (
-                <div key={inq.id} className="bg-white/5 border border-white/5 p-8 group hover:border-brick-copper/20 transition-all relative">
-                  <div className="flex justify-between mb-6">
-                    <div>
-                      <h4 className="text-lg font-display italic mb-1">{inq.realtorName}</h4>
-                      <p className="text-[10px] text-white/30 uppercase tracking-widest">{inq.firmName}</p>
-                    </div>
-                    <button onClick={() => deleteDoc(doc(db, 'inquiries', inq.id))} className="text-white/10 hover:text-red-500 transition-colors"><X size={16} /></button>
-                  </div>
-                  
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-start gap-3">
-                      <MapPin size={12} className="text-brick-copper mt-1" />
-                      <p className="text-xs text-white/60 leading-relaxed">{inq.propertyAddress}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Mail size={12} className="text-brick-copper" />
-                      <p className="text-xs text-white/60">{inq.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 border-t border-white/5 pt-6">
-                    <button onClick={async () => {
-                      const toastId = toast.loading("Invoking Gemini smart draft companion...");
-                      try {
-                        const reply = await getAiSuggestion("Draft a professional architectural project acceptance/follow-up", `${inq.realtorName} for ${inq.propertyAddress}`);
-                        setDraftReplyModalContent(reply);
-                        toast.success("Correspondence outline compiled!", { id: toastId });
-                      } catch (err) {
-                        toast.error("Failed to compile suggestion", { id: toastId });
+            
+            <div className="bg-white/[0.01] border border-white/5 overflow-hidden font-sans">
+              <div className="overflow-x-auto select-none no-scrollbar font-sans">
+                <table className="w-full text-left border-collapse font-sans">
+                  <thead>
+                    <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest text-white/30 font-bold bg-white/[0.01] font-sans">
+                      <th className="p-4 pl-6 uppercase">Timestamp</th>
+                      <th className="p-4 uppercase">Realtor / Partner</th>
+                      <th className="p-4 uppercase">Property Address</th>
+                      <th className="p-4 uppercase">Email Contact</th>
+                      <th className="p-4 pr-6 text-right uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.03] text-xs font-sans">
+                    {inquiries.slice((inquiriesPage - 1) * inquiriesPageSize, inquiriesPage * inquiriesPageSize).map(inq => {
+                      let dateStr = 'N/A';
+                      if (inq.createdAt) {
+                        try {
+                          const epoch = inq.createdAt.seconds 
+                            ? inq.createdAt.seconds * 1000 
+                            : new Date(inq.createdAt).getTime();
+                          if (!isNaN(epoch)) {
+                            dateStr = new Date(epoch).toLocaleString();
+                          }
+                        } catch (err) {
+                          console.log("Date parsing failed, rendering N/A:", err);
+                        }
                       }
-                    }} className="flex-1 py-3 bg-brick-copper/10 text-brick-copper text-[10px] uppercase tracking-widest border border-brick-copper/20 hover:bg-brick-copper hover:text-charcoal transition-all font-bold">
-                      Draft Correspondence
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {inquiries.length === 0 && (
-                <div className="col-span-full py-20 text-center border border-dashed border-white/5 text-white/20">
-                  <p className="text-[10px] uppercase tracking-[0.3em]">No inquiries found in the stream.</p>
-                </div>
-              )}
+                      return (
+                        <tr key={inq.id} className="hover:bg-white/[0.01] transition-all group font-sans">
+                          {/* Timestamp */}
+                          <td className="p-4 pl-6 font-mono text-[10px] text-white/40 whitespace-nowrap">
+                            {dateStr}
+                          </td>
+                          {/* Realtor / Partner */}
+                          <td className="p-4 font-semibold text-white/80 whitespace-nowrap">
+                            <div>
+                              <p className="text-sm font-display italic text-white">{inq.realtorName}</p>
+                              {inq.firmName && <p className="text-[9px] text-white/30 uppercase tracking-widest mt-0.5">{inq.firmName}</p>}
+                            </div>
+                          </td>
+                          {/* Property Address */}
+                          <td className="p-4 text-white/60 max-w-xs truncate font-medium">
+                            <div className="flex items-center gap-2">
+                              <MapPin size={11} className="text-brick-copper flex-shrink-0" />
+                              <span className="truncate">{inq.propertyAddress}</span>
+                            </div>
+                          </td>
+                          {/* Email Contact */}
+                          <td className="p-4 text-white/50 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <Mail size={11} className="text-brick-copper flex-shrink-0" />
+                              <span>{inq.email}</span>
+                            </div>
+                          </td>
+                          {/* Actions */}
+                          <td className="p-4 pr-6 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-3 font-sans">
+                              <button 
+                                onClick={async () => {
+                                  const toastId = toast.loading("Invoking Gemini smart draft companion...");
+                                  try {
+                                    const reply = await getAiSuggestion("Draft a professional architectural project acceptance/follow-up", `${inq.realtorName} for ${inq.propertyAddress}`);
+                                    setDraftReplyModalContent(reply);
+                                    toast.success("Correspondence outline compiled!", { id: toastId });
+                                  } catch (err) {
+                                    toast.error("Failed to compile suggestion", { id: toastId });
+                                  }
+                                }} 
+                                className="text-[9px] uppercase tracking-widest font-black text-brick-copper hover:text-white transition-all underline outline-none"
+                              >
+                                Draft
+                              </button>
+                              <span className="text-white/10 select-none">|</span>
+                              <button 
+                                onClick={() => deleteDoc(doc(db, 'inquiries', inq.id))} 
+                                className="text-[9px] uppercase tracking-widest font-black text-white/30 hover:text-red-500 transition-colors outline-none"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {inquiries.length === 0 && (
+                      <tr className="font-sans">
+                        <td colSpan={5} className="p-12 text-center text-white/20 uppercase tracking-widest text-[9px] font-bold font-sans animate-pulse">
+                          No inquiries found in the stream.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
             <PaginationControls
               currentPage={inquiriesPage}
               totalItems={inquiries.length}
@@ -5295,7 +5349,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03] text-xs font-sans">
-                      {filteredNotifications.slice((notiPage - 1) * 10, notiPage * 10).map((item) => (
+                      {filteredNotifications.slice((notiPage - 1) * 6, notiPage * 6).map((item) => (
                         <tr key={item.id} className="hover:bg-white/[0.01] transition-all group font-sans">
                           {/* Time */}
                           <td className="p-4 pl-6 font-mono text-[10px] text-white/40 whitespace-nowrap">
@@ -5326,8 +5380,8 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                           {/* Actions */}
                           <td className="p-4 pr-6 text-right whitespace-nowrap">
                             <button
-                              onClick={() => setSelectedNotification(item)}
-                              className="text-[9px] uppercase tracking-widest font-black text-brick-copper hover:text-white transition-all underline outline-none"
+                                onClick={() => setSelectedNotification(item)}
+                                className="text-[9px] uppercase tracking-widest font-black text-brick-copper hover:text-white transition-all underline outline-none"
                             >
                               Inspect Payload
                             </button>
@@ -5349,7 +5403,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                 <PaginationControls
                   currentPage={notiPage}
                   totalItems={filteredNotifications.length}
-                  pageSize={10}
+                  pageSize={6}
                   onPageChange={setNotiPage}
                 />
               </div>

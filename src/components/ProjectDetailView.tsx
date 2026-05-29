@@ -52,6 +52,13 @@ export const ProjectDetailView = () => {
         action: 'view'
       });
       window.scrollTo(0, 0);
+
+      // Preload all listing images into browser cache for instant high-speed switching
+      const allImgs = [project.img, ...(project.gallery || [])].filter(Boolean);
+      allImgs.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
     }
   }, [project]);
 
@@ -98,7 +105,8 @@ export const ProjectDetailView = () => {
           propertyAddress: project.title || "Subject Property",
           realtorName: inquiryForm.name,
           email: inquiryForm.email,
-          serviceType: "Documentation & Listing Resource Request"
+          serviceType: "Documentation & Listing Resource Request",
+          skipAdminNotification: associatedPartners.length > 0
         })
       });
 
@@ -239,7 +247,7 @@ export const ProjectDetailView = () => {
                         <img 
                           src={partner.headshotUrl} 
                           alt={partner.displayName} 
-                          className="w-full h-full object-cover transition-all grayscale duration-500 group-hover:grayscale-0 scale-100 group-hover:scale-[1.03]" 
+                          className="w-full h-full object-contain transition-all grayscale duration-500 group-hover:grayscale-0 scale-100 group-hover:scale-[1.03]" 
                           referrerPolicy="no-referrer"
                         />
                       ) : (
@@ -535,7 +543,7 @@ export const ProjectDetailView = () => {
           )}
 
           {/* Partner Exclusive Content */}
-          {(project.partnerUids?.includes(auth.currentUser?.uid) || project.teamId === (window as any).currentUserProfile?.teamId) && (
+          {(project.fotelloUrl || project.matterportUrl || project.specsUrl) && (
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -823,9 +831,9 @@ export const ProjectDetailView = () => {
         <div className="flex items-center gap-2.5 min-w-0">
           {associatedPartners[0] ? (
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-white/5 flex-shrink-0">
+              <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-charcoal flex-shrink-0">
                 {associatedPartners[0].headshotUrl ? (
-                  <img src={associatedPartners[0].headshotUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={associatedPartners[0].headshotUrl} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-[10px] text-white/50">?</div>
                 )}

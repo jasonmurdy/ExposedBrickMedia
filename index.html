@@ -129,13 +129,26 @@
     </script>
     
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KVH41VY7GF"></script>
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+      // Load Google Analytics only in production to prevent tracking pollution and cross-origin "Script error." in sandboxed developer previews
+      if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('run.app') && !window.location.hostname.includes('aistudio')) {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = "https://www.googletagmanager.com/gtag/js?id=G-KVH41VY7GF";
+        script.setAttribute('crossorigin', 'anonymous');
+        document.head.appendChild(script);
 
-      gtag('config', 'G-KVH41VY7GF');
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', 'G-KVH41VY7GF');
+      } else {
+        // Mock gtag in development/sandbox to prevent "gtag is not defined" runtime errors
+        window.gtag = function() { 
+          // Silently handle or log in dev console if needed
+        };
+      }
     </script>
   </head>
   <body>
