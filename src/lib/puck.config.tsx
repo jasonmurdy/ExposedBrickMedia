@@ -900,6 +900,34 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     }
   };
 
+  class PuckErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+    constructor(props: { children: React.ReactNode }) {
+      super(props);
+      this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error: Error) {
+      return { hasError: true, error };
+    }
+
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+      console.error("Puck block render error caught:", error, errorInfo);
+    }
+
+    render() {
+      if (this.state.hasError) {
+        return (
+          <div className="p-6 bg-red-950/40 border border-red-900/50 rounded-sm text-red-200 text-xs font-mono">
+            <p className="font-bold mb-1">⚠️ Component Render Block Error</p>
+            <p className="opacity-80 text-[11px]">This block failed to render due to bad field inputs or state mismatch.</p>
+            {this.state.error && <p className="mt-2 text-[10px] bg-red-950/80 p-2 text-red-300 rounded border border-red-900/30 overflow-auto">{this.state.error.message}</p>}
+          </div>
+        );
+      }
+      return this.props.children;
+    }
+  }
+
   const ComponentWrapper = ({ width, spacing, entranceAnimation, styles, children }: { width?: "full" | "half", spacing?: any, entranceAnimation?: string, styles?: string, children: React.ReactNode }) => {
     const variants = {
        fade: { initial: { opacity: 0 }, animate: { opacity: 1 } },
@@ -919,7 +947,12 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         className={`${width === 'half' ? 'w-full lg:w-1/2' : 'w-full'} overflow-hidden ${styles || ""}`}
       >
         <SpacingWrapper spacing={spacing}>
-          {children}
+          {/* Basic protection to catch inline runtime render errors from breaking the side catalog bar */}
+          <div className="error-boundary-sandbox-wrapper">
+            <PuckErrorBoundary>
+              {children}
+            </PuckErrorBoundary>
+          </div>
         </SpacingWrapper>
       </motion.div>
     );

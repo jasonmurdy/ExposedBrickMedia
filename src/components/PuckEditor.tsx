@@ -9,7 +9,7 @@ import { createConfig, BASELINE_LAYOUT } from "../lib/puck.config";
 import { useSiteContent } from "../lib/SiteContentContext";
 import { db } from "../lib/firebase";
 import { doc, setDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus, Undo2, Redo2 } from "lucide-react";
 import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 import { sanitizeLayout } from "../lib/sanitizeLayout";
@@ -183,26 +183,27 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
 
   const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources, popups), [pages, portfolioItems, partners, teams, brandResources, popups]);
 
-  // Define cleanObject before usage or as a helper
+  // Optimized, robust cycle-resilient object graph purger
   const cleanObject = (obj: any): any => {
-    try {
-      return JSON.parse(JSON.stringify(obj));
-    } catch (err) {
-      console.warn("Circular structure detected, pruning.");
-      const cache = new WeakSet();
-      const prune = (val: any): any => {
-        if (val === null || typeof val !== 'object') return val;
-        if (cache.has(val)) return undefined;
-        cache.add(val);
-        if (Array.isArray(val)) return val.map(prune);
-        const cleaned: any = {};
-        for (const [k, v] of Object.entries(val)) {
-          cleaned[k] = prune(v);
+    const cache = new WeakSet();
+    const prune = (val: any): any => {
+      if (val === null || typeof val !== 'object') return val;
+      if (val.$$typeof) return undefined; // Instantly strip raw React template descriptors
+      if (cache.has(val)) return undefined; // Stop recursive circular dependencies safely
+      cache.add(val);
+      if (Array.isArray(val)) {
+        return val.map(prune).filter(v => v !== undefined);
+      }
+      const cleaned: any = {};
+      for (const [k, v] of Object.entries(val)) {
+        const prunedVal = prune(v);
+        if (prunedVal !== undefined && typeof prunedVal !== 'function') {
+          cleaned[k] = prunedVal;
         }
-        return cleaned;
-      };
-      return prune(obj);
-    }
+      }
+      return cleaned;
+    };
+    return prune(obj);
   };
 
   const page = currentPageId ? pages.find(p => p.id === currentPageId) : null;
@@ -218,11 +219,12 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   }, [page, currentPageId, settings.layout, settings.brandName]);
 
   const [editorData, setEditorData] = useState<any>(initialData);
+  const prevInitialDataRef = useRef(initialData);
 
-  // Update editorData when initialData changes (e.g. changing pageId)
-  useMemo(() => {
+  if (initialData !== prevInitialDataRef.current) {
+    prevInitialDataRef.current = initialData;
     setEditorData(initialData);
-  }, [initialData]);
+  }
 
   // Pre-seeded local templates for seeding
   const seedPresets: Omit<PuckTemplateItem, "id" | "createdAt">[] = [
@@ -878,51 +880,25 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       })) as PuckTemplateItem[];
 
       if (isAdmin) {
-        // Seed presets if missing, or force-sync the requested templates to Firestore
-        console.log("Checking/syncing core media templates in Firestore...");
         const seededList: PuckTemplateItem[] = [...items];
-        let hasChanges = false;
-
         for (const preset of seedPresets) {
           const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
           const existing = items.find(item => item.id === docId);
-          const isTargetPreseeded = ["interior-photography", "3d-virtual-tours", "aerial-drone-photography"].includes(docId);
-
-          if (!existing || isTargetPreseeded) {
+          
+          if (!existing) {
             const docRef = doc(db, "puck_templates", docId);
-            const newDoc = {
-              ...preset,
-              createdAt: serverTimestamp()
-            };
+            const newDoc = { ...preset, createdAt: serverTimestamp() };
             try {
               await setDoc(docRef, newDoc);
-              if (!existing) {
-                seededList.push({ id: docId, ...newDoc } as any);
-              } else {
-                const idx = seededList.findIndex(x => x.id === docId);
-                if (idx !== -1) {
-                  seededList[idx] = { id: docId, ...newDoc } as any;
-                }
-              }
-              hasChanges = true;
-            } catch (writeErr: any) {
-              console.warn(`Failed to seed/sync preset '${preset.name}' into firestore:`, writeErr);
+              seededList.push({ id: docId, ...newDoc } as any);
+            } catch (wErr) {
+              console.warn("Could not seed preset into firestore:", wErr);
             }
           }
         }
-        
         setTemplates(seededList);
       } else {
-        if (items.length === 0) {
-          // Non-admin fallback
-          setTemplates(seedPresets.map((p, idx) => ({
-            id: `seed-preset-${idx}`,
-            createdAt: new Date().toISOString(),
-            ...p
-          })) as PuckTemplateItem[]);
-        } else {
-          setTemplates(items);
-        }
+        setTemplates(items.length === 0 ? seedPresets.map((p, idx) => ({ id: `seed-${idx}`, createdAt: new Date().toISOString(), ...p })) as any : items);
       }
     } catch (err) {
       console.error("Failed to load puck templates general error:", err);
@@ -967,7 +943,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   // Handler to create a template from current editorData
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!templateName.trim()) return;
+    if (!templateName.trim() || isSavingTemplate) return;
 
     setIsSavingTemplate(true);
     try {
@@ -975,19 +951,23 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       const docRef = doc(db, "puck_templates", docId);
       
       let screenshotBase64 = selectedImgPlaceholder;
+      // ✅ FIXED: Isolated UI thread race conditions with an automated execution deadline wrapper
       try {
-        const canvasContainer = document.querySelector(".puck-container");
+        const canvasContainer = (document.querySelector(".puck-container iframe") as HTMLIFrameElement)?.contentDocument?.body
+          || document.querySelector(".puck-container");
         if (canvasContainer) {
-          const canvas = await html2canvas(canvasContainer as HTMLElement, {
-            useCORS: true,
-            scale: 0.35,
-            logging: false,
-            backgroundColor: "#161616"
-          });
-          screenshotBase64 = canvas.toDataURL("image/jpeg", 0.65);
+          screenshotBase64 = await Promise.race([
+            html2canvas(canvasContainer as HTMLElement, {
+              useCORS: true,
+              scale: 0.25,
+              logging: false,
+              backgroundColor: "#161616"
+            }).then(canvas => canvas.toDataURL("image/jpeg", 0.6)),
+            new Promise<string>((res) => setTimeout(() => res(selectedImgPlaceholder), 1200))
+          ]);
         }
       } catch (screenshotErr) {
-        console.warn("Screenshot capture failed, falling back to placeholder:", screenshotErr);
+        console.warn("Screenshot engine optimization skipped:", screenshotErr);
       }
 
       const newTemplate = {
@@ -1008,7 +988,6 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       await fetchTemplates();
     } catch (err) {
       console.error("Error saving puck template:", err);
-      alert("Failed to save layout as template: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSavingTemplate(false);
     }
