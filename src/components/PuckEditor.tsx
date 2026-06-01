@@ -233,9 +233,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   useEffect(() => {
     setEditorData(initialData);
     setPuckVersion(v => v + 1);
-  }, [initialData]);
-
-  // Pre-seeded local templates for seeding
+  }, [initialData]);  // Pre-seeded local templates for seeding
   const seedPresets: Omit<PuckTemplateItem, "id" | "createdAt">[] = [
     {
       name: "Interior Photography",
@@ -261,15 +259,58 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             ],
             main: [
               {
-                type: "CinematicHero",
+                type: "MediaBackground",
                 props: {
                   id: "interior-hero",
-                  title: "Premium Interior Photography",
-                  subtitle: "Make buyers fall in love before they even step inside. We capture the true flow, light, and atmosphere of every home.",
                   mediaUrl: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1920&q=80",
                   mediaType: "image",
-                  ctaText: "Book a Shoot",
-                  ctaUrl: "#booking"
+                  height: "h-[80vh] min-h-[600px]",
+                  overlayOpacity: 40,
+                  content: [
+                    {
+                      type: "FlexBox",
+                      props: {
+                        id: "interior-hero-flex",
+                        direction: "flex-col",
+                        align: "items-center",
+                        justify: "justify-center",
+                        gap: 24,
+                        content: [
+                          {
+                            type: "Heading",
+                            props: {
+                              id: "interior-hero-heading",
+                              text: "Premium Interior Photography",
+                              level: 1,
+                              align: "center",
+                              accent: false,
+                              width: "full",
+                              styles: "text-white"
+                            }
+                          },
+                          {
+                            type: "RichText",
+                            props: {
+                              id: "interior-hero-sub",
+                              content: "Make buyers fall in love before they even step inside. We capture the true flow, light, and atmosphere of every home.",
+                              size: "lg",
+                              width: "full",
+                              styles: "text-white/80 text-center"
+                            }
+                          },
+                          {
+                            type: "Button",
+                            props: {
+                              id: "interior-hero-cta",
+                              link: { type: "internal", url: "#booking", label: "Book a Shoot" },
+                              variant: "solid",
+                              align: "center"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
                 }
               },
               {
@@ -384,15 +425,58 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             ],
             main: [
               {
-                type: "CinematicHero",
+                type: "MediaBackground",
                 props: {
                   id: "tours-hero",
-                  title: "Immersive 3D Virtual Tours",
-                  subtitle: "Host a 24/7 open house. Let buyers walk through the property, measure spaces, and fall in love from anywhere in the world.",
                   mediaUrl: "https://images.unsplash.com/photo-1558442074-3c1985715e09?auto=format&fit=crop&w=1920&q=80",
                   mediaType: "image",
-                  ctaText: "Book a Scan",
-                  ctaUrl: "#booking"
+                  height: "h-[80vh] min-h-[600px]",
+                  overlayOpacity: 40,
+                  content: [
+                    {
+                      type: "FlexBox",
+                      props: {
+                        id: "tours-hero-flex",
+                        direction: "flex-col",
+                        align: "items-center",
+                        justify: "justify-center",
+                        gap: 24,
+                        content: [
+                          {
+                            type: "Heading",
+                            props: {
+                              id: "tours-hero-heading",
+                              text: "Immersive 3D Virtual Tours",
+                              level: 1,
+                              align: "center",
+                              accent: false,
+                              width: "full",
+                              styles: "text-white"
+                            }
+                          },
+                          {
+                            type: "RichText",
+                            props: {
+                              id: "tours-hero-sub",
+                              content: "Host a 24/7 open house. Let buyers walk through the property, measure spaces, and fall in love from anywhere in the world.",
+                              size: "lg",
+                              width: "full",
+                              styles: "text-white/80 text-center"
+                            }
+                          },
+                          {
+                            type: "Button",
+                            props: {
+                              id: "tours-hero-cta",
+                              link: { type: "internal", url: "#booking", label: "Book a Scan" },
+                              variant: "solid",
+                              align: "center"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
                 }
               },
               {
@@ -488,15 +572,58 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             ],
             main: [
               {
-                type: "CinematicHero",
+                type: "MediaBackground",
                 props: {
                   id: "aerial-hero",
-                  title: "Aerial & Drone Photography",
-                  subtitle: "Elevate your listings above the competition. Showcase lot sizes, property boundaries, and neighborhood context with breathtaking drone imagery.",
                   mediaUrl: "https://images.unsplash.com/photo-1506126279646-a697353d3166?auto=format&fit=crop&q=80",
                   mediaType: "image",
-                  ctaText: "Book a Shoot",
-                  ctaUrl: "#booking"
+                  height: "h-[80vh] min-h-[600px]",
+                  overlayOpacity: 40,
+                  content: [
+                    {
+                      type: "FlexBox",
+                      props: {
+                        id: "aerial-hero-flex",
+                        direction: "flex-col",
+                        align: "items-center",
+                        justify: "justify-center",
+                        gap: 24,
+                        content: [
+                          {
+                            type: "Heading",
+                            props: {
+                              id: "aerial-hero-heading",
+                              text: "Aerial & Drone Photography",
+                              level: 1,
+                              align: "center",
+                              accent: false,
+                              width: "full",
+                              styles: "text-white"
+                            }
+                          },
+                          {
+                            type: "RichText",
+                            props: {
+                              id: "aerial-hero-sub",
+                              content: "Elevate your listings above the competition. Showcase lot sizes, property boundaries, and neighborhood context with breathtaking drone imagery.",
+                              size: "lg",
+                              width: "full",
+                              styles: "text-white/80 text-center"
+                            }
+                          },
+                          {
+                            type: "Button",
+                            props: {
+                              id: "aerial-hero-cta",
+                              link: { type: "internal", url: "#booking", label: "Book a Shoot" },
+                              variant: "solid",
+                              align: "center"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
                 }
               },
               {
@@ -600,7 +727,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             side: [
               {
                 type: "TextContent",
-                props: { 
+                props: {
                   id: "brand-header-hub",
                   title1: "EXPOSED",
                   title2: "BRICK",
@@ -611,17 +738,19 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             ],
             main: [
               {
-                type: "Hero",
-                props: { 
+                type: "MediaBackground",
+                props: {
                   id: "hero-hub",
-                  height: "tall",
-                  width: "full",
-                  imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"
+                  mediaUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+                  mediaType: "image",
+                  height: "h-[80vh] min-h-[600px]",
+                  overlayOpacity: 20,
+                  content: []
                 }
               },
               {
                 type: "Services",
-                props: { 
+                props: {
                   id: "services-hub",
                   title: "Editorial Real Estate Services",
                   subtitle: "Visual marketing assets produced in absolute fidelity.",
@@ -630,7 +759,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Portfolio",
-                props: { 
+                props: {
                   id: "portfolio-hub",
                   variant: "grid",
                   panel: "main",
@@ -640,7 +769,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Testimonials",
-                props: { 
+                props: {
                   id: "testimonials-hub",
                   maxItems: 5,
                   width: "full"
@@ -648,7 +777,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Contact",
-                props: { 
+                props: {
                   id: "contact-hub",
                   title: "Let's Capture Your Spatial Narrative",
                   width: "full"
@@ -656,7 +785,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Footer",
-                props: { 
+                props: {
                   id: "footer-hub",
                   quote: "Exposed Brick Media - Setting a new standard in architectural content."
                 }
@@ -679,7 +808,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             side: [
               {
                 type: "TextContent",
-                props: { 
+                props: {
                   id: "brand-header-about",
                   title1: "OUR",
                   title2: "STORY",
@@ -691,7 +820,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             main: [
               {
                 type: "Heading",
-                props: { 
+                props: {
                   id: "heading-about",
                   text: "Crafting the Narrative of Luxury Spaces",
                   level: 1,
@@ -704,18 +833,18 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "RichText",
-                props: { 
+                props: {
                   id: "text-about-core",
                   content: "Exposed Brick Media is built on a passion for spatial design, lighting mastery, and cinematic narratives. We capture architectural works with absolute structural and aesthetic fidelity.",
                   size: "lg",
                   tracking: "normal",
-                  maxWidth: "800px",
+                  maxWidth: "max-w-2xl",
                   width: "full"
                 }
               },
               {
                 type: "Testimonials",
-                props: { 
+                props: {
                   id: "testimonials-about",
                   maxItems: 3,
                   width: "full"
@@ -723,7 +852,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Footer",
-                props: { 
+                props: {
                   id: "footer-about",
                   quote: "We don't just outline spaces. We frame your brand legacy."
                 }
@@ -746,7 +875,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             side: [
               {
                 type: "TextContent",
-                props: { 
+                props: {
                   id: "brand-header-portfolio",
                   title1: "LUXURY",
                   title2: "WORKS",
@@ -757,17 +886,19 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             ],
             main: [
               {
-                type: "Hero",
-                props: { 
+                type: "MediaBackground",
+                props: {
                   id: "hero-portfolio",
-                  height: "medium",
-                  width: "full",
-                  imageUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80"
+                  mediaUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
+                  mediaType: "image",
+                  height: "h-[50vh] min-h-[400px]",
+                  overlayOpacity: 20,
+                  content: []
                 }
               },
               {
                 type: "Heading",
-                props: { 
+                props: {
                   id: "heading-portfolio",
                   text: "Featured Architectural Marvels",
                   level: 2,
@@ -778,7 +909,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Portfolio",
-                props: { 
+                props: {
                   id: "portfolio-portfolio-item",
                   variant: "gallery",
                   panel: "main",
@@ -788,7 +919,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Footer",
-                props: { 
+                props: {
                   id: "footer-portfolio",
                   quote: "Architectural fidelity meets narrative mastery."
                 }
@@ -811,7 +942,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             side: [
               {
                 type: "TextContent",
-                props: { 
+                props: {
                   id: "brand-header-pricing",
                   title1: "SELECT",
                   title2: "PACK",
@@ -823,7 +954,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
             main: [
               {
                 type: "Heading",
-                props: { 
+                props: {
                   id: "heading-pricing-top",
                   text: "Pricing Plans & Packages",
                   level: 2,
@@ -834,7 +965,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Services",
-                props: { 
+                props: {
                   id: "services-pricing-table",
                   title: "Coaching & Production Packages",
                   subtitle: "Choose the standard tier built for scaling your visual property exposure.",
@@ -843,7 +974,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Contact",
-                props: { 
+                props: {
                   id: "contact-pricing",
                   title: "Enquire About Bespoke Plans",
                   width: "full"
@@ -851,7 +982,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               },
               {
                 type: "Footer",
-                props: { 
+                props: {
                   id: "footer-pricing",
                   quote: "Flexible packages constructed for real estate listings, architects, and designers."
                 }

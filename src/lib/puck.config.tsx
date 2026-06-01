@@ -138,7 +138,6 @@ export type PuckConfig = {
   components: {
     Section: {
       spacing: any;
-      columns: string;
       padding: string;
       background: "bg-transparent" | "bg-bg-primary" | "bg-bg-secondary" | "bg-charcoal text-white";
       bgImage?: string;
@@ -169,16 +168,39 @@ export type PuckConfig = {
       spacing?: any;
       entranceAnimation?: string;
     };
-    CinematicHero: {
-      title: string;
-      subtitle: string;
+    FlexBox: {
+      direction: string;
+      align: string;
+      justify: string;
+      gap: number;
+      wrap: string;
+      content?: React.ReactNode;
+      spacing?: any;
+    };
+    GridBox: {
+      columnsDesktop: string;
+      columnsMobile: string;
+      gap: number;
+      content?: React.ReactNode;
+      spacing?: any;
+    };
+    MediaBackground: {
       mediaUrl: string;
       mediaType: "video" | "image";
-      ctaText: string;
-      ctaUrl: string;
-      cta?: any;
+      overlayOpacity: number;
+      height: string;
+      content?: React.ReactNode;
       spacing?: any;
-      entranceAnimation?: string;
+    };
+    Image: {
+      imageUrl: string;
+      aspectRatio: string;
+      objectFit: "cover" | "contain";
+      borderRadius: string;
+      width: "full" | "half";
+      spacing?: any;
+      visibility?: string;
+      styles?: string;
     };
     Columns: {
       leftColumnWidth: number;
@@ -191,13 +213,16 @@ export type PuckConfig = {
     Heading: {
       text: string;
       level: 1 | 2 | 3 | 4;
-      align: "left" | "center" | "right";
+      sizeDesktop: string;
+      sizeMobile: string;
+      align: "text-left" | "text-center" | "text-right" | "left" | "center" | "right";
       tracking: string;
       lineHeight: string;
       accent: boolean;
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
+      visibility?: string;
       styles?: string;
     };
     RichText: {
@@ -208,6 +233,7 @@ export type PuckConfig = {
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
+      visibility?: string;
       styles?: string;
     };
     Hero: {
@@ -824,6 +850,115 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     type: "textarea" as const,
   };
 
+  const VisibilityField = {
+    type: "select" as const,
+    options: [
+      { label: "Show Everywhere", value: "block" },
+      { label: "Hide on Mobile", value: "hidden md:block" },
+      { label: "Hide on Desktop", value: "block md:hidden" },
+    ]
+  };
+
+  const WysiwygEditorField = {
+    type: "custom" as const,
+    render: ({ name, value, onChange }: any) => {
+      const val = value || "";
+      const containerRef = useRef<HTMLDivElement>(null);
+
+      // Synchronize content to contentEditable
+      useEffect(() => {
+        if (containerRef.current && containerRef.current.innerHTML !== val) {
+          containerRef.current.innerHTML = val;
+        }
+      }, [val]);
+
+      const execCommand = (command: string, arg: string = "") => {
+        document.execCommand(command, false, arg);
+        if (containerRef.current) {
+          onChange(containerRef.current.innerHTML);
+        }
+      };
+
+      return (
+        <div className="space-y-2 p-3 bg-charcoal/80 border border-white/5 rounded-sm">
+          <div className="flex flex-wrap gap-1 bg-black/40 p-1.5 rounded border border-white/5">
+            <button 
+              type="button"
+              onClick={() => execCommand("bold")}
+              className="px-2.5 py-1 text-[10px] font-bold bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
+              title="Bold"
+            >
+              B
+            </button>
+            <button 
+              type="button"
+              onClick={() => execCommand("italic")}
+              className="px-2.5 py-1 text-[10px] italic bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
+              title="Italic"
+            >
+              I
+            </button>
+            <button 
+              type="button"
+              onClick={() => execCommand("underline")}
+              className="px-2.5 py-1 text-[10px] underline bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
+              title="Underline"
+            >
+              U
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                const url = prompt("Enter URL:", "https://");
+                if (url) execCommand("createLink", url);
+              }}
+              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
+              title="Link"
+            >
+              Link
+            </button>
+            <button 
+              type="button"
+              onClick={() => execCommand("unlink")}
+              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
+              title="Unlink"
+            >
+              Unlink
+            </button>
+            <button 
+              type="button"
+              onClick={() => execCommand("insertUnorderedList")}
+              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
+              title="Bullet List"
+            >
+              • List
+            </button>
+            <button 
+              type="button"
+              onClick={() => execCommand("removeFormat")}
+              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
+              title="Clear HTML/Styles"
+            >
+              Clear
+            </button>
+          </div>
+          <div 
+            ref={containerRef}
+            contentEditable
+            onBlur={(e) => {
+              onChange(e.currentTarget.innerHTML);
+            }}
+            onInput={(e) => {
+              onChange(e.currentTarget.innerHTML);
+            }}
+            className="min-h-[120px] max-h-[300px] overflow-y-auto bg-[#101010] border border-white/5 p-3 text-xs text-white outline-none focus:border-brick-copper/50 transition-colors font-sans leading-relaxed rounded wysiwyg-editor-area"
+            style={{ whiteSpace: "normal" }}
+          />
+        </div>
+      );
+    }
+  };
+
   const MediaField = (label: string, type: "image/*" | "video/*" = "image/*", storagePath: string = "uploads") => ({
     type: "custom" as const,
     render: ({ name, value, onChange }: any) => {
@@ -928,7 +1063,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     }
   }
 
-  const ComponentWrapper = ({ width, spacing, entranceAnimation, styles, children }: { width?: "full" | "half", spacing?: any, entranceAnimation?: string, styles?: string, children: React.ReactNode }) => {
+  const ComponentWrapper = ({ width, spacing, entranceAnimation, styles, children, visibility = "block" }: { width?: "full" | "half", spacing?: any, entranceAnimation?: string, styles?: string, children: React.ReactNode, visibility?: string }) => {
     const variants = {
        fade: { initial: { opacity: 0 }, animate: { opacity: 1 } },
        "slide-up": { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } },
@@ -944,7 +1079,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         initial={anim.initial}
         whileInView={anim.animate}
         viewport={{ once: true, margin: "-10%" }}
-        className={`${width === 'half' ? 'w-full lg:w-1/2' : 'w-full'} overflow-hidden ${styles || ""}`}
+        className={`${visibility} ${width === 'half' ? 'w-full lg:w-1/2' : 'w-full'} overflow-hidden ${styles || ""}`}
       >
         <SpacingWrapper spacing={spacing}>
           {/* Basic protection to catch inline runtime render errors from breaking the side catalog bar */}
@@ -961,13 +1096,13 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
   return {
     categories: {
       Layout: {
-        components: ["Section", "Columns", "Spacer", "DynamicGrid"],
+        components: ["Section", "Columns", "Spacer", "DynamicGrid", "FlexBox", "GridBox"],
       },
       Typography: {
         components: ["Heading", "RichText", "TextContent"],
       },
       Media: {
-        components: ["Hero", "CinematicHero", "MediaEmbed", "TourEmbed", "PDFReader", "BrandGallery", "DynamicGallery"],
+        components: ["Hero", "MediaBackground", "Image", "MediaEmbed", "TourEmbed", "PDFReader", "BrandGallery", "DynamicGallery"],
       },
       Interactive: {
         components: ["Button", "Contact", "Testimonials", "LogoCloud", "InstagramFeed"],
@@ -1267,14 +1402,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     Section: {
       fields: {
         spacing: SpacingControl as any,
-        columns: {
-           type: "select",
-           options: [
-             { label: "Single Column", value: "max-w-4xl mx-auto" },
-             { label: "Two Column Split", value: "grid grid-cols-1 lg:grid-cols-2 gap-16" },
-             { label: "Cinematic Full Width", value: "w-full" }
-           ]
-        },
         padding: {
            type: "select",
            options: [
@@ -1318,7 +1445,6 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       },
       defaultProps: {
         spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
-        columns: "max-w-4xl mx-auto",
         padding: "py-16",
         background: "bg-bg-primary",
         overlayOpacity: 50,
@@ -1327,7 +1453,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         layout: "boxed",
         gradientDirection: "",
       },
-      render: ({ children, spacing, columns, padding, background, bgImage, overlayOpacity, blur, parallax, gradientDirection, anchorId, layout, styles }) => {
+      render: ({ children, spacing, padding, background, bgImage, overlayOpacity, blur, parallax, gradientDirection, anchorId, layout, styles }) => {
         const ChildrenSlot = children as any;
         
         // Define the layout constraint classes
@@ -1338,26 +1464,28 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             : 'w-full px-8 md:px-16'; // Standard full width with safe zones
             
         return (
-        <SpacingWrapper spacing={spacing} className={`relative ${background} overflow-hidden group/section ${styles || ""}`} id={anchorId}>
-           {bgImage && (
-            <>
-              <div 
-                className={`absolute inset-0 bg-cover bg-center ${parallax ? 'bg-fixed' : ''}`}
-                style={{ backgroundImage: `url(${bgImage})`, filter: blur ? `blur(${blur}px)` : undefined }}
-              />
-              <div 
-                className={`absolute inset-0 bg-black ${gradientDirection || ""}`} 
-                style={{ opacity: overlayOpacity / 100 }} 
-              />
-            </>
-          )}
-          {/* Replaced the hardcoded padding with our new layoutClass */}
-          <div className={`relative z-10 transition-all ${layoutClass} ${layout === 'bleed' ? 'py-0' : padding}`}>
-            <div className={`min-h-[100px] w-full ${columns}`}>
-              <ChildrenSlot />
+        <section id={anchorId} className="w-full">
+          <SpacingWrapper spacing={spacing} className={`relative ${background} overflow-hidden group/section ${styles || ""}`}>
+             {bgImage && (
+              <>
+                <div 
+                  className={`absolute inset-0 bg-cover bg-center ${parallax ? 'bg-fixed' : ''}`}
+                  style={{ backgroundImage: `url(${bgImage})`, filter: blur ? `blur(${blur}px)` : undefined }}
+                />
+                <div 
+                  className={`absolute inset-0 bg-black ${gradientDirection || ""}`} 
+                  style={{ opacity: overlayOpacity / 100 }} 
+                />
+              </>
+            )}
+            {/* Replaced the hardcoded padding with our new layoutClass */}
+            <div className={`relative z-10 transition-all ${layoutClass} ${layout === 'bleed' ? 'py-0' : padding}`}>
+              <div className="min-h-[100px] w-full">
+                <ChildrenSlot />
+              </div>
             </div>
-          </div>
-        </SpacingWrapper>
+          </SpacingWrapper>
+        </section>
         );
       },
     },
@@ -1398,94 +1526,207 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         );
       }
     },
-    CinematicHero: {
+    FlexBox: {
       fields: {
-        title: { type: "text" },
-        subtitle: { type: "textarea" },
-        mediaUrl: MediaField("Background Media", "image/*", "hero"),
-        mediaType: { 
-          type: "radio", 
+        direction: {
+          type: "radio",
           options: [
-            { label: "Video", value: "video" }, 
-            { label: "Image", value: "image" }
-          ] 
+            { label: "Row", value: "flex-row" },
+            { label: "Column", value: "flex-col" },
+          ]
         },
-        ctaText: { type: "text" },
-        ctaUrl: { type: "text" },
-        cta: LinkField as any,
+        align: {
+          type: "select",
+          options: [
+            { label: "Start", value: "items-start" },
+            { label: "Center", value: "items-center" },
+            { label: "End", value: "items-end" },
+            { label: "Stretch", value: "items-stretch" },
+          ]
+        },
+        justify: {
+          type: "select",
+          options: [
+            { label: "Start", value: "justify-start" },
+            { label: "Center", value: "justify-center" },
+            { label: "Space Between", value: "justify-between" },
+          ]
+        },
+        gap: { type: "number" },
+        wrap: {
+          type: "radio",
+          options: [
+            { label: "Wrap", value: "flex-wrap" },
+            { label: "No Wrap", value: "flex-nowrap" }
+          ]
+        },
+        content: { type: "slot" },
         spacing: SpacingControl as any,
-        entranceAnimation: EntranceAnimationField as any,
       },
       defaultProps: {
-        title: "Architectural Narratives",
-        subtitle: "Immersive 8K visual storytelling for luxury real estate.",
+        direction: "flex-col",
+        align: "items-start",
+        justify: "justify-start",
+        gap: 24,
+        wrap: "flex-wrap",
+        spacing: { desktop: { pt: "0", pb: "0", mt: "0", mb: "0" }, mobile: { pt: "0", pb: "0", mt: "0", mb: "0" } }
+      },
+      render: ({ direction, align, justify, gap, wrap, content, spacing }) => {
+        const ContentSlot = content as any;
+        return (
+          <SpacingWrapper spacing={spacing}>
+            <div className={`flex w-full ${direction} ${align} ${justify} ${wrap}`} style={{ gap: `${gap}px` }}>
+              <ContentSlot />
+            </div>
+          </SpacingWrapper>
+        );
+      }
+    },
+    GridBox: {
+      fields: {
+        columnsDesktop: {
+          type: "select",
+          options: [
+            { label: "1 Column", value: "md:grid-cols-1" },
+            { label: "2 Columns", value: "md:grid-cols-2" },
+            { label: "3 Columns", value: "md:grid-cols-3" },
+            { label: "4 Columns", value: "md:grid-cols-4" },
+          ]
+        },
+        columnsMobile: {
+          type: "select",
+          options: [
+            { label: "1 Column", value: "grid-cols-1" },
+            { label: "2 Columns", value: "grid-cols-2" },
+          ]
+        },
+        gap: { type: "number" },
+        content: { type: "slot" },
+        spacing: SpacingControl as any,
+      },
+      defaultProps: {
+        columnsDesktop: "md:grid-cols-3",
+        columnsMobile: "grid-cols-1",
+        gap: 24,
+        spacing: { desktop: { pt: "0", pb: "0", mt: "0", mb: "0" }, mobile: { pt: "0", pb: "0", mt: "0", mb: "0" } }
+      },
+      render: ({ columnsDesktop, columnsMobile, gap, content, spacing }) => {
+        const ContentSlot = content as any;
+        return (
+          <SpacingWrapper spacing={spacing}>
+            <div className={`grid ${columnsMobile} ${columnsDesktop} w-full`} style={{ gap: `${gap}px` }}>
+              <ContentSlot />
+            </div>
+          </SpacingWrapper>
+        );
+      }
+    },
+    Image: {
+      fields: {
+        imageUrl: MediaField("Image") as any,
+        aspectRatio: {
+          type: "select",
+          options: [
+            { label: "16:9", value: "aspect-video" },
+            { label: "4:3", value: "aspect-[4/3]" },
+            { label: "1:1", value: "aspect-square" },
+            { label: "Portrait (4:5)", value: "aspect-[4/5]" },
+            { label: "Auto", value: "aspect-auto" }
+          ]
+        },
+        objectFit: {
+          type: "radio",
+          options: [
+            { label: "Cover", value: "cover" },
+            { label: "Contain", value: "contain" }
+          ]
+        },
+        borderRadius: {
+          type: "select",
+          options: [
+            { label: "None", value: "rounded-none" },
+            { label: "Small", value: "rounded-sm" },
+            { label: "Medium", value: "rounded-md" },
+            { label: "Large", value: "rounded-lg" },
+            { label: "Full Circle", value: "rounded-full" }
+          ]
+        },
+        width: WidthField as any,
+        spacing: SpacingControl as any,
+        visibility: VisibilityField as any,
+        styles: StylesField as any,
+      },
+      defaultProps: {
+        imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+        aspectRatio: "aspect-video",
+        objectFit: "cover",
+        borderRadius: "rounded-none",
+        width: "full",
+        visibility: "block",
+      },
+      render: ({ imageUrl, aspectRatio, objectFit, borderRadius, width, spacing, visibility, styles }) => {
+        const fitClass = objectFit === "cover" ? "object-cover" : "object-contain";
+        return (
+          <ComponentWrapper width={width} spacing={spacing} visibility={visibility} styles={styles}>
+            <div className="px-8">
+              <div className={`overflow-hidden ${borderRadius} ${aspectRatio} bg-black/10`}>
+                <img 
+                  src={imageUrl} 
+                  alt="Puck Visual Content" 
+                  className={`w-full h-full ${fitClass}`}
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </div>
+          </ComponentWrapper>
+        );
+      }
+    },
+    MediaBackground: {
+      fields: {
+        mediaUrl: MediaField("Background Media", "video/*", "hero") as any,
+        mediaType: {
+          type: "radio",
+          options: [{ label: "Video", value: "video" }, { label: "Image", value: "image" }]
+        },
+        overlayOpacity: { type: "number", min: 0, max: 100 },
+        height: {
+          type: "select",
+          options: [
+            { label: "Screen Height (100vh)", value: "h-screen" },
+            { label: "Tall (80vh)", value: "h-[80vh] min-h-[600px]" },
+            { label: "Medium (50vh)", value: "h-[50vh] min-h-[400px]" },
+            { label: "Auto (Fits Content)", value: "min-h-[300px]" }
+          ]
+        },
+        content: { type: "slot" },
+        spacing: SpacingControl as any,
+      },
+      defaultProps: {
         mediaUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
         mediaType: "video",
-        ctaText: "View Portfolio",
-        ctaUrl: "/",
-        cta: {
-          type: "internal",
-          label: "View Portfolio",
-          url: "/"
-        },
-        spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
+        overlayOpacity: 40,
+        height: "h-[80vh] min-h-[600px]",
+        spacing: { desktop: { pt: "0", pb: "0", mt: "0", mb: "0" }, mobile: { pt: "0", pb: "0", mt: "0", mb: "0" } },
       },
-      render: ({ title, subtitle, mediaUrl, mediaType, ctaText, ctaUrl, cta, spacing, entranceAnimation }) => {
-        const resolvedLink = cta?.label ? cta : {
-          type: ctaUrl && (ctaUrl.startsWith('http') || ctaUrl.startsWith('//') || ctaUrl.startsWith('popup:')) ? 'external' : 'internal',
-          label: ctaText || 'View Details',
-          url: ctaUrl || '/'
-        };
-
-        // If the old format starts with 'popup:', map it
-        if (ctaUrl && ctaUrl.startsWith('popup:')) {
-          resolvedLink.type = 'popup';
-          resolvedLink.url = ctaUrl.replace('popup:', '');
-        }
-
+      render: ({ mediaUrl, mediaType, overlayOpacity, height, content, spacing }) => {
+        const ContentSlot = content as any;
         return (
-          <ComponentWrapper spacing={spacing} entranceAnimation={entranceAnimation}>
-            <div className="relative h-[80vh] min-h-[600px] w-full flex items-center justify-center overflow-hidden">
+          <SpacingWrapper spacing={spacing}>
+            <div className={`relative w-full flex items-center justify-center overflow-hidden ${height}`}>
               {mediaType === 'video' ? (
                 <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
                   <source src={mediaUrl} type="video/mp4" />
                 </video>
               ) : (
-                <img src={mediaUrl} className="absolute inset-0 w-full h-full object-cover" alt="Hero" />
+                <img src={mediaUrl} className="absolute inset-0 w-full h-full object-cover" alt="Background" referrerPolicy="no-referrer" />
               )}
-              <div className="absolute inset-0 bg-black/40" />
-              <div className="relative z-10 text-center text-white px-4 max-w-4xl flex flex-col items-center">
-                <motion.h1 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6"
-                >
-                  {title}
-                </motion.h1>
-                <motion.p 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="text-xl md:text-2xl text-white/80 mb-8 max-w-2xl font-light"
-                >
-                  {subtitle}
-                </motion.p>
-                {resolvedLink && resolvedLink.label && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <LinkButton 
-                      link={resolvedLink}
-                      variant="solid"
-                      className="inline-block bg-brick-copper text-charcoal hover:bg-white transition-all duration-300 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 rounded-none px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-black"
-                    />
-                  </motion.div>
-                )}
+              <div className="absolute inset-0 bg-black" style={{ opacity: overlayOpacity / 100 }} />
+              <div className="relative z-10 w-full max-w-7xl mx-auto px-8 py-16">
+                <ContentSlot />
               </div>
             </div>
-          </ComponentWrapper>
+          </SpacingWrapper>
         );
       }
     },
@@ -1603,12 +1844,33 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             { label: "Heading 4", value: 4 },
           ],
         },
+        sizeDesktop: {
+          type: "select",
+          options: [
+            { label: "XS (text-xl)", value: "md:text-xl" },
+            { label: "SM (text-2xl)", value: "md:text-2xl" },
+            { label: "MD (text-4xl)", value: "md:text-4xl" },
+            { label: "LG (text-5xl)", value: "md:text-5xl" },
+            { label: "XL (text-6xl)", value: "md:text-6xl" },
+            { label: "XXL (text-8xl)", value: "md:text-8xl" },
+          ]
+        },
+        sizeMobile: {
+          type: "select",
+          options: [
+            { label: "XS (text-base)", value: "text-base" },
+            { label: "SM (text-xl)", value: "text-xl" },
+            { label: "MD (text-2xl)", value: "text-2xl" },
+            { label: "LG (text-3xl)", value: "text-3xl" },
+            { label: "XL (text-4xl)", value: "text-4xl" },
+          ]
+        },
         align: {
           type: "radio",
           options: [
-            { label: "Left", value: "left" },
-            { label: "Center", value: "center" },
-            { label: "Right", value: "right" },
+            { label: "Left", value: "text-left" },
+            { label: "Center", value: "text-center" },
+            { label: "Right", value: "text-right" },
           ],
         },
         tracking: {
@@ -1642,31 +1904,29 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: WidthField as any,
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
+        visibility: VisibilityField as any,
         styles: StylesField as any,
       },
       defaultProps: {
         text: "Elevated Architecture",
         level: 2,
-        align: "left",
+        sizeDesktop: "md:text-5xl",
+        sizeMobile: "text-2xl",
+        align: "text-left",
         tracking: "tracking-tight",
         lineHeight: "leading-tight",
         accent: false,
         width: "full",
+        visibility: "block",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ text, level, align, tracking, lineHeight, accent, width, spacing, entranceAnimation, styles }) => {
+      render: ({ text, level, sizeDesktop, sizeMobile, align, tracking, lineHeight, accent, width, spacing, entranceAnimation, visibility, styles }) => {
         const Tag = (`h${level}` as any) || "h2";
-        const alignClass = { left: "text-left", center: "text-center", right: "text-right" }[align];
-        const sizeClass = {
-          1: "text-5xl md:text-7xl",
-          2: "text-4xl md:text-5xl",
-          3: "text-2xl md:text-3xl",
-          4: "text-xl md:text-2xl",
-        }[level];
+        const alignClass = align === "left" ? "text-left" : align === "center" ? "text-center" : align === "right" ? "text-right" : align;
         return (
-          <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation} styles={styles}>
+          <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation} visibility={visibility} styles={styles}>
             <div className="px-8">
-              <Tag className={`${alignClass} ${sizeClass} ${tracking} ${lineHeight} font-display italic ${accent ? "text-brick-copper" : "text-text-primary"}`}>
+              <Tag className={`${alignClass} ${sizeMobile} ${sizeDesktop} ${tracking} ${lineHeight} font-display italic ${accent ? "text-brick-copper" : "text-text-primary"}`}>
                 {text}
               </Tag>
             </div>
@@ -1676,7 +1936,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     },
     RichText: {
       fields: {
-        content: { type: "textarea" },
+        content: WysiwygEditorField as any,
         size: {
           type: "select",
           options: [
@@ -1707,23 +1967,26 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: WidthField as any,
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
+        visibility: VisibilityField as any,
         styles: StylesField as any,
       },
       defaultProps: {
-        content: "High-fidelity narratives for architectural excellence.",
+        content: "<p>High-fidelity narratives for architectural excellence.</p>",
         size: "base",
         tracking: "tracking-normal",
         maxWidth: "max-w-2xl",
         width: "full",
+        visibility: "block",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ content, size, tracking, maxWidth, width, spacing, entranceAnimation, styles }) => {
+      render: ({ content, size, tracking, maxWidth, width, spacing, entranceAnimation, visibility, styles }) => {
         const sizeClass = { sm: "text-xs", base: "text-sm", lg: "text-base" }[size];
         return (
-          <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation} styles={styles}>
-            <div className={`${sizeClass} ${tracking} ${maxWidth} leading-relaxed text-text-primary/60 px-8 md:px-12`}>
-              {content}
-            </div>
+          <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation} visibility={visibility} styles={styles}>
+            <div 
+              className={`${sizeClass} ${tracking} ${maxWidth} leading-relaxed text-text-primary/60 px-8 md:px-12 wysiwyg-content`}
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
           </ComponentWrapper>
         );
       },
@@ -2239,7 +2502,7 @@ export const BASELINE_LAYOUT = {
       side: [
         {
           type: "TextContent",
-          props: { 
+          props: {
             id: "brand-header-1",
             title1: "EXPOSED",
             title2: "BRICK",
@@ -2258,8 +2521,37 @@ export const BASELINE_LAYOUT = {
       ],
       main: [
         {
-          type: "Hero",
-          props: { id: "hero-1" }
+          type: "MediaBackground",
+          props: {
+            id: "hero-1",
+            mediaUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+            mediaType: "image",
+            height: "h-[80vh] min-h-[600px]",
+            overlayOpacity: 40,
+            content: [
+              {
+                type: "FlexBox",
+                props: {
+                  id: "hero-1-flex",
+                  direction: "flex-col",
+                  align: "items-center",
+                  justify: "justify-center",
+                  gap: 24,
+                  content: [
+                    {
+                      type: "Button",
+                      props: {
+                        id: "hero-1-cta",
+                        link: { type: "internal", url: "portfolio", label: "View Portfolio" },
+                        variant: "solid",
+                        align: "center"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         },
         {
           type: "Portfolio",
