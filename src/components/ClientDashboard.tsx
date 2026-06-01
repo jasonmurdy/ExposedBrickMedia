@@ -1341,6 +1341,8 @@ export function ClientDashboard() {
                                 aspectRatio="16/9"
                                 grayscaleEffect="hover-color"
                                 lightbox={true}
+                                hideOverlays={true}
+                                minimalGap={true}
                               />
                               <p className="text-[9px] uppercase tracking-widest text-white/30 text-center select-none font-mono">
                                 Interactive Sandbox: Click thumbnail tiles to toggle preview lightbox view mode.

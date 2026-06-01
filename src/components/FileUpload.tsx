@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../lib/firebase';
 import { Upload, X, Check, Loader2 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface FileUploadProps {
   onUploadComplete: (url: string) => void;
@@ -20,21 +21,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [statusMsg, setStatusMsg] = useState('Uploading...');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const originalFile = e.target.files?.[0];
+    if (!originalFile) return;
 
-    // Validate size
-    if (file.size > maxSizeMB * 1024 * 1024) {
+    // Validate size of non-images, or if image validation is bypassed
+    if (!originalFile.type.startsWith('image/') && originalFile.size > maxSizeMB * 1024 * 1024) {
       setError(`File size must be under ${maxSizeMB}MB.`);
       return;
     }
 
     setUploading(true);
     setError(null);
+    setStatusMsg('Preparing upload...');
 
     if (!storage) {
       setError('Storage service is not available. Please enable Cloud Storage in your Firebase Console.');
@@ -42,8 +45,39 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       return;
     }
 
-    const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    let fileToUpload = originalFile;
+
+    // Check if the uploaded file is an image and can be optimized/compressed
+    if (originalFile.type.startsWith('image/')) {
+      try {
+        setStatusMsg('Optimizing image to WebP...');
+        const options = {
+          maxSizeMB: 1, // Target max size in MB
+          maxWidthOrHeight: 1920, // 1080p web-ready display
+          useWebWorker: true,
+          fileType: 'image/webp' as const
+        };
+        const compressedFile = await imageCompression(originalFile, options);
+        
+        let baseName = originalFile.name;
+        const lastDot = originalFile.name.lastIndexOf('.');
+        if (lastDot !== -1) {
+          baseName = originalFile.name.substring(0, lastDot);
+        }
+        
+        fileToUpload = new File([compressedFile], `${baseName}.webp`, {
+          type: 'image/webp',
+          lastModified: Date.now()
+        });
+      } catch (err: any) {
+        console.warn("[Client-Side Compression] Failed to optimize image, falling back to original:", err.message);
+        fileToUpload = originalFile;
+      }
+    }
+
+    setStatusMsg('Uploading file...');
+    const storageRef = ref(storage, `${path}/${Date.now()}_${fileToUpload.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, fileToUpload);
 
     uploadTask.on(
       'state_changed',
@@ -92,8 +126,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         />
         
         {uploading ? (
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center select-none text-center">
             <Loader2 className="w-5 h-5 text-brick-copper animate-spin mb-2" />
+            <span className="text-[9px] uppercase tracking-wider text-amber-500 font-bold mb-1">{statusMsg}</span>
             <span className="text-[10px] font-mono text-white/40">{Math.round(progress)}%</span>
             <div className="w-24 h-1 bg-white/5 mt-2 overflow-hidden">
               <div 

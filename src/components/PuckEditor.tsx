@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Puck, usePuck } from "@measured/puck";
+import { Puck, usePuck, createUsePuck } from "@measured/puck";
 import "@measured/puck/dist/index.css";
 import { createConfig, BASELINE_LAYOUT } from "../lib/puck.config";
 import { useSiteContent } from "../lib/SiteContentContext";
@@ -24,6 +24,8 @@ export interface PuckTemplateItem {
   puckData: any;
   createdAt: any;
 }
+// Create the optimized hook outside of your component
+const usePuckSelector = createUsePuck();
 
 interface CustomHeaderProps {
   actions: React.ReactNode;
@@ -37,6 +39,43 @@ interface CustomHeaderProps {
   onClose: () => void;
 }
 
+const HistoryControls = () => {
+  const history = usePuckSelector((state) => state.history);
+  
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => history.back()}
+        disabled={!history.hasPast}
+        type="button"
+        className={`h-8 px-3.5 border transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider font-bold font-mono ${
+          history.hasPast 
+            ? "border-white/10 text-brick-copper hover:bg-white/5 hover:border-brick-copper/50 cursor-pointer active:scale-95" 
+            : "border-white/5 opacity-30 cursor-not-allowed text-white/45"
+        }`}
+        title="Undo changes"
+      >
+        <Undo2 size={12} />
+        Undo
+      </button>
+      <button
+        onClick={() => history.forward()}
+        disabled={!history.hasFuture}
+        type="button"
+        className={`h-8 px-3.5 border transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider font-bold font-mono ${
+          history.hasFuture 
+            ? "border-white/10 text-brick-copper hover:bg-white/5 hover:border-brick-copper/50 cursor-pointer active:scale-95" 
+            : "border-white/5 opacity-30 cursor-not-allowed text-white/45"
+        }`}
+        title="Redo changes"
+      >
+        <Redo2 size={12} />
+        Redo
+      </button>
+    </div>
+  );
+};
+
 const CustomHeader = ({
   actions,
   currentPageId,
@@ -48,7 +87,6 @@ const CustomHeader = ({
   setIsSaverOpen,
   onClose
 }: CustomHeaderProps) => {
-  const { history } = usePuck();
 
   return (
     <div className="bg-[#121212] py-3.5 px-6 flex justify-between items-center z-[100] w-full text-white selection:bg-brick-copper/20">
@@ -73,36 +111,7 @@ const CustomHeader = ({
       </div>
 
       {/* Undo / Redo controls in center */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => history.back()}
-          disabled={!history.hasPast}
-          type="button"
-          className={`h-8 px-3.5 border transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider font-bold font-mono ${
-            history.hasPast 
-              ? "border-white/10 text-brick-copper hover:bg-white/5 hover:border-brick-copper/50 cursor-pointer active:scale-95" 
-              : "border-white/5 opacity-30 cursor-not-allowed text-white/45"
-          }`}
-          title="Undo changes"
-        >
-          <Undo2 size={12} />
-          Undo
-        </button>
-        <button
-          onClick={() => history.forward()}
-          disabled={!history.hasFuture}
-          type="button"
-          className={`h-8 px-3.5 border transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider font-bold font-mono ${
-            history.hasFuture 
-              ? "border-white/10 text-brick-copper hover:bg-white/5 hover:border-brick-copper/50 cursor-pointer active:scale-95" 
-              : "border-white/5 opacity-30 cursor-not-allowed text-white/45"
-          }`}
-          title="Redo changes"
-        >
-          <Redo2 size={12} />
-          Redo
-        </button>
-      </div>
+      <HistoryControls />
 
       <div className="flex items-center gap-3">
         <button
@@ -219,12 +228,12 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   }, [page, currentPageId, settings.layout, settings.brandName]);
 
   const [editorData, setEditorData] = useState<any>(initialData);
-  const prevInitialDataRef = useRef(initialData);
-
-  if (initialData !== prevInitialDataRef.current) {
-    prevInitialDataRef.current = initialData;
+  
+  // ✅ FIXED: Safely sync changes using a standard layout effect phase block hook instead of an inline useMemo mutation
+  useEffect(() => {
     setEditorData(initialData);
-  }
+    setPuckVersion(v => v + 1);
+  }, [initialData]);
 
   // Pre-seeded local templates for seeding
   const seedPresets: Omit<PuckTemplateItem, "id" | "createdAt">[] = [

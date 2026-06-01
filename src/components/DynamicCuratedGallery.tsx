@@ -23,6 +23,8 @@ interface DynamicCuratedGalleryProps {
   aspectRatio: "16/9" | "4/3" | "1/1" | "portrait" | "auto";
   grayscaleEffect: "none" | "hover-color" | "always-grayscale";
   lightbox: boolean;
+  hideOverlays?: boolean;
+  minimalGap?: boolean;
 }
 
 export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
@@ -33,7 +35,9 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
   columns = 3,
   aspectRatio = "16/9",
   grayscaleEffect = "hover-color",
-  lightbox = true
+  lightbox = true,
+  hideOverlays = false,
+  minimalGap = false
 }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -118,18 +122,18 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
   }
 
   return (
-    <div className="w-full px-8 md:px-12 lg:px-16" id="curated-media-gallery">
+    <div className={`w-full ${minimalGap ? "px-0" : "px-8 md:px-12 lg:px-16"}`} id="curated-media-gallery">
       {/* Header section */}
       {(title || subtitle) && (
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 border-b border-white/5 pb-8 gap-4">
+        <div className={`flex flex-col md:flex-row md:items-end justify-between ${minimalGap ? "mb-6 pb-4" : "mb-12 pb-8"} border-b border-white/5 gap-4`}>
           <div className="max-w-2xl">
             {title && (
-              <h2 className="font-display text-3xl md:text-5xl italic text-white tracking-tight">
+              <h2 className={`font-display text-white tracking-tight italic ${minimalGap ? "text-xl md:text-2xl" : "text-3xl md:text-5xl"}`}>
                 {title}
               </h2>
             )}
             {subtitle && (
-              <p className="mt-2.5 text-xs text-white/40 uppercase tracking-widest leading-relaxed">
+              <p className="mt-2.5 text-[9px] text-white/40 uppercase tracking-widest leading-relaxed">
                 {subtitle}
               </p>
             )}
@@ -158,7 +162,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
 
       {/* Grid rendering options */}
       {layout === "grid" && (
-        <div className={`grid ${getGridColsClass(columns)} gap-6 lg:gap-8`}>
+        <div className={`grid ${getGridColsClass(columns)} ${minimalGap ? "gap-1.5 sm:gap-2" : "gap-6 lg:gap-8"}`}>
           {images.map((img, index) => (
             <motion.div
               key={`${img.url}-${index}`}
@@ -171,25 +175,29 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
             >
               <img
                 src={img.url}
-                className={`w-full h-full object-cover select-none ${getGrayscaleClass(grayscaleEffect)}`}
+                className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
                 alt={img.portfolioTitle}
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                {lightbox && (
-                  <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
-                    <Maximize2 size={16} />
+              {!hideOverlays && (
+                <>
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    {lightbox && (
+                      <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
+                        <Maximize2 size={16} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                  {img.category || "Property Asset"}
-                </span>
-                <span className="font-display text-sm italic text-white line-clamp-1 block">
-                  {img.portfolioTitle}
-                </span>
-              </div>
+                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                    <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
+                      {img.category || "Property Asset"}
+                    </span>
+                    <span className="font-display text-sm italic text-white line-clamp-1 block">
+                      {img.portfolioTitle}
+                    </span>
+                  </div>
+                </>
+              )}
             </motion.div>
           ))}
         </div>
@@ -197,7 +205,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
 
       {/* Masonry Layout (utilizing column layout) */}
       {layout === "masonry" && (
-        <div className={`columns-1 sm:columns-2 lg:columns-${columns} gap-6 space-y-6`}>
+        <div className={`columns-1 sm:columns-2 lg:columns-${columns} ${minimalGap ? "gap-1.5 space-y-1.5" : "gap-6 space-y-6"}`}>
           {images.map((img, index) => (
             <motion.div
               key={`${img.url}-${index}`}
@@ -205,30 +213,34 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.05 }}
-              className="break-inside-avoid w-full block bg-[#101010] border border-white/5 group relative overflow-hidden cursor-pointer"
+              className={`break-inside-avoid w-full block bg-[#101010] border border-white/5 group relative overflow-hidden cursor-pointer ${minimalGap ? "mb-1.5" : "mb-6"}`}
               onClick={() => lightbox && setLightboxIndex(index)}
             >
               <img
                 src={img.url}
-                className={`w-full h-auto block select-none ${getGrayscaleClass(grayscaleEffect)}`}
+                className={`w-full h-auto block select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
                 alt={img.portfolioTitle}
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                {lightbox && (
-                  <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
-                    <Maximize2 size={16} />
+              {!hideOverlays && (
+                <>
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    {lightbox && (
+                      <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
+                        <Maximize2 size={16} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                  {img.category || "Property Asset"}
-                </span>
-                <span className="font-display text-sm italic text-white line-clamp-1 block">
-                  {img.portfolioTitle}
-                </span>
-              </div>
+                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                    <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
+                      {img.category || "Property Asset"}
+                    </span>
+                    <span className="font-display text-sm italic text-white line-clamp-1 block">
+                      {img.portfolioTitle}
+                    </span>
+                  </div>
+                </>
+              )}
             </motion.div>
           ))}
         </div>
@@ -236,7 +248,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
 
       {/* Bento Showcase Grid */}
       {layout === "bento" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 auto-rows-[220px] sm:auto-rows-[250px] md:auto-rows-[280px]">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${minimalGap ? "gap-1.5" : "gap-6"} auto-rows-[220px] sm:auto-rows-[250px] md:auto-rows-[280px]`}>
           {images.map((img, index) => (
             <motion.div
               key={`${img.url}-${index}`}
@@ -249,25 +261,29 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
             >
               <img
                 src={img.url}
-                className={`w-full h-full object-cover select-none ${getGrayscaleClass(grayscaleEffect)}`}
+                className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
                 alt={img.portfolioTitle}
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                {lightbox && (
-                  <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
-                    <Maximize2 size={16} />
+              {!hideOverlays && (
+                <>
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    {lightbox && (
+                      <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
+                        <Maximize2 size={16} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                  {img.category || "Property Asset"}
-                </span>
-                <span className="font-display text-sm md:text-base italic text-white line-clamp-1 block">
-                  {img.portfolioTitle}
-                </span>
-              </div>
+                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                    <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
+                      {img.category || "Property Asset"}
+                    </span>
+                    <span className="font-display text-sm md:text-base italic text-white line-clamp-1 block">
+                      {img.portfolioTitle}
+                    </span>
+                  </div>
+                </>
+              )}
             </motion.div>
           ))}
         </div>
@@ -277,12 +293,12 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
       {layout === "carousel" && (
         <div 
           ref={carouselRef}
-          className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-4"
+          className={`flex ${minimalGap ? "gap-1.5" : "gap-6"} overflow-x-auto snap-x snap-mandatory scrollbar-none pb-4`}
         >
           {images.map((img, index) => (
             <div
               key={`${img.url}-${index}`}
-              className="flex-shrink-0 w-[85vw] sm:w-[50vw] md:w-[35vw] snap-start"
+              className={`flex-shrink-0 w-[85vw] sm:w-[50vw] md:w-[35vw] snap-start`}
             >
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -293,25 +309,29 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
               >
                 <img
                   src={img.url}
-                  className={`w-full h-full object-cover select-none ${getGrayscaleClass(grayscaleEffect)}`}
+                  className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
                   alt={img.portfolioTitle}
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  {lightbox && (
-                    <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
-                      <Maximize2 size={16} />
+                {!hideOverlays && (
+                  <>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      {lightbox && (
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
+                          <Maximize2 size={16} />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                  <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                    {img.category || "Property Asset"}
-                  </span>
-                  <span className="font-display text-sm italic text-white line-clamp-1 block">
-                    {img.portfolioTitle}
-                  </span>
-                </div>
+                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                      <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
+                        {img.category || "Property Asset"}
+                      </span>
+                      <span className="font-display text-sm italic text-white line-clamp-1 block">
+                        {img.portfolioTitle}
+                      </span>
+                    </div>
+                  </>
+                )}
               </motion.div>
             </div>
           ))}

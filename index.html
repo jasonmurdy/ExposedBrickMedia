@@ -1,6 +1,18 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      window.addEventListener('error', function(e) {
+        if (
+          !e.message || 
+          e.message === 'Script error.' || 
+          e.message.indexOf('Script error') !== -1 ||
+          e.message.indexOf('ResizeObserver') !== -1
+        ) {
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

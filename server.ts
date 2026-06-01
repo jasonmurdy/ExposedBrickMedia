@@ -9,6 +9,10 @@ import { GoogleGenAI } from "@google/genai";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
+import sharp from "sharp";
+import { google } from "googleapis";
+import { PassThrough } from "stream";
+import axios from "axios";
 
 dotenv.config();
 
@@ -562,8 +566,42 @@ Make sure every component in the returned JSON has a unique "id" string generate
         return res.status(412).json({ error: "Photos are not ready for delivery yet." });
       }
 
-      const docId = `fotello-delivered-${enhance_id}`;
+      let docId = `fotello-delivered-${enhance_id}`;
       
+      const listPath = path.resolve(process.cwd(), "fotello-synchronized-portfolio.json");
+      let currentList = [];
+      try {
+        if (fs.existsSync(listPath)) {
+          currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
+        }
+      } catch (err: any) {
+        console.warn("[Deliver Orchestrator] Could not load local portfolio backup for duplicate detection:", err.message);
+      }
+
+      // Check if there is an existing portfolio item matching the exact address, title, or ID
+      const duplicateMatch = currentList.find((item: any) => 
+        item.id === docId ||
+        (property_address && (
+          item.address?.toLowerCase().trim() === property_address.toLowerCase().trim() || 
+          item.title?.toLowerCase().includes(property_address.toLowerCase()) ||
+          property_address.toLowerCase().includes(item.address?.toLowerCase() || '')
+        ))
+      );
+
+      if (duplicateMatch) {
+        docId = duplicateMatch.id;
+        console.log(`[Deliver Orchestrator] Duplicate check matched existing item: ${docId}. Updating in place to avoid duplicate portfolio entries.`);
+      }
+
+      let mergedPartnerUids = [client_id];
+      if (duplicateMatch && Array.isArray(duplicateMatch.partnerUids)) {
+        if (!duplicateMatch.partnerUids.includes(client_id)) {
+          mergedPartnerUids = [...duplicateMatch.partnerUids, client_id];
+        } else {
+          mergedPartnerUids = duplicateMatch.partnerUids;
+        }
+      }
+
       const listingRecord = {
         title: fotelloData.title || `Delivered: ${property_address}`,
         category: "Residential",
@@ -582,18 +620,13 @@ Make sure every component in the returned JSON has a unique "id" string generate
         colSpan: 1,
         rowSpan: 1,
         order: 0,
-        partnerUids: [client_id], // Assigned directly to the target client!
-        createdAt: new Date().toISOString(),
+        partnerUids: mergedPartnerUids, // Assigned directly to the target client(s) with deduplicated mapping!
+        createdAt: duplicateMatch?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
       // 1. Double commit: first save to local cache for sandbox resilience
       try {
-        const listPath = path.resolve(process.cwd(), "fotello-synchronized-portfolio.json");
-        let currentList = [];
-        if (fs.existsSync(listPath)) {
-          currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
-        }
         currentList = currentList.filter((item: any) => item.id !== docId);
         currentList.push({
           ...listingRecord,
@@ -810,14 +843,23 @@ Make sure every component in the returned JSON has a unique "id" string generate
 
     for (const partner of INITIAL_PARTNERS) {
       const docId = "partner-" + partner.email.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      
+      // Look up existing partner details from local cache first to ensure offline edits are preserved!
+      const existingLocal = currentLocalList.find((item: any) => item.email?.toLowerCase().trim() === partner.email.toLowerCase().trim());
+
       let currentData: any = {
         email: partner.email,
-        displayName: partner.displayName,
-        phone: partner.phone || "",
+        displayName: existingLocal?.displayName || partner.displayName,
+        phone: existingLocal?.phone || partner.phone || "",
         role: "partner",
-        headshotUrl: partner.headshotUrl,
-        logoUrl: partner.logoUrl,
-        bio: partner.bio
+        headshotUrl: existingLocal?.headshotUrl || partner.headshotUrl,
+        logoUrl: existingLocal?.logoUrl || partner.logoUrl,
+        bio: existingLocal?.bio || partner.bio,
+        instagram: existingLocal?.instagram || "",
+        facebook: existingLocal?.facebook || "",
+        linkedin: existingLocal?.linkedin || "",
+        teamId: existingLocal?.teamId || null,
+        teamName: existingLocal?.teamName || null
       };
       
       try {
@@ -870,7 +912,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
         linkedin: currentData.linkedin || "",
         teamId: currentData.teamId || null,
         teamName: currentData.teamName || null,
-        createdAt: currentData.createdAt ? (currentData.createdAt.toDate ? currentData.createdAt.toDate().toISOString() : new Date().toISOString()) : new Date().toISOString(),
+        createdAt: currentData.createdAt ? (currentData.createdAt.toDate ? currentData.createdAt.toDate().toISOString() : (typeof currentData.createdAt === 'string' ? currentData.createdAt : new Date().toISOString())) : (existingLocal?.createdAt || new Date().toISOString()),
         updatedAt: new Date().toISOString()
       };
 
@@ -936,6 +978,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
         role: role || "partner",
         teamId: teamId || null,
         teamName: teamName || null,
+        email: req.body.email || (id.includes("@") ? id : ""),
         createdAt: new Date().toISOString()
       };
 
@@ -1061,6 +1104,189 @@ Make sure every component in the returned JSON has a unique "id" string generate
     } catch (err: any) {
       console.log("[Delete partner endpoint fallback] Handled deleting partner offline:", err.message);
       return res.json({ success: true });
+    }
+  });
+
+  // Synchronize merging of two partners
+  app.post("/api/admin/partners/merge", async (req, res) => {
+    try {
+      const { sourceId, targetId, reassignProjects, reassignReferrals, copyMissingDetails, deleteSource } = req.body;
+      if (!sourceId || !targetId) {
+        return res.status(400).json({ error: "Missing sourceId or targetId for partner merging." });
+      }
+
+      console.log(`[Partner Merge] Initiating deep merge of ${sourceId} into ${targetId}. Options:`, { reassignProjects, reassignReferrals, copyMissingDetails, deleteSource });
+
+      // 1. Load lists/data
+      const partnersListPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+      let localPartners: any[] = [];
+      if (fs.existsSync(partnersListPath)) {
+        try {
+          localPartners = JSON.parse(fs.readFileSync(partnersListPath, "utf8"));
+        } catch (err: any) {
+          console.warn("[Partner Merge] Error loading local partners:", err.message);
+        }
+      }
+
+      const sourceLocal = localPartners.find((item: any) => item.uid === sourceId || item.id === sourceId);
+      const targetLocal = localPartners.find((item: any) => item.uid === targetId || item.id === targetId);
+
+      // Fetch from Firestore too if possible
+      let sourceFirestore: any = null;
+      let targetFirestore: any = null;
+      try {
+        const sourceDoc = await adminDb.collection("users").doc(sourceId).get();
+        if (sourceDoc.exists) sourceFirestore = sourceDoc.data();
+      } catch (err) {
+        console.log("[Partner Merge] Firestore read source ignored/bypassed.");
+      }
+
+      try {
+        const targetDoc = await adminDb.collection("users").doc(targetId).get();
+        if (targetDoc.exists) targetFirestore = targetDoc.data();
+      } catch (err) {
+        console.log("[Partner Merge] Firestore read target ignored/bypassed.");
+      }
+
+      const sourceMerged = { ...(sourceLocal || {}), ...(sourceFirestore || {}) };
+      const targetMerged = { ...(targetLocal || {}), ...(targetFirestore || {}) };
+
+      // 2. Perform field-level copy if checked
+      if (copyMissingDetails) {
+        const fieldsToCopy = ["phone", "bio", "headshotUrl", "logoUrl", "instagram", "facebook", "linkedin", "teamId", "teamName"];
+        for (const field of fieldsToCopy) {
+          if (!targetMerged[field] && sourceMerged[field]) {
+            targetMerged[field] = sourceMerged[field];
+          }
+        }
+        targetMerged.updatedAt = new Date().toISOString();
+
+        // Update target in Firestore
+        try {
+          await adminDb.collection("users").doc(targetId).set(targetMerged, { merge: true });
+        } catch (dbErr: any) {
+          console.log(`[Partner Merge] Firestore merge update bypassed: ${dbErr.message}`);
+        }
+
+        // Update target in local JSON
+        const targetIdx = localPartners.findIndex((item: any) => item.uid === targetId || item.id === targetId);
+        if (targetIdx !== -1) {
+          localPartners[targetIdx] = {
+            ...localPartners[targetIdx],
+            ...targetMerged
+          };
+        }
+      }
+
+      // 3. Reassign associated projects/listings
+      if (reassignProjects) {
+        // A. Update local JSON
+        const portfolioPath = path.resolve(process.cwd(), "fotello-synchronized-portfolio.json");
+        if (fs.existsSync(portfolioPath)) {
+          try {
+            let portfolioList = JSON.parse(fs.readFileSync(portfolioPath, "utf8"));
+            let modified = false;
+            portfolioList = portfolioList.map((item: any) => {
+              let changed = false;
+              let itemPartnerUids = item.partnerUids || [];
+              if (item.partnerUid === sourceId) {
+                item.partnerUid = targetId;
+                changed = true;
+              }
+              if (itemPartnerUids.includes(sourceId)) {
+                itemPartnerUids = itemPartnerUids.filter((uid: string) => uid !== sourceId);
+                if (!itemPartnerUids.includes(targetId)) {
+                  itemPartnerUids.push(targetId);
+                }
+                item.partnerUids = itemPartnerUids;
+                changed = true;
+              }
+              if (changed) modified = true;
+              return item;
+            });
+            if (modified) {
+              fs.writeFileSync(portfolioPath, JSON.stringify(portfolioList, null, 2), "utf8");
+              console.log("[Partner Merge] Reassigned local synchronized portfolio listings.");
+            }
+          } catch (fileErr: any) {
+            console.warn("[Partner Merge] Failed to update local portfolio file:", fileErr.message);
+          }
+        }
+
+        // B. Update Firestore portfolio_items
+        try {
+          const portfolioSnap = await adminDb.collection("portfolio_items").get();
+          for (const doc of portfolioSnap.docs) {
+            const data = doc.data();
+            let changed = false;
+            const updateProps: any = {};
+
+            if (data.partnerUid === sourceId) {
+              updateProps.partnerUid = targetId;
+              changed = true;
+            }
+
+            if (Array.isArray(data.partnerUids) && data.partnerUids.includes(sourceId)) {
+              let updatedUids = data.partnerUids.filter((uid: string) => uid !== sourceId);
+              if (!updatedUids.includes(targetId)) {
+                updatedUids.push(targetId);
+              }
+              updateProps.partnerUids = updatedUids;
+              changed = true;
+            }
+
+            if (changed) {
+              await adminDb.collection("portfolio_items").doc(doc.id).update(updateProps);
+            }
+          }
+          console.log("[Partner Merge] Reassigned Firestore portfolio items.");
+        } catch (dbErr: any) {
+          console.log(`[Partner Merge] Firestore portfolio reassign bypassed/skipped: ${dbErr.message}`);
+        }
+      }
+
+      // 4. Reassign associated Referrals in Firestore
+      if (reassignReferrals) {
+        try {
+          const referralsSnap = await adminDb.collection("referrals").where("referrerUid", "==", sourceId).get();
+          for (const doc of referralsSnap.docs) {
+            await adminDb.collection("referrals").doc(doc.id).update({
+              referrerUid: targetId,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+          }
+          console.log(`[Partner Merge] Reassigned referrals in Firestore.`);
+        } catch (dbErr: any) {
+          console.log(`[Partner Merge] Firestore referrals reassign bypassed: ${dbErr.message}`);
+        }
+      }
+
+      // 5. Delete source duplicate profile if requested
+      if (deleteSource) {
+        try {
+          await adminDb.collection("users").doc(sourceId).delete();
+        } catch (dbErr: any) {
+          console.log(`[Partner Merge] Firestore source deletion skipped/bypassed: ${dbErr.message}`);
+        }
+
+        // Filter out source partner from local JSON
+        localPartners = localPartners.filter((item: any) => item.uid !== sourceId && item.id !== sourceId);
+      }
+
+      // Write updated local partners list
+      fs.writeFileSync(partnersListPath, JSON.stringify(localPartners, null, 2), "utf8");
+
+      systemLogs.push({
+        timestamp: new Date().toISOString(),
+        action: "MERGE_PARTNERS",
+        details: `Successfully merged partner ${sourceMerged.displayName || sourceId} into ${targetMerged.displayName || targetId}. Content & associations migrated successfully.`,
+        user: "Admin Portal"
+      });
+
+      return res.json({ success: true, message: `Successfully merged partner details of ${sourceMerged.displayName || sourceId} into ${targetMerged.displayName || targetId}.` });
+    } catch (err: any) {
+      console.warn("[Partner Merge Sync Fallback ERROR]:", err.message);
+      return res.status(500).json({ error: "Failed to fully execute partner merge pipeline.", details: err.message });
     }
   });
 
@@ -1529,21 +1755,195 @@ Make sure every component in the returned JSON has a unique "id" string generate
         }
 
         let docId = proj.id ? `fotello-${proj.id}` : null;
-        if (!docId) {
-          // Fall back to matching dynamic fields to resolve already-synced target
-          const duplicateMatch = currentList.find((item: any) => 
-            (proj.address && (item.description?.includes(proj.address) || item.title?.includes(proj.address) || item.address === proj.address)) ||
-            (proj.title && item.title === proj.title)
-          );
-          if (duplicateMatch) {
-            docId = duplicateMatch.id;
-            console.log(`[Fotello Webhook Portfolio Sync] Duplicate check guardrail matched existing item: ${docId}`);
-          } else {
-            docId = `fotello-${Math.floor(Math.random() * 90000 + 10000)}`;
-          }
+        
+        // Always run duplicate guardrail checks based on address/location, title, download URLs to prevent duplicates
+        const duplicateMatch = currentList.find((item: any) => 
+          (docId && item.id === docId) ||
+          (proj.address && (
+            item.address === proj.address || 
+            item.title?.toLowerCase().includes(proj.address.toLowerCase()) ||
+            proj.address.toLowerCase().includes(item.address?.toLowerCase() || '')
+          )) ||
+          (proj.title && item.title?.toLowerCase() === proj.title.toLowerCase()) ||
+          (proj.downloadUrl && item.fotelloUrl === proj.downloadUrl) ||
+          (proj.fotelloUrl && item.fotelloUrl === proj.fotelloUrl)
+        );
+
+        if (duplicateMatch) {
+          docId = duplicateMatch.id;
+          console.log(`[Fotello Webhook Portfolio Sync] Duplicate check guardrail matched existing item: ${docId}`);
+        } else if (!docId) {
+          docId = `fotello-${Math.floor(Math.random() * 90000 + 10000)}`;
         }
         
         // 2. Double commit: first save to a robust local cache file for resilient sandbox support
+        const partnersListPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+        let localPartners: any[] = [];
+        if (fs.existsSync(partnersListPath)) {
+          try {
+            localPartners = JSON.parse(fs.readFileSync(partnersListPath, "utf8"));
+          } catch (err: any) {
+            console.warn("[Webhook Portfolio Sync] Failed reading local partners for email linking:", err.message);
+          }
+        }
+
+        let mergedPartnerUids = duplicateMatch?.partnerUids ? [...duplicateMatch.partnerUids] : [];
+        const agentEmail = (proj.agentEmail || proj.clientEmail || payload.data?.agentEmail || payload.data?.clientEmail || payload.data?.client?.email || payload.agentEmail || "")?.toLowerCase().trim();
+        
+        if (agentEmail) {
+          const matchUser = localPartners.find((u: any) => u.email?.toLowerCase().trim() === agentEmail);
+          if (matchUser) {
+            const partnerId = matchUser.uid || matchUser.id;
+            if (partnerId && !mergedPartnerUids.includes(partnerId)) {
+              mergedPartnerUids.push(partnerId);
+              console.log(`[Fotello Webhook Sync] Automatically associated delivered project ${proj.address || docId} to partner ${matchUser.displayName} (${agentEmail})`);
+            }
+          }
+        }
+
+        // Determine which images/photos are included in the webhook body/payload
+        let imagesToProcess: any[] = [];
+        if (Array.isArray(payload.payload?.images)) {
+          imagesToProcess = payload.payload.images;
+        } else if (Array.isArray(payload.images)) {
+          imagesToProcess = payload.images;
+        } else if (proj.gallery && Array.isArray(proj.gallery)) {
+          imagesToProcess = proj.gallery;
+        } else if (proj.photos && Array.isArray(proj.photos)) {
+          imagesToProcess = proj.photos;
+        } else if (proj.mainPhoto) {
+          imagesToProcess = [proj.mainPhoto];
+        }
+
+        const listingId = proj.id || payload.payload?.listingId || payload.listingId || docId;
+        const propertyName = proj.address || proj.title || payload.payload?.propertyName || payload.propertyName || "Exposed Brick Media Project";
+
+        // Step 1: Initialize Google Drive client and create a readable subfolder for the client
+        let clientDriveLink = "";
+        let newDriveFolderId = "";
+
+        try {
+          const auth = new google.auth.GoogleAuth({
+            scopes: ['https://www.googleapis.com/auth/drive'],
+          });
+          const drive = google.drive({ version: 'v3', auth });
+          const PARENT_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || '1hTMOAeBwUohBl-nC-GuGfdUnYAXiiwXj';
+
+          console.log(`[Google Drive Sync] Creating subfolder inside parent directory ${PARENT_DRIVE_FOLDER_ID} for property: ${propertyName}`);
+          const folderMetadata = {
+            name: propertyName,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [PARENT_DRIVE_FOLDER_ID]
+          };
+          const folderResponse = await drive.files.create({
+            requestBody: folderMetadata,
+            fields: 'id, webViewLink'
+          });
+          newDriveFolderId = folderResponse.data.id || "";
+          clientDriveLink = folderResponse.data.webViewLink || "";
+          console.log(`[Google Drive Sync] Subfolder created: ID=${newDriveFolderId}, Link=${clientDriveLink}`);
+        } catch (driveErr: any) {
+          console.warn("[Google Drive Sync] Google Drive initialization or folder creation skipped/failed:", driveErr.message);
+        }
+
+        // Step 2: Loop through and process each image through our parallel pipelines
+        const bucket = admin.storage().bucket(firebaseConfig.storageBucket);
+        const processedGalleryUrls: string[] = [];
+        const processedGalleryItems: any[] = [];
+
+        for (let i = 0; i < imagesToProcess.length; i++) {
+          const img = imagesToProcess[i];
+          if (!img) continue;
+
+          let imgId = "";
+          let imageUrl = "";
+
+          if (typeof img === "string") {
+            imgId = `img-${i}-${Math.floor(Math.random() * 90000 + 10000)}`;
+            imageUrl = img;
+          } else if (typeof img === "object") {
+            imgId = img.id || `img-${i}-${Math.floor(Math.random() * 90000 + 10000)}`;
+            imageUrl = img.enhanced_image_url || img.url || img.downloadUrl || img.download_url || img.src || "";
+          }
+
+          if (!imageUrl) continue;
+
+          console.log(`[Webhook Image Process] Processing image ${i + 1}/${imagesToProcess.length}: ID=${imgId} Url=${imageUrl}`);
+
+          try {
+            // Download raw file in binary format
+            const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+            const inputBuffer = Buffer.from(response.data);
+
+            // --- PIPELINE A: FIREBASE STORAGE (WebP compressed for fast loading) ---
+            let cdnUrl = "";
+            try {
+              const optimizedBuffer = await sharp(inputBuffer)
+                .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+                .toFormat('webp', { quality: 80 })
+                .toBuffer();
+
+              const firebaseFile = bucket.file(`portfolio/${listingId}/${imgId}.webp`);
+              await firebaseFile.save(optimizedBuffer, {
+                metadata: { contentType: 'image/webp' }
+              });
+
+              const [signedUrl] = await firebaseFile.getSignedUrl({
+                action: 'read',
+                expires: '03-01-2500'
+              });
+              cdnUrl = signedUrl;
+              processedGalleryUrls.push(cdnUrl);
+              processedGalleryItems.push({
+                id: imgId,
+                url: cdnUrl,
+                title: (typeof img === "object" && img.title) ? img.title : `Media Asset ${i + 1}`,
+                originalUrl: imageUrl
+              });
+              console.log(`[Pipeline A] Handled JPEG optimization to format WebP successfully: ${cdnUrl}`);
+            } catch (storageErr: any) {
+              console.warn(`[Pipeline A] Cloud Storage upload bypassed/failed for ${imgId}:`, storageErr.message);
+              // Fallback to source url directly
+              processedGalleryUrls.push(imageUrl);
+              processedGalleryItems.push({
+                id: imgId,
+                url: imageUrl,
+                title: (typeof img === "object" && img.title) ? img.title : `Media Asset ${i + 1}`,
+                originalUrl: imageUrl
+              });
+            }
+
+            // --- PIPELINE B: GOOGLE DRIVE (Original High-Res delivery) ---
+            if (newDriveFolderId) {
+              try {
+                const bufferStream = new PassThrough();
+                bufferStream.end(inputBuffer);
+
+                const auth = new google.auth.GoogleAuth({
+                  scopes: ['https://www.googleapis.com/auth/drive'],
+                });
+                const drive = google.drive({ version: 'v3', auth });
+
+                await drive.files.create({
+                  requestBody: {
+                    name: `${imgId}.jpg`,
+                    parents: [newDriveFolderId]
+                  },
+                  media: {
+                    mimeType: 'image/jpeg',
+                    body: bufferStream
+                  }
+                });
+                console.log(`[Pipeline B] Uploaded high-resolution original ${imgId}.jpg to Google Drive.`);
+              } catch (driveUploadErr: any) {
+                console.warn(`[Pipeline B] Google Drive asset upload failed for image ${imgId}:`, driveUploadErr.message);
+              }
+            }
+          } catch (itemProcessErr: any) {
+            console.error(`[Webhook Image Process] Failed to fetch or process listing image index ${i}:`, itemProcessErr.message);
+          }
+        }
+
         try {
           currentList = currentList.filter((item: any) => item.id !== docId);
           currentList.push({
@@ -1552,13 +1952,13 @@ Make sure every component in the returned JSON has a unique "id" string generate
             category: proj.category || "Residential",
             propertyType: proj.specs?.propertyType || "Single Family Home",
             status: "Completed",
-            img: proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
+            img: processedGalleryUrls[0] || proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
             description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
             address: proj.address || "",
             url: proj.matterportUrl || "",
             fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
             matterportUrl: proj.matterportUrl || "",
-            gallery: proj.gallery || [],
+            gallery: processedGalleryItems.length > 0 ? processedGalleryItems : (proj.gallery || []),
             beds: proj.specs?.beds || "",
             baths: proj.specs?.baths || "",
             sqft: proj.specs?.sqft || "",
@@ -1568,7 +1968,10 @@ Make sure every component in the returned JSON has a unique "id" string generate
             colSpan: 1,
             rowSpan: 1,
             order: 0,
-            createdAt: new Date().toISOString(),
+            partnerUids: mergedPartnerUids,
+            driveDeliveryLink: clientDriveLink,
+            driveFolderId: newDriveFolderId,
+            createdAt: duplicateMatch?.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
           fs.writeFileSync(listPath, JSON.stringify(currentList, null, 2), "utf8");
@@ -1584,12 +1987,12 @@ Make sure every component in the returned JSON has a unique "id" string generate
             category: proj.category || "Residential",
             propertyType: proj.specs?.propertyType || "Single Family Home",
             status: "Completed",
-            img: proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
+            img: processedGalleryUrls[0] || proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
             description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
             url: proj.matterportUrl || "",
             fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
             matterportUrl: proj.matterportUrl || "",
-            gallery: proj.gallery || [],
+            gallery: processedGalleryItems.length > 0 ? processedGalleryItems : (proj.gallery || []),
             beds: proj.specs?.beds || "",
             baths: proj.specs?.baths || "",
             sqft: proj.specs?.sqft || "",
@@ -1599,17 +2002,61 @@ Make sure every component in the returned JSON has a unique "id" string generate
             colSpan: 1,
             rowSpan: 1,
             order: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            partnerUids: mergedPartnerUids,
+            driveDeliveryLink: clientDriveLink,
+            driveFolderId: newDriveFolderId,
+            createdAt: duplicateMatch?.createdAt ? admin.firestore.Timestamp.fromDate(new Date(duplicateMatch.createdAt)) : admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          });
+          }, { merge: true });
         } catch (dbWriteErr: any) {
           console.log(`[Fotello Webhook Portfolio Sync] Remote Firestore sync skipped for ${proj.address} (Sandbox mode).`);
+        }
+
+        // 3. Dispatch beautifully branded, automatic email notifications to each newly matched or linked partner
+        if (mergedPartnerUids.length > 0) {
+          for (const uid of mergedPartnerUids) {
+            const partner = localPartners.find((p: any) => p.uid === uid || p.id === uid);
+            if (partner && partner.email) {
+              try {
+                const subject = `Your New Premium Media Delivery is Ready: ${proj.address || 'Project Finalized'}`;
+                const emailContent = `
+                  <h3 style="color: #c43b2a; margin-top: 0; font-family: sans-serif;">Excellent news, ${partner.displayName}!</h3>
+                  <p style="font-family: sans-serif;">Your finished real estate media assets for <strong>${proj.address || 'your listing'}</strong> have been processed, color-graded, and successfully delivered via our automated Fotello integration.</p>
+                  
+                  <div style="background-color: #f7f7f7; border-left: 4px solid #c43b2a; padding: 15px; margin: 20px 0; font-family: monospace; font-size: 13px;">
+                    <strong>Listing:</strong> ${proj.title || proj.address || 'Exposed Brick Media Project'}<br/>
+                    <strong>Status:</strong> High-Resolution 42K WebP Optimized & RAW Ready<br/>
+                    <strong>Delivered:</strong> ${new Date().toLocaleDateString()}
+                  </div>
+
+                  <p style="font-family: sans-serif;">All delivered photography, 3D floor plans, material maps, and premium drone cinematography are now compiled and live in your private and secure partner dashboard.</p>
+                  
+                  ${clientDriveLink ? `
+                  <p style="font-family: sans-serif;">You can also access the original uncompressed high-resolution JPEG assets directly in your dedicated Google Drive property subfolder:</p>
+                  <p style="margin-top: 15px; margin-bottom: 25px;">
+                    <a href="${clientDriveLink}" style="background-color: #1e3a8a; color: white; text-decoration: none; padding: 12px 24px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: sans-serif; font-size: 13px;">Access Google Drive Folder</a>
+                  </p>
+                  ` : ""}
+
+                  <p style="margin-top: 25px; margin-bottom: 25px;">
+                    <a href="${process.env.APP_URL || 'https://exposedbrickmedia.ca'}/portal" style="background-color: #c43b2a; color: white; text-decoration: none; padding: 12px 24px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: sans-serif; font-size: 13px;">Log In to Partner Portal</a>
+                  </p>
+                  <p style="color: #888; font-size: 11px; margin-top: 30px; font-family: sans-serif;">Thank you for partnering with Exposed Brick Media. If you notice any inconsistencies or require virtual window pull adjustments, please contact support.</p>
+                `;
+                const fullBrandedHtml = await buildBrandedEmail(emailContent);
+                await sendEmail(partner.email, subject, fullBrandedHtml, "media_delivery_notification");
+                console.log(`[Fotello Webhook Sync] Dispatched luxury delivery notification email to ${partner.email}`);
+              } catch (mailErr: any) {
+                console.warn("[Fotello Webhook Sync] Failed to send partner delivery notification email:", mailErr.message);
+              }
+            }
+          }
         }
 
         systemLogs.push({
           timestamp: new Date().toISOString(),
           action: "FOTELLO_PORTFOLIO_SYNC",
-          details: `Processed webhook 'gallery.delivered' successfully for ${proj.address}`,
+          details: `Processed webhook 'gallery.delivered' successfully for ${proj.address}. (Linked Partners: ${mergedPartnerUids.length})`,
           user: "Fotello Webhook"
         });
 
@@ -1637,33 +2084,45 @@ Make sure every component in the returned JSON has a unique "id" string generate
           console.warn("[Partner Sync] Failed reading local partner backup:", err);
         }
 
-        let agentDocId = agent.uid ? `agent-${agent.uid}` : (agent.email ? `agent-${agent.email.replace(/[^a-zA-Z0-9]/g, "_")}` : null);
-        if (!agentDocId) {
-          const duplicateMatch = currentList.find((item: any) => 
-            (agent.email && item.email === agent.email) ||
-            (agent.name && item.displayName === agent.name)
-          );
-          if (duplicateMatch) {
-            agentDocId = duplicateMatch.uid || duplicateMatch.id;
-            console.log(`[Fotello Webhook Partner Sync] Duplicate check matched existing agent profile: ${agentDocId}`);
-          } else {
-            agentDocId = `agent-${Math.floor(Math.random() * 90000 + 10000)}`;
-          }
+        // Consistently map the email-based ID used in hand-crafted and initial sync to prevent mismatch IDs
+        let agentDocId = agent.uid ? `agent-${agent.uid}` : null;
+        if (!agentDocId && agent.email) {
+          agentDocId = "partner-" + agent.email.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        }
+
+        // Always check for duplicate records by email or name before saving to avoid double-entry profiles
+        const duplicateMatch = currentList.find((item: any) => 
+          (agentDocId && (item.uid === agentDocId || item.id === agentDocId)) ||
+          (agent.email && item.email?.toLowerCase().trim() === agent.email.toLowerCase().trim()) ||
+          (agent.name && item.displayName?.toLowerCase().trim() === agent.name.toLowerCase().trim())
+        );
+
+        if (duplicateMatch) {
+          agentDocId = duplicateMatch.uid || duplicateMatch.id;
+          console.log(`[Fotello Webhook Partner Sync] Duplicate check matched existing agent profile: ${agentDocId}`);
+        } else if (!agentDocId) {
+          agentDocId = `agent-${Math.floor(Math.random() * 90000 + 10000)}`;
         }
 
         // 2. Double commit: first save to a robust local cache file for resilient sandbox support
         try {
           currentList = currentList.filter((item: any) => (item.uid !== agentDocId && item.id !== agentDocId));
+          const existingLocal = duplicateMatch;
           currentList.push({
-            email: agent.email || "partner@exposedbrickmedia.ca",
+            email: agent.email || existingLocal?.email || "partner@exposedbrickmedia.ca",
             uid: agentDocId,
             id: agentDocId,
-            displayName: agent.name || "Custom Partner Agent",
-            bio: agent.bio || `${agent.name || 'Our Partner'} is an elite preferred industry partner representing ${agent.brokerage || 'premier local agencies'}.`,
-            headshotUrl: agent.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
-            logoUrl: agent.brokerageLogo || "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
+            displayName: agent.name || existingLocal?.displayName || "Custom Partner Agent",
+            bio: agent.bio || existingLocal?.bio || `${agent.name || 'Our Partner'} is an elite preferred industry partner representing ${agent.brokerage || 'premier local agencies'}.`,
+            headshotUrl: agent.headshotUrl || existingLocal?.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
+            logoUrl: agent.brokerageLogo || existingLocal?.logoUrl || "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
             role: "partner",
-            createdAt: new Date().toISOString(),
+            instagram: existingLocal?.instagram || "",
+            facebook: existingLocal?.facebook || "",
+            linkedin: existingLocal?.linkedin || "",
+            teamId: existingLocal?.teamId || null,
+            teamName: existingLocal?.teamName || null,
+            createdAt: existingLocal?.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
           fs.writeFileSync(listPath, JSON.stringify(currentList, null, 2), "utf8");
@@ -1682,7 +2141,6 @@ Make sure every component in the returned JSON has a unique "id" string generate
             headshotUrl: agent.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
             logoUrl: agent.brokerageLogo || "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
             role: "partner",
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
         } catch (dbWriteErr: any) {

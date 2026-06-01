@@ -147,7 +147,7 @@ export type PuckConfig = {
       parallax: boolean;
       gradientDirection: string;
       anchorId?: string;
-      layout: "boxed" | "full";
+      layout: "boxed" | "full" | "bleed";
       children?: React.ReactNode;
       styles?: string;
     };
@@ -1258,9 +1258,8 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           if (!url) return <div className="p-12 text-center opacity-20 italic">Upload a PDF to initialize the reader.</div>;
           return (
             <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
-              <div className="px-4 md:px-8">
-                <PDFViewer fileUrl={url} title={title} height={height} />
-              </div>
+              {/* Removed the <div className="px-4 md:px-8"> that was forcing margins */}
+              <PDFViewer fileUrl={url} title={title} height={height} />
             </ComponentWrapper>
           );
         }
@@ -1311,6 +1310,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           options: [
             { label: "Boxed", value: "boxed" },
             { label: "Full Width", value: "full" },
+            { label: "Edge-to-Edge (Bleed)", value: "bleed" },
           ],
         },
         children: { type: "slot" },
@@ -1329,6 +1329,14 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       },
       render: ({ children, spacing, columns, padding, background, bgImage, overlayOpacity, blur, parallax, gradientDirection, anchorId, layout, styles }) => {
         const ChildrenSlot = children as any;
+        
+        // Define the layout constraint classes
+        const layoutClass = layout === 'boxed' 
+          ? 'max-w-7xl mx-auto px-8 md:px-16' 
+          : layout === 'bleed'
+            ? 'w-full px-0' // Zero padding for edge-to-edge embed
+            : 'w-full px-8 md:px-16'; // Standard full width with safe zones
+            
         return (
         <SpacingWrapper spacing={spacing} className={`relative ${background} overflow-hidden group/section ${styles || ""}`} id={anchorId}>
            {bgImage && (
@@ -1343,7 +1351,8 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
               />
             </>
           )}
-          <div className={`relative z-10 transition-all ${layout === 'boxed' ? 'max-w-7xl mx-auto px-8 md:px-16' : 'w-full px-8 md:px-16'} ${padding}`}>
+          {/* Replaced the hardcoded padding with our new layoutClass */}
+          <div className={`relative z-10 transition-all ${layoutClass} ${layout === 'bleed' ? 'py-0' : padding}`}>
             <div className={`min-h-[100px] w-full ${columns}`}>
               <ChildrenSlot />
             </div>

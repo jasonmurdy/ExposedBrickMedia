@@ -29,11 +29,11 @@ import {
 } from 'firebase/firestore';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { 
-  LogOut, Plus, Trash2, Edit2, Check, X, Shield, Sparkles, Upload, 
+  LogOut, Plus, Trash2, GitMerge, Edit2, Check, X, Shield, Sparkles, Upload, 
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell, Zap, ChevronDown
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell, Zap, ChevronDown, UserPlus
 } from 'lucide-react';
 import {
   DndContext, 
@@ -377,8 +377,9 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<any[]>([]);
   const [brandResources, setBrandResources] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups' | 'fotello' | 'communications'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups' | 'fotello' | 'communications' | 'referrals'>('architecture');
 
   // Unified Real-time Notification Hub & Alerts States
   const [hubInquiries, setHubInquiries] = useState<any[]>([]);
@@ -387,6 +388,17 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [notificationHubOpen, setNotificationHubOpen] = useState(false);
   const [draftReplyModalContent, setDraftReplyModalContent] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Merge duplicate partner states
+  const [mergeSource, setMergeSource] = useState<any | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>('');
+  const [mergeOptions, setMergeOptions] = useState({
+    reassignProjects: true,
+    reassignReferrals: true,
+    copyMissingDetails: true,
+    deleteSource: true
+  });
+  const [isMerging, setIsMerging] = useState(false);
 
   const isAdmin = !!user?.email && (
     ADMIN_EMAILS.includes(user.email) || 
@@ -403,6 +415,9 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [inquiriesPage, setInquiriesPage] = useState(1);
   const inquiriesPageSize = 12;
 
+  const [referralsPage, setReferralsPage] = useState(1);
+  const referralsPageSize = 12;
+
   const [testimonialsPage, setTestimonialsPage] = useState(1);
   const testimonialsPageSize = 10;
 
@@ -415,6 +430,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [partnerTeamFilter, setPartnerTeamFilter] = useState('all');
   const [partnerSortField, setPartnerSortField] = useState<'displayName' | 'email' | 'createdAt' | 'role'>('displayName');
   const [partnerSortOrder, setPartnerSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [partnerDirectorySearch, setPartnerDirectorySearch] = useState('');
 
   // Sync pages to 1 on active tab / search change
   useEffect(() => {
@@ -1024,6 +1040,11 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(100));
       unsub = onSnapshot(q, (snap) => {
         setNotifications(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    } else if (activeTab === 'referrals') {
+      const q = query(collection(db, 'referrals'), orderBy('createdAt', 'desc'));
+      unsub = onSnapshot(q, (snap) => {
+        setReferrals(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       });
     }
 
@@ -1758,9 +1779,24 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const handleCreatePartner = async () => {
     const email = prompt("Enter Partner Email (this will be their login key):")?.toLowerCase().trim();
     if (!email) return;
+
+    // Guardrail against duplicate emails
+    const existingEmailMatch = users.find(u => u.email?.toLowerCase().trim() === email);
+    if (existingEmailMatch) {
+      toast.error(`A partner with email "${email}" is already registered! Please update their existing profile instead of creating a duplicate.`);
+      return;
+    }
     
     const displayName = prompt("Enter Partner Name:");
     if (!displayName) return;
+
+    // Guardrail: warn of duplicate display names
+    const existingNameMatch = users.find(u => u.displayName?.toLowerCase().trim() === displayName.toLowerCase().trim());
+    if (existingNameMatch) {
+      if (!confirm(`Warning: A registered partner named "${displayName}" already exists. Do you still want to proceed?`)) {
+        return;
+      }
+    }
 
     try {
       // Use email as ID for pre-linking
@@ -1832,6 +1868,85 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       await logAction('DELETE_PARTNER', { userId });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
+    }
+  };
+
+  const handleMergePartners = async () => {
+    if (!mergeSource || !mergeTargetId) {
+      toast.error("Please select a target primary partner to merge into.");
+      return;
+    }
+
+    const targetPartner = users.find(u => u.id === mergeTargetId);
+    if (!targetPartner) {
+      toast.error("Selected primary partner could not be found.");
+      return;
+    }
+
+    const confirmMsg = `Are you absolutely sure you want to merge duplicate partner "${mergeSource.displayName || mergeSource.id}" into primary partner "${targetPartner.displayName || targetPartner.id}"?\n\nThis will reassign references, migrate profile fields, and optionally remove the duplicate profile permanently.`;
+    if (!confirm(confirmMsg)) return;
+
+    setIsMerging(true);
+    const toastId = toast.loading("Executing deep merge and reassigning portfolio & referrals...");
+    try {
+      const response = await fetch('/api/admin/partners/merge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sourceId: mergeSource.id,
+          targetId: mergeTargetId,
+          reassignProjects: mergeOptions.reassignProjects,
+          reassignReferrals: mergeOptions.reassignReferrals,
+          copyMissingDetails: mergeOptions.copyMissingDetails,
+          deleteSource: mergeOptions.deleteSource
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text() || "Failed to execute partner merge pipeline.");
+      }
+
+      const resData = await response.json();
+      
+      // Let's also apply client side Firestore updates to ensure the local context updates immediately
+      if (mergeOptions.reassignReferrals) {
+        try {
+          const { getDocs, query, collection, where } = await import('firebase/firestore');
+          const refQuery = query(collection(db, 'referrals'), where('referrerUid', '==', mergeSource.id));
+          const querySnapshot = await getDocs(refQuery);
+          for (const refDoc of querySnapshot.docs) {
+            await updateDoc(doc(db, 'referrals', refDoc.id), {
+              referrerUid: mergeTargetId,
+              updatedAt: serverTimestamp()
+            });
+          }
+        } catch (dbErr: any) {
+          console.warn("[Client Referral Reassign Bypassed]:", dbErr.message);
+        }
+      }
+
+      if (mergeOptions.deleteSource) {
+        try {
+          await deleteDoc(doc(db, 'users', mergeSource.id));
+        } catch (dbErr: any) {
+          console.warn("[Client Source Account Delete Bypassed]:", dbErr.message);
+        }
+      }
+
+      toast.success(resData.message || "Deep merge completed successfully!", { id: toastId });
+      
+      // Reset state
+      setMergeSource(null);
+      setMergeTargetId('');
+      
+      await logAction('MERGE_PARTNERS', { sourceId: mergeSource.id, targetId: mergeTargetId });
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to complete merge pipeline.", { id: toastId });
+    } finally {
+      setIsMerging(false);
     }
   };
 
@@ -1913,6 +2028,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       category: "Client Relations",
       items: [
         { id: 'inquiries', label: 'Inquiries', icon: MessageSquare },
+        { id: 'referrals', label: 'Referrals', icon: UserPlus },
         { id: 'communications', label: 'Emails & Alerts', icon: Mail },
         { id: 'fotello', label: 'Fotello Sync', icon: Zap }
       ]
@@ -3170,10 +3286,28 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                       path={`portfolio/${isEditing}/specs`} 
                                       accept="application/pdf"
                                       onUploadComplete={(url) => setEditData({...editData, specsUrl: url})}
-                                   />
-                                 </div>
-                               </div>
-                            </div>
+                                    />
+                                  </div>
+                                </div>
+                                <div className="space-y-4">
+                                  <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                    <Download size={10} className="text-emerald-400" /> Google Drive Link (Media Asset Package)
+                                  </label>
+                                  <div className="space-y-4">
+                                    <input 
+                                      placeholder="Google Drive folder link"
+                                      className="bg-charcoal/50 border border-emerald-500/10 w-full outline-none py-3 px-4 text-[10px] text-white font-mono placeholder-white/20" 
+                                      value={editData.driveDeliveryLink || ''} 
+                                      onChange={e => setEditData({...editData, driveDeliveryLink: e.target.value})} 
+                                    />
+                                    <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-sm">
+                                      <p className="text-[9px] text-white/40 leading-relaxed font-sans italic">
+                                        This holds the high-res original assets delivery link. It is protected and is only visible/accessible to linked partners on their portfolio view.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                             </div>
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                               <div>
                                 <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">List Price</label>
@@ -3468,13 +3602,21 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                </div>
 
                                <div className="space-y-4">
-                                 <label className="text-[9px] uppercase tracking-widest text-white/40 block font-bold">Registered Partner Directory</label>
+                                 <div className="flex items-center justify-between">
+                                   <label className="text-[9px] uppercase tracking-widest text-white/40 block font-bold">Registered Partner Directory</label>
+                                   <input 
+                                     placeholder="Search partners..."
+                                     value={partnerDirectorySearch}
+                                     onChange={(e) => setPartnerDirectorySearch(e.target.value)}
+                                     className="bg-white/5 border border-white/10 text-white text-[9px] px-3 py-1 outline-none focus:border-brick-copper transition-colors"
+                                   />
+                                 </div>
                                  <div className="bg-charcoal border border-white/10 max-h-[340px] overflow-y-auto no-scrollbar rounded-sm">
-                                    {users.length === 0 ? (
-                                      <p className="p-8 text-[9px] text-white/20 italic uppercase tracking-widest text-center">No partners registered in network.</p>
+                                    {users.filter(u => u.displayName?.toLowerCase().includes(partnerDirectorySearch.toLowerCase()) || u.email?.toLowerCase().includes(partnerDirectorySearch.toLowerCase())).length === 0 ? (
+                                      <p className="p-8 text-[9px] text-white/20 italic uppercase tracking-widest text-center">No matching partners found.</p>
                                     ) : (
                                       <div className="divide-y divide-white/5">
-                                        {users.map(u => {
+                                        {users.filter(u => u.displayName?.toLowerCase().includes(partnerDirectorySearch.toLowerCase()) || u.email?.toLowerCase().includes(partnerDirectorySearch.toLowerCase())).map(u => {
                                           const isActive = editData.partnerUids?.includes(u.id) || editData.partnerUid === u.id;
                                           return (
                                             <button 
@@ -4432,7 +4574,21 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                               >
                                  <ExternalLink size={14} />
                               </a>
-                              <button className="p-2 text-white/20 hover:text-white transition-colors"><MessageSquare size={14} /></button>
+                              <button className="p-2 text-white/20 hover:text-white transition-colors" title="Send Message"><MessageSquare size={14} /></button>
+                              <button 
+                                onClick={() => { setMergeSource(user); setMergeTargetId(''); }}
+                                className="p-2 text-white/20 hover:text-amber-500 transition-colors"
+                                title="Merge Duplicate"
+                              >
+                                 <GitMerge size={14} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeletePartner(user.id)}
+                                className="p-2 text-white/20 hover:text-rose-500 transition-colors"
+                                title="Delete Partner"
+                              >
+                                 <Trash2 size={14} />
+                              </button>
                            </div>
                         </td>
                       </tr>
@@ -5410,6 +5566,146 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             </div>
           </section>
         )}
+        
+        {activeTab === 'referrals' && (
+          <section className="space-y-8 font-sans">
+            <div className="flex items-center gap-3 text-brick-copper mb-8 border-b border-white/5 pb-4 font-sans">
+              <UserPlus size={18} />
+              <h3 className="font-display text-2xl italic">Partner Referrals</h3>
+            </div>
+            
+            <div className="bg-white/[0.01] border border-white/5 overflow-hidden font-sans">
+              <div className="overflow-x-auto select-none no-scrollbar font-sans">
+                <table className="w-full text-left border-collapse font-sans">
+                  <thead>
+                    <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest text-white/30 font-bold bg-white/[0.01]">
+                      <th className="p-4 pl-6 uppercase">Timestamp</th>
+                      <th className="p-4 uppercase">Referrer</th>
+                      <th className="p-4 uppercase">Target Referral</th>
+                      <th className="p-4 uppercase">Status / Value</th>
+                      <th className="p-4 pr-6 text-right uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.03] text-xs font-sans">
+                    {referrals.slice((referralsPage - 1) * referralsPageSize, referralsPage * referralsPageSize).map(ref => {
+                      let dateStr = 'N/A';
+                      if (ref.createdAt) {
+                        try {
+                          const epoch = ref.createdAt.seconds 
+                            ? ref.createdAt.seconds * 1000 
+                            : new Date(ref.createdAt).getTime();
+                          if (!isNaN(epoch)) {
+                            dateStr = new Date(epoch).toLocaleString();
+                          }
+                        } catch (err) {}
+                      }
+                      
+                      const referrerUser = users.find(u => u.id === ref.referrerUid);
+
+                      return (
+                        <tr key={ref.id} className="hover:bg-white/[0.01] transition-all group font-sans">
+                          <td className="p-4 pl-6 font-mono text-[10px] text-white/40 whitespace-nowrap">
+                            {dateStr}
+                          </td>
+                          <td className="p-4 font-semibold text-white/80 whitespace-nowrap">
+                            <div>
+                              <p className="text-sm font-display italic text-white">{referrerUser?.displayName || 'Unknown User'}</p>
+                              <p className="text-[9px] text-white/30 uppercase tracking-widest mt-0.5">{referrerUser?.email}</p>
+                            </div>
+                          </td>
+                          <td className="p-4 font-semibold text-white/80 whitespace-nowrap">
+                            <div>
+                              <p className="text-sm text-white">{ref.referralName}</p>
+                              <p className="text-[10px] text-brick-copper py-1 max-w-[200px] truncate" title={ref.notes}>{ref.notes || 'No description provided'}</p>
+                              <div className="flex items-center gap-3">
+                                {ref.email && <a href={`mailto:${ref.email}`} className="text-[9px] text-white/40 hover:text-white transition-colors">{ref.email}</a>}
+                                {ref.phone && <a href={`tel:${ref.phone}`} className="text-[9px] text-white/40 hover:text-white transition-colors">{ref.phone}</a>}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <select 
+                                value={ref.status || 'Pending'}
+                                onChange={async (e) => {
+                                  const newStatus = e.target.value;
+                                  try {
+                                    await updateDoc(doc(db, 'referrals', ref.id), { status: newStatus });
+                                    toast.success("Referral status updated");
+                                  } catch (err) {
+                                    toast.error("Failed to update status");
+                                  }
+                                }}
+                                className={`text-[9px] uppercase tracking-widest font-black py-1 px-2 rounded-sm outline-none transition-colors border max-w-min ${
+                                  ref.status === 'Completed' ? 'bg-brick-copper/10 text-brick-copper border-brick-copper/20' : 
+                                  ref.status === 'In Progress' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                                  'bg-white/5 text-white/40 border-white/10'
+                                }`}
+                            >
+                                <option value="Pending">Pending</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Lost">Lost</option>
+                            </select>
+                            
+                            <div className="flex items-center mt-2 gap-2">
+                                <span className="text-[9px] text-white/30 uppercase tracking-widest font-mono">Value: $</span>
+                                <input 
+                                    className="bg-transparent border-b border-white/10 w-16 text-xs text-brick-copper font-bold outline-none focus:border-brick-copper transition-colors"
+                                    type="number"
+                                    value={ref.value || 0}
+                                    onBlur={async (e) => {
+                                        try {
+                                            await updateDoc(doc(db, 'referrals', ref.id), { value: Number(e.target.value) });
+                                            toast.success("Referral value updated!");
+                                        } catch (err) {
+                                            toast.error("Failed to update value");
+                                        }
+                                    }}
+                                    onChange={(e) => {
+                                        const next = [...referrals];
+                                        const idx = next.findIndex(r => r.id === ref.id);
+                                        if (idx >= 0) {
+                                            next[idx].value = Number(e.target.value);
+                                            setReferrals(next);
+                                        }
+                                    }}
+                                />
+                            </div>
+                          </td>
+                          <td className="p-4 pr-6 whitespace-nowrap text-right">
+                              <button 
+                                onClick={async () => {
+                                  if (confirm("Are you sure you want to permanently delete this referral record?")) {
+                                    try {
+                                      await deleteDoc(doc(db, 'referrals', ref.id));
+                                      toast.success("Referral deleted");
+                                    } catch (err) {
+                                      toast.error("Error deleting referral");
+                                    }
+                                  }
+                                }}
+                                className="p-2 ml-auto text-white/20 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors group/btn" 
+                                title="Delete Referral"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <PaginationControls
+              currentPage={referralsPage}
+              totalItems={referrals.length}
+              pageSize={referralsPageSize}
+              onPageChange={setReferralsPage}
+            />
+          </section>
+        )}
 
         {isEditing && (activeTab === 'teams' || activeTab === 'partners') && (
            <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
@@ -5497,6 +5793,137 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               </footer>
             </div>
           </div>
+        )}
+
+        {mergeSource && (
+           <div className="fixed inset-0 z-[120] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
+             <div className="bg-charcoal border border-amber-500/35 w-full max-w-lg shadow-3xl flex flex-col">
+               <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80">
+                 <div>
+                   <h4 className="text-xl font-display italic text-amber-500 flex items-center gap-2">
+                     <GitMerge size={20} className="inline text-amber-500" /> Merge Partner Profile
+                   </h4>
+                   <p className="text-[9px] text-white/40 uppercase tracking-widest font-black tracking-[0.2em] mt-1">
+                     Consolidate duplicate identity entries
+                   </p>
+                 </div>
+                 <button onClick={() => setMergeSource(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
+               </header>
+
+               <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+                 {/* Duplicate profile (source) recap */}
+                 <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xs">
+                   <h5 className="text-[10px] text-amber-500 uppercase tracking-widest font-black mb-2">Duplicate Source Profile</h5>
+                   <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-full overflow-hidden bg-white/5 text-amber-500 flex items-center justify-center font-bold text-xs select-none">
+                       {mergeSource.headshotUrl ? <img src={mergeSource.headshotUrl} className="w-full h-full object-cover" /> : <Users size={12} />}
+                     </div>
+                     <div>
+                       <p className="text-xs font-bold text-white">{mergeSource.displayName || 'Unnamed'}</p>
+                       <p className="text-[10px] text-white/40 font-mono">{mergeSource.email}</p>
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Select Target Profile */}
+                 <div>
+                   <label className="block text-[8px] uppercase tracking-widest text-white/50 mb-2 font-bold">Target Primary Profile (Keep this profile)</label>
+                   <select
+                     value={mergeTargetId}
+                     onChange={(e) => setMergeTargetId(e.target.value)}
+                     className="w-full bg-white/5 border border-white/10 p-3 text-xs text-white outline-none focus:border-brick-copper transition-colors tracking-wide"
+                   >
+                     <option value="" className="bg-charcoal text-white/40">-- SELECT THE PRIMARY PROFILE --</option>
+                     {users
+                       .filter(u => u.id !== mergeSource.id && (u.role === 'partner' || u.role === 'preferred' || u.role === 'client'))
+                       .map(u => (
+                         <option key={u.id} value={u.id} className="bg-charcoal text-white">
+                           {u.displayName || 'Unnamed'} ({u.email || u.id})
+                         </option>
+                       ))
+                     }
+                   </select>
+                   <p className="text-[8px] text-white/30 uppercase mt-2 pl-1 leading-relaxed">
+                     Selected duplicate details will be merged, and database associations will be safely mapped of this target profile.
+                   </p>
+                 </div>
+
+                 {/* Merge Customization Controls */}
+                 <div className="space-y-4 pt-2">
+                   <h5 className="text-[8px] uppercase tracking-wider text-white/60 font-bold border-b border-white/5 pb-1 mb-2">Deep Merge Configuration</h5>
+                   
+                   <label className="flex items-start gap-3 cursor-pointer group select-none">
+                     <input
+                       type="checkbox"
+                       checked={mergeOptions.copyMissingDetails}
+                       onChange={(e) => setMergeOptions(prev => ({ ...prev, copyMissingDetails: e.target.checked }))}
+                       className="mt-0.5 rounded-sm accent-amber-500"
+                     />
+                     <div>
+                       <p className="text-[10px] font-bold text-white group-hover:text-amber-500 transition-colors">Migrate Missing Profile Fields</p>
+                       <p className="text-[8px] text-white/30 leading-normal">Copy empty fields (phone, biography narrative, social links) from the source duplicate into the primary profile.</p>
+                     </div>
+                   </label>
+
+                   <label className="flex items-start gap-3 cursor-pointer group select-none">
+                     <input
+                       type="checkbox"
+                       checked={mergeOptions.reassignProjects}
+                       onChange={(e) => setMergeOptions(prev => ({ ...prev, reassignProjects: e.target.checked }))}
+                       className="mt-0.5 rounded-sm accent-amber-500"
+                     />
+                     <div>
+                       <p className="text-[10px] font-bold text-white group-hover:text-amber-500 transition-colors">Reassign Portfolio & Projects</p>
+                       <p className="text-[8px] text-white/30 leading-normal">Identify and scan all synchronized media projects matching the source duplicate and re-route them to the primary profile.</p>
+                     </div>
+                   </label>
+
+                   <label className="flex items-start gap-3 cursor-pointer group select-none">
+                     <input
+                       type="checkbox"
+                       checked={mergeOptions.reassignReferrals}
+                       onChange={(e) => setMergeOptions(prev => ({ ...prev, reassignReferrals: e.target.checked }))}
+                       className="mt-0.5 rounded-sm accent-amber-500"
+                     />
+                     <div>
+                       <p className="text-[10px] font-bold text-white group-hover:text-amber-500 transition-colors">Convert Referrals Stream</p>
+                       <p className="text-[8px] text-white/30 leading-normal">Transfer outstanding registered client referrals linked with the source duplicate record to the primary partner.</p>
+                     </div>
+                   </label>
+
+                   <label className="flex items-start gap-3 cursor-pointer group select-none">
+                     <input
+                       type="checkbox"
+                       checked={mergeOptions.deleteSource}
+                       onChange={(e) => setMergeOptions(prev => ({ ...prev, deleteSource: e.target.checked }))}
+                       className="mt-0.5 rounded-sm accent-amber-500"
+                     />
+                     <div>
+                       <p className="text-[10px] font-bold text-rose-400 group-hover:text-rose-300 transition-colors">Retire Duplicate Profile</p>
+                       <p className="text-[8px] text-white/30 leading-normal">Safely delete duplicate profile "{mergeSource.displayName}" from the database once merging completes successfully.</p>
+                     </div>
+                   </label>
+                 </div>
+               </div>
+
+               <footer className="p-6 border-t border-white/5 bg-charcoal/80 flex gap-4">
+                 <button 
+                   onClick={handleMergePartners}
+                   disabled={!mergeTargetId || isMerging}
+                   className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-400 text-charcoal disabled:opacity-40 disabled:hover:bg-amber-500 text-[10px] uppercase font-bold tracking-widest transition-all font-sans flex items-center justify-center gap-2"
+                 >
+                   {isMerging ? 'Merging Profiles...' : 'Integrate & Consolidate'}
+                 </button>
+                 <button 
+                   onClick={() => setMergeSource(null)}
+                   disabled={isMerging}
+                   className="px-6 py-3.5 border border-white/10 text-white/40 hover:text-white disabled:opacity-40 text-[10px] uppercase tracking-widest transition-all font-sans font-bold"
+                 >
+                   Discard
+                 </button>
+               </footer>
+             </div>
+           </div>
         )}
 
         {activeTab === 'brand' && (

@@ -17,22 +17,21 @@ function sanitizeItem(item: any): any {
     sanitized.props = sanitizeProps(sanitized.props);
   }
 
-  // If item has zones, recursively sanitize them
+  // --- AUTOMATIC SLOT MIGRATION ---
+  // If the legacy 'zones' object exists, move its contents directly into 'props'
   if (sanitized.zones && typeof sanitized.zones === 'object' && !Array.isArray(sanitized.zones)) {
-    const sanitizedZones: any = {};
     for (const [zoneName, zoneItems] of Object.entries(sanitized.zones)) {
       if (Array.isArray(zoneItems)) {
-        sanitizedZones[zoneName] = sanitizeArray(zoneItems);
-      } else {
-        sanitizedZones[zoneName] = [];
+        // Inject the old zone items into the props object so Puck treats them as Slots
+        sanitized.props[zoneName] = sanitizeArray(zoneItems);
       }
     }
-    sanitized.zones = sanitizedZones;
+    // Delete the legacy zones object entirely so Puck doesn't revert to old behaviors
+    delete sanitized.zones;
   }
 
   return sanitized;
 }
-
 function sanitizeProps(props: any): any {
   if (!props || typeof props !== 'object') return {};
   

@@ -11,7 +11,7 @@ import {
   ArrowLeft, MapPin, Home, Bed, Bath, Square, 
   DollarSign, Clock, ExternalLink, Share2, 
   ChevronRight, Camera, Grid, Info, CheckCircle2, Shield, Download, FileText,
-  Mail, Phone, Instagram, X, Send
+  Mail, Phone, Instagram, X, Send, Globe
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { trackMediaInteraction } from '../lib/analytics';
@@ -24,7 +24,7 @@ import { PDFViewer } from './PDFViewer';
 export const ProjectDetailView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { portfolioItems, partners, settings, loading } = useSiteContent();
+  const { portfolioItems, partners, settings, loading, user, isAdmin } = useSiteContent();
   const project = portfolioItems?.find(p => p.id === id || p.mlsNumber === id);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [selectedPdf, setSelectedPdf] = useState<{ url: string; title: string } | null>(null);
@@ -87,6 +87,14 @@ export const ProjectDetailView = () => {
     p.id === project.partnerUid || 
     project.partnerUids?.includes(p.id)
   ) || [];
+
+  const isLinkedPartner = isAdmin || !!(
+    user && (
+      associatedPartners.some(p => p.id === user.uid || p.email === user.email) ||
+      project.partnerUid === user.uid ||
+      project.partnerUids?.includes(user.uid)
+    )
+  );
 
   const handleSendInquiry = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,7 +250,7 @@ export const ProjectDetailView = () => {
                 {associatedPartners.map((partner) => (
                   <div key={partner.id} className="space-y-4">
                     {/* Headshot & Brand */}
-                    <div className="relative group overflow-hidden border border-white/10 aspect-square bg-charcoal rounded-sm">
+                    <Link to={`/partners/${partner.id}`} className="block relative group overflow-hidden border border-white/10 aspect-square bg-charcoal rounded-sm">
                       {partner.headshotUrl ? (
                         <img 
                           src={partner.headshotUrl} 
@@ -251,7 +259,7 @@ export const ProjectDetailView = () => {
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-white/5">
+                        <div className="w-full h-full flex items-center justify-center bg-white/5 transition-colors group-hover:bg-white/10">
                           <span className="text-sm font-bold text-white/40">{partner.displayName?.charAt(0) || '?'}</span>
                         </div>
                       )}
@@ -260,17 +268,17 @@ export const ProjectDetailView = () => {
                           <img src={partner.logoUrl} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       )}
-                    </div>
+                    </Link>
 
-                    <div className="space-y-1">
+                    <Link to={`/partners/${partner.id}`} className="block space-y-1 group">
                       <span className="text-[7px] uppercase tracking-[0.25em] text-brick-copper font-mono font-bold block">
                         {partner.role === 'preferred' ? 'Preferred Advisor' : 'Advisory Partner'}
                       </span>
-                      <h5 className="text-sm uppercase tracking-wider font-bold text-white">{partner.displayName || 'No Name'}</h5>
+                      <h5 className="text-sm uppercase tracking-wider font-bold text-white group-hover:text-brick-copper transition-colors">{partner.displayName || 'No Name'}</h5>
                       {partner.licenseNumber && (
                         <p className="text-[7px] tracking-widest text-white/30 uppercase font-mono">Lic: {partner.licenseNumber}</p>
                       )}
-                    </div>
+                    </Link>
 
                     {/* Contact Direct Hotlinks */}
                     <div className="grid grid-cols-3 gap-1.5">
@@ -503,8 +511,8 @@ export const ProjectDetailView = () => {
             </div>
           </motion.div>
 
-          {/* External Listing Connection */}
-          {(project.externalLink || project.url) && (
+          {/* Public Showcase Sites */}
+          {(project.fotelloUrl || project.externalLink || project.url) && (
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -513,65 +521,102 @@ export const ProjectDetailView = () => {
             >
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <span className="text-[8px] uppercase tracking-[0.3em] text-brick-copper font-black font-mono">Public Syndicate Link</span>
-                  <h4 className="text-xs uppercase tracking-wider font-bold text-white">Full Property Listing</h4>
+                  <span className="text-[8px] uppercase tracking-[0.3em] text-brick-copper font-black font-mono">Public Showcase Sites</span>
+                  <h4 className="text-xs uppercase tracking-wider font-bold text-white">Interactive Listing Media</h4>
                 </div>
                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 rounded-full text-[8px] tracking-widest text-text-primary/60 uppercase font-mono">
-                  Verified Data
+                  Market Ready
                 </div>
               </div>
               <p className="text-xs text-white/50 leading-relaxed">
-                Access the verified MLS data sheet, tax assessments, and official listing details for this property.
+                Explore the publicly available interactive property websites, virtual showcases, and agency syndicate details.
               </p>
-              <a 
-                href={project.externalLink || project.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  trackMediaInteraction({
-                    property_id: project.id,
-                    media_type: project.externalLink ? 'agent_listing' : 'matterport_tour',
-                    action: 'view'
-                  });
-                }}
-                className="inline-flex w-full items-center justify-between py-3 px-4 bg-white/5 hover:bg-brick-copper hover:text-charcoal border border-white/10 text-[9px] uppercase tracking-[0.2em] font-bold text-white transition-all group"
-              >
-                <span>Browse Full Listing Details</span>
-                <ExternalLink size={12} className="group-hover:translate-x-0.5 transition-transform" />
-              </a>
-            </motion.div>
-          )}
-
-          {/* Partner Exclusive Content */}
-          {(project.fotelloUrl || project.matterportUrl || project.specsUrl) && (
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="pt-8 border-t border-brick-copper/20 space-y-6"
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="text-[10px] uppercase tracking-[0.3em] font-black text-brick-copper">Partner Fulfillment Assets</h4>
-                <div className="flex items-center gap-2 px-2 py-1 bg-brick-copper/10 border border-brick-copper/20 rounded-full">
-                   <Shield size={8} className="text-brick-copper" />
-                   <span className="text-[7px] uppercase tracking-widest text-brick-copper font-bold">Confidential Access</span>
-                </div>
-              </div>
               
-              <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-2">
                 {project.fotelloUrl && (
                   <a 
                     href={project.fotelloUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-brick-copper transition-all group"
+                    onClick={() => {
+                      trackMediaInteraction({
+                        property_id: project.id,
+                        media_type: 'fotello_listing_website',
+                        action: 'view'
+                      });
+                    }}
+                    className="inline-flex w-full items-center justify-between py-3 px-4 bg-brick-copper/10 hover:bg-brick-copper hover:text-charcoal border border-brick-copper/20 text-[9px] uppercase tracking-[0.2em] font-bold text-white transition-all group"
                   >
-                    <div className="flex items-center gap-3">
-                      <Download size={14} className="text-brick-copper" />
-                      <span className="text-[10px] uppercase tracking-widest font-bold">Fotello Content Package</span>
-                    </div>
-                    <ExternalLink size={12} className="opacity-20 group-hover:opacity-100" />
+                    <span>Browse Fotello-Built Feature Website</span>
+                    <Globe size={12} className="group-hover:scale-110 transition-transform text-brick-copper group-hover:text-inherit" />
                   </a>
                 )}
+
+                {(project.externalLink || project.url) && (
+                  <a 
+                    href={project.externalLink || project.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      trackMediaInteraction({
+                        property_id: project.id,
+                        media_type: project.externalLink ? 'agent_listing' : 'matterport_tour',
+                        action: 'view'
+                      });
+                    }}
+                    className="inline-flex w-full items-center justify-between py-3 px-4 bg-white/5 hover:bg-white hover:text-charcoal border border-white/10 text-[9px] uppercase tracking-[0.2em] font-bold text-white transition-all group"
+                  >
+                    <span>Browse Syndicate MLS Details</span>
+                    <ExternalLink size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Partner Exclusive Content */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="pt-8 border-t border-brick-copper/20 space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="text-[10px] uppercase tracking-[0.3em] font-black text-brick-copper">Partner Fulfillment Assets</h4>
+              <div className={`flex items-center gap-2 px-2 py-1 rounded-full border ${isLinkedPartner ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}>
+                 <Shield size={8} className={isLinkedPartner ? 'text-emerald-400' : 'text-amber-400'} />
+                 <span className={`text-[7px] uppercase tracking-widest font-bold ${isLinkedPartner ? 'text-emerald-400' : 'text-amber-400'}`}>
+                   {isLinkedPartner ? 'Partner Unlocked' : 'Confidential Access'}
+                 </span>
+              </div>
+            </div>
+
+            {isLinkedPartner ? (
+              <div className="grid grid-cols-1 gap-3">
+                {/* Media Asset Package (Google Drive Folder) */}
+                {project.driveDeliveryLink ? (
+                  <a 
+                    href={project.driveDeliveryLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col p-4 bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-400 transition-all rounded-sm group text-left"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-3">
+                        <Download size={14} className="text-emerald-400 animate-pulse" />
+                        <span className="text-[10px] uppercase tracking-widest font-bold text-white">Media Asset Package (Google Drive)</span>
+                      </div>
+                      <ExternalLink size={12} className="text-emerald-400" />
+                    </div>
+                    <span className="text-[9px] text-white/40 leading-relaxed font-mono">
+                      Access original high-resolution RAW JPEGs and optimized WebP photography delivered securely to Google Drive.
+                    </span>
+                  </a>
+                ) : (
+                  <div className="p-4 bg-white/5 border border-white/10 rounded-sm italic text-white/40 text-[10px] font-mono">
+                    Google Drive Media Asset Package is currently being synchronized by the automated pipeline...
+                  </div>
+                )}
+
                 {project.matterportUrl && (
                   <a 
                     href={project.matterportUrl}
@@ -586,10 +631,11 @@ export const ProjectDetailView = () => {
                     <ExternalLink size={12} className="opacity-20 group-hover:opacity-100" />
                   </a>
                 )}
+                
                 {project.specsUrl && (
                   <button 
                     onClick={() => setSelectedPdf({ url: project.specsUrl, title: `${project.title} - Technical Sheet` })}
-                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-brick-copper transition-all group"
+                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-brick-copper transition-all group w-full text-left"
                   >
                     <div className="flex items-center gap-3">
                       <FileText size={14} className="text-brick-copper" />
@@ -599,14 +645,43 @@ export const ProjectDetailView = () => {
                   </button>
                 )}
               </div>
-              
-              <div className="p-4 bg-brick-copper/5 border border-brick-copper/10 rounded-sm">
-                <p className="text-[9px] text-white/40 leading-relaxed italic">
-                  Disclaimer: These assets are provided under our non-exclusive license. Commercial use is restricted to active listing engagement for the specified subject property.
-                </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-5 bg-charcoal border border-white/10 rounded-sm space-y-3 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="flex items-center gap-2 text-amber-500 font-bold text-[10px] uppercase tracking-widest">
+                     🔒 Package Locked
+                  </div>
+                  
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    The uncompressed high-resolution <strong className="text-white">RAW Media Asset Package</strong> and partner deliverables are restricted to the primary listing Realtor and advisory team.
+                  </p>
+
+                  <div className="pt-2">
+                    <Link 
+                      to="/portal" 
+                      className="inline-flex items-center justify-center w-full py-2.5 px-4 bg-brick-copper/10 hover:bg-brick-copper hover:text-charcoal border border-brick-copper/20 text-[9px] uppercase tracking-[0.2em] font-bold text-brick-copper hover:text-inherit transition-all"
+                    >
+                      Sign In with Partner Account
+                    </Link>
+                  </div>
+                </div>
+                
+                {user && (
+                  <p className="text-[9px] font-mono text-white/30 text-center uppercase tracking-wider">
+                    Logged in as <span className="text-amber-500 font-bold">{user.email}</span> (Not linked to listing)
+                  </p>
+                )}
               </div>
-            </motion.div>
-          )}
+            )}
+
+            <div className="p-4 bg-brick-copper/5 border border-brick-copper/10 rounded-sm">
+              <p className="text-[9px] text-white/40 leading-relaxed italic">
+                Disclaimer: These assets are provided under our non-exclusive license. Commercial use is restricted to active listing engagement for the specified subject property.
+              </p>
+            </div>
+          </motion.div>
 
           <motion.div 
             initial={{ opacity: 0 }}
