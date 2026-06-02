@@ -236,480 +236,870 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   }, [initialData]);  // Pre-seeded local templates for seeding
   const seedPresets: Omit<PuckTemplateItem, "id" | "createdAt">[] = [
     {
-      name: "Interior Photography",
+      name: "Services / Interior Photography Landing Page",
       category: "Media Showcase",
-      description: "Editorial-grade interior capture utilizing ambient light mastery and exposure blending for flawless, balanced interior scenes.",
+      description: "Premium landing page for Interior Photography utilizing custom asymmetric split layouts via Columns, explicit Image configurations, and interactive portfolios.",
       previewImage: "slate",
       puckData: {
-        content: [],
-        root: {
-          props: {
-            title: "Interior Photography",
-            side: [
+        content: [
+          {
+            type: "Section",
+            props: {
+              padding: "py-32",
+              background: "bg-transparent",
+              layout: "full",
+              spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" }
+            },
+            children: [
               {
-                type: "TextContent",
+                type: "Columns",
                 props: {
-                  id: "brand-header-interior",
-                  title1: "INTERIOR",
-                  title2: "SPACES",
-                  accent: "MEDIA",
-                  tagline: "PREMIUM INTERIOR PHOTOGRAPHY"
-                }
-              }
-            ],
-            main: [
-              {
-                type: "MediaBackground",
-                props: {
-                  id: "interior-hero",
-                  mediaUrl: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1920&q=80",
-                  mediaType: "image",
-                  height: "h-[80vh] min-h-[600px]",
-                  overlayOpacity: 40,
-                  content: [
-                    {
-                      type: "FlexBox",
-                      props: {
-                        id: "interior-hero-flex",
-                        direction: "flex-col",
-                        align: "items-center",
-                        justify: "justify-center",
-                        gap: 24,
-                        content: [
-                          {
-                            type: "Heading",
-                            props: {
-                              id: "interior-hero-heading",
-                              text: "Premium Interior Photography",
-                              level: 1,
-                              align: "center",
-                              accent: false,
-                              width: "full",
-                              styles: "text-white"
-                            }
-                          },
-                          {
-                            type: "RichText",
-                            props: {
-                              id: "interior-hero-sub",
-                              content: "Make buyers fall in love before they even step inside. We capture the true flow, light, and atmosphere of every home.",
-                              size: "lg",
-                              width: "full",
-                              styles: "text-white/80 text-center"
-                            }
-                          },
-                          {
-                            type: "Button",
-                            props: {
-                              id: "interior-hero-cta",
-                              link: { type: "internal", url: "#booking", label: "Book a Shoot" },
-                              variant: "solid",
-                              align: "center"
-                            }
-                          }
-                        ]
+                  leftColumnWidth: 45,
+                  gap: 48,
+                  spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" }
+                },
+                children: [
+                  {
+                    type: "FlexBox",
+                    props: {
+                      direction: "flex-col",
+                      align: "items-start",
+                      justify: "justify-center",
+                      gap: 16
+                    },
+                    children: [
+                      {
+                        type: "Heading",
+                        props: {
+                          text: "THE ART OF THE INTERIOR",
+                          level: 1,
+                          sizeDesktop: "md:text-5xl",
+                          sizeMobile: "text-3xl",
+                          accent: true
+                        }
+                      },
+                      {
+                        type: "RichText",
+                        props: {
+                          content: "<p>Capturing architectural spaces through intentional balance, light, and symmetry. We deploy specialized multi-flash flambient methodologies to ensure spatial realities match raw aesthetic luxury.</p>",
+                          size: "base"
+                        }
+                      },
+                      {
+                        type: "Button",
+                        props: {
+                          link: { type: "internal", url: "portfolio", label: "View Interior Portfolio" },
+                          variant: "underline"
+                        }
                       }
+                    ]
+                  },
+                  {
+                    type: "Image",
+                    props: {
+                      imageUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c?auto=format&fit=crop&w=1200&q=80",
+                      aspectRatio: "aspect-video",
+                      objectFit: "cover",
+                      borderRadius: "rounded-none"
                     }
-                  ]
-                }
-              },
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-bg-secondary",
+              layout: "boxed",
+              spacing: { "pt": "20", "pb": "20", "mt": "0", "mb": "0" }
+            },
+            children: [
               {
                 type: "Heading",
                 props: {
-                  id: "interior-value-heading",
-                  text: "Scroll-Stopping Images That Drive Showings",
+                  text: "Curated Detail Captures",
                   level: 2,
-                  align: "left",
-                  accent: true,
-                  width: "full"
-                }
-              },
-              {
-                type: "RichText",
-                props: {
-                  id: "interior-value-text",
-                  content: "In today's digital-first market, your listing photos are the actual first showing. Bad lighting and distorted angles drive buyers away. Our magazine-quality interior photography ensures your property stands out in a crowded MLS feed.\n\n• True-to-Life Colors\n• Crystal Clear Window Views\n• Distortion-Free Angles",
-                  size: "lg",
-                  width: "full"
-                }
-              },
-              {
-                type: "Heading",
-                props: {
-                  id: "interior-diff-heading",
-                  text: "The Exposed Brick Difference",
-                  level: 3,
-                  align: "center",
-                  accent: false,
-                  width: "full"
-                }
-              },
-              {
-                type: "RichText",
-                props: {
-                  id: "interior-diff-text",
-                  content: "We don't just 'point and shoot.' We use advanced lighting and editing techniques to produce high-end architectural imagery for every listing.\n\n• Flambient Blending\n• Magazine Retouching\n• Detail & Vignette Shots",
-                  size: "base",
-                  width: "full"
+                  sizeDesktop: "md:text-4xl",
+                  align: "text-center",
+                  accent: false
                 }
               },
               {
                 type: "DynamicGallery",
                 props: {
-                  id: "interior-gallery",
-                  title: "Capturing Every Space",
-                  subtitle: "See how we highlight the best features of different rooms in a home.",
-                  layout: "bento",
-                  aspectRatio: "4/3",
-                  images: [
-                    {
-                      url: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80",
-                      portfolioTitle: "Living Spaces",
-                      category: "Interior"
-                    },
-                    {
-                      url: "https://images.unsplash.com/photo-1556912173-3bb406ef7e77?auto=format&fit=crop&w=1200&q=80",
-                      portfolioTitle: "Kitchens & Dining",
-                      category: "Interior"
-                    },
-                    {
-                      url: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80",
-                      portfolioTitle: "Lifestyle Details",
-                      category: "Details"
-                    }
-                  ],
-                  width: "full"
-                }
-              },
-              {
-                type: "Contact",
-                props: {
-                  id: "interior-booking",
-                  title: "Ready to elevate your listing?",
-                  width: "full"
-                }
-              },
-              {
-                type: "Footer",
-                props: {
-                  id: "interior-footer",
-                  quote: "Premium real estate media services designed to help agents win more listings and sell homes faster."
+                  title: "Featured Residential Spaces",
+                  subtitle: "High-fidelity spatial design files compiled across recent regional productions.",
+                  layout: "masonry",
+                  columns: 3,
+                  aspectRatio: "16/9",
+                  grayscaleEffect: "hover-color",
+                  lightbox: true
                 }
               }
             ]
+          }
+        ],
+        root: {
+          props: {
+            title: "Interior Architecture Media",
+            layoutMode: "one-panel"
           }
         }
       }
     },
     {
-      name: "3D Virtual Tours",
+      name: "Spatial Intelligence & 3D Tours",
       category: "Media Showcase",
-      description: "Immersive 3D Matterport captures allowing interactive navigation and responsive dollhouse perspective tours.",
+      description: "Structures deep immersive engine specs (such as dollhouse tracking and digital twins) cleanly into nested slot trees.",
       previewImage: "indigo",
       puckData: {
-        content: [],
-        root: {
-          props: {
-            title: "3D Virtual Tours",
-            side: [
+        content: [
+          {
+            type: "Section",
+            props: {
+              padding: "py-24",
+              background: "bg-charcoal text-white",
+              layout: "boxed",
+              spacing: { "pt": "40", "pb": "20", "mt": "0", "mb": "0" }
+            },
+            children: [
               {
-                type: "TextContent",
+                type: "Heading",
                 props: {
-                  id: "brand-header-tours",
-                  title1: "VIRTUAL",
-                  title2: "TOURS",
-                  accent: "3D",
-                  tagline: "INTERACTIVE DIGITAL TWINS"
+                  text: "Spatial Intelligence. Digital Twins.",
+                  level: 1,
+                  sizeDesktop: "md:text-5xl",
+                  accent: true
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  content: "<p>Transcend traditional photography with hyper-accurate 3D Matterport tours. Provide potential buyers with a true-to-life walkthrough experience from anywhere in the world.</p>",
+                  size: "lg"
                 }
               }
-            ],
-            main: [
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-bg-secondary",
+              layout: "boxed",
+              spacing: { "pt": "0", "pb": "32", "mt": "0", "mb": "0" }
+            },
+            children: [
               {
-                type: "MediaBackground",
+                type: "GridBox",
+                props: { "columnsDesktop": "md:grid-cols-3", "gap": 24 },
+                children: [
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Unmatched Engagement", "level": 3, "sizeDesktop": "text-xl" } },
+                      { "type": "RichText", "props": { "content": "<p>Properties with 3D virtual tours see an average of 403% more inquiries than those without. We use Matterport Pro3 technology to capture every millimeter with LiDAR precision.</p>" } }
+                    ]
+                  },
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Accessibility", "level": 3, "sizeDesktop": "text-xl", "accent": true } },
+                      { "type": "RichText", "props": { "content": "<p>Global reach without travel. Allow international investors to walk the halls of your listing instantly.</p>" } }
+                    ]
+                  },
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Dollhouse View", "level": 3, "sizeDesktop": "text-xl" } },
+                      { "type": "RichText", "props": { "content": "<p>A unique bird's-eye perspective that allows users to understand the flow and volume of the entire structure seamlessly.</p>" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-20",
+              background: "bg-bg-primary",
+              layout: "boxed",
+              spacing: { "pt": "20", "pb": "40", "mt": "0", "mb": "0" }
+            },
+            children: [
+              {
+                type: "Heading",
+                props: { "text": "Digital Twin Solutions", "level": 2, "sizeDesktop": "md:text-3xl", "align": "text-center" }
+              },
+              {
+                type: "GridBox",
+                props: { "columnsDesktop": "md:grid-cols-3", "gap": 32 },
+                children: [
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Essential Tour", "level": 3, "sizeDesktop": "text-lg" } },
+                      { "type": "RichText", "props": { "content": "<h4>$299/start</h4><ul><li>Up to 2,500 sq.ft.</li><li>3 Months Hosting</li><li>10 Mattertags</li></ul>" } }
+                    ]
+                  },
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 2, "borderColor": "#c87a53", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Professional Twin", "level": 3, "sizeDesktop": "text-lg", "accent": true } },
+                      { "type": "RichText", "props": { "content": "<h4>$449/start</h4><ul><li>Up to 5,000 sq.ft.</li><li>6 Months Hosting</li><li>Floor Plan Included</li><li>Unlimited Mattertags</li></ul>" } }
+                    ]
+                  },
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Industrial Scale", "level": 3, "sizeDesktop": "text-lg" } },
+                      { "type": "RichText", "props": { "content": "<h4>CUSTOM</h4><ul><li>Large Scale Commercial</li><li>BIM & Autodesk Integration</li><li>Asset Tracking Solutions</li></ul>" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        root: { "props": { "title": "Virtual Tours Spatial Layout", "layoutMode": "one-panel" } }
+      }
+    },
+    {
+      name: "Aerial Photography & Drone Operations",
+      category: "Media Showcase",
+      description: "Expansive layout strategy for striking drone viewpoints and commercial features with custom Columns and Section spacing.",
+      previewImage: "copper",
+      puckData: {
+        content: [
+          {
+            type: "Section",
+            props: {
+              padding: "py-32",
+              background: "bg-charcoal text-white",
+              layout: "boxed",
+              spacing: { "pt": "48", "pb": "32", "mt": "0", "mb": "0" }
+            },
+            children: [
+              {
+                type: "Heading",
                 props: {
-                  id: "tours-hero",
-                  mediaUrl: "https://images.unsplash.com/photo-1558442074-3c1985715e09?auto=format&fit=crop&w=1920&q=80",
-                  mediaType: "image",
-                  height: "h-[80vh] min-h-[600px]",
-                  overlayOpacity: 40,
-                  content: [
-                    {
-                      type: "FlexBox",
-                      props: {
-                        id: "tours-hero-flex",
-                        direction: "flex-col",
-                        align: "items-center",
-                        justify: "justify-center",
-                        gap: 24,
-                        content: [
-                          {
-                            type: "Heading",
-                            props: {
-                              id: "tours-hero-heading",
-                              text: "Immersive 3D Virtual Tours",
-                              level: 1,
-                              align: "center",
-                              accent: false,
-                              width: "full",
-                              styles: "text-white"
-                            }
-                          },
-                          {
-                            type: "RichText",
-                            props: {
-                              id: "tours-hero-sub",
-                              content: "Host a 24/7 open house. Let buyers walk through the property, measure spaces, and fall in love from anywhere in the world.",
-                              size: "lg",
-                              width: "full",
-                              styles: "text-white/80 text-center"
-                            }
-                          },
-                          {
-                            type: "Button",
-                            props: {
-                              id: "tours-hero-cta",
-                              link: { type: "internal", url: "#booking", label: "Book a Scan" },
-                              variant: "solid",
-                              align: "center"
-                            }
-                          }
+                  text: "THE SKY IS NO LONGER THE LIMIT.",
+                  level: 1,
+                  sizeDesktop: "md:text-6xl",
+                  accent: true
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  content: "<p>Cinematic aerial storytelling for luxury estates and commercial developments. Captured in 4K with FAA-certified precision.</p>",
+                  size: "lg"
+                }
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-bg-secondary",
+              layout: "boxed",
+              spacing: { "pt": "0", "pb": "24", "mt": "0", "mb": "0" }
+            },
+            children: [
+              {
+                type: "Columns",
+                props: { "leftColumnWidth": 60, "gap": 32 },
+                children: [
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 32 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "ULTRA-HD 4K OPTICS", "level": 3, "sizeDesktop": "md:text-2xl" } },
+                      { "type": "RichText", "props": { "content": "<p>Our fleet utilizes Hasselblad sensors and advanced gimbal stabilization to deliver razor-sharp 4K video and 20MP stills with 14 stops of dynamic range. Perfect for dramatic aerial detail and atmospheric twilight captures.</p>", "size": "base" } }
+                    ]
+                  },
+                  {
+                    type: "FlexBox",
+                    props: { "direction": "flex-col", "gap": 16 },
+                    children: [
+                      {
+                        type: "DecorativeFrame",
+                        props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 20 },
+                        children: [
+                          { "type": "Heading", "props": { "text": "FAA CERTIFIED", "level": 3, "sizeDesktop": "text-xl", "accent": true } },
+                          { "type": "RichText", "props": { "content": "<p>Part 107 licensed pilots ensuring fully compliant and insured flights in any airspace.</p>" } }
+                        ]
+                      },
+                      {
+                        type: "DecorativeFrame",
+                        props: { "borderWidth": 0, "borderColor": "transparent", "padding": 20 },
+                        children: [
+                          { "type": "Heading", "props": { "text": "ADVANCED FLEET", "level": 3, "sizeDesktop": "text-xl" } },
+                          { "type": "RichText", "props": { "content": "<p>From agile FPV systems to heavy-lift cinematic tracking platforms.</p>" } }
                         ]
                       }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-20",
+              background: "bg-bg-primary",
+              layout: "boxed",
+              spacing: { "pt": "24", "pb": "24", "mt": "0", "mb": "0" }
+            },
+            children: [
+              {
+                type: "Columns",
+                props: { "leftColumnWidth": 50, "gap": 48 },
+                children: [
+                  {
+                    type: "Image",
+                    props: {
+                      imageUrl: "screen_4.jpg",
+                      aspectRatio: "aspect-video",
+                      objectFit: "cover"
                     }
-                  ]
-                }
-              },
+                  },
+                  {
+                    type: "FlexBox",
+                    props: { "direction": "flex-col", "justify": "justify-center", "gap": 16 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "RESIDENTIAL LUXURY", "level": 2, "sizeDesktop": "md:text-3xl" } },
+                      { "type": "RichText", "props": { "content": "<p>Give potential buyers a true sense of place. Our residential drone services highlight not just the home, but its relationship to the landscape, neighborhood, and local amenities.</p><ul><li>Twilight Exterior Elevations</li><li>Proximity & Neighborhood Mapping</li><li>Dynamic Orbit & Tracking Shots</li></ul>" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        root: { "props": { "title": "Aerial Photography Layout", "layoutMode": "one-panel" } }
+      }
+    },
+    {
+      name: "Floor Plans & Layouts Template",
+      category: "Media Showcase",
+      description: "Clean technical breakdown utilizing asymmetric Columns, a metadata grid highlighting accuracy, and a sequential process layout.",
+      previewImage: "slate",
+      puckData: {
+        content: [
+          {
+            type: "Section",
+            props: {
+              padding: "py-24",
+              background: "bg-charcoal text-white",
+              layout: "boxed",
+              spacing: { "pt": "40", "pb": "24", "mt": "0", "mb": "0" }
+            },
+            children: [
               {
                 type: "Heading",
                 props: {
-                  id: "tours-value-heading",
-                  text: "Qualify Leads Before They Even Arrive",
-                  level: 2,
-                  align: "left",
+                  text: "Visualizing space with technical elegance.",
+                  level: 1,
+                  sizeDesktop: "md:text-5xl",
+                  accent: true
+                }
+              },
+              {
+                type: "RichText",
+                props: {
+                  content: "<p>Clean, high-fidelity floor plans that bridge the gap between imagination and reality. From detailed 2D layouts to immersive 3D visualizations.</p>",
+                  size: "lg"
+                }
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-bg-primary",
+              layout: "boxed",
+              spacing: { "pt": "0", "pb": "32", "mt": "0", "mb": "0" }
+            },
+            children: [
+              {
+                type: "GridBox",
+                props: {
+                  columnsDesktop: "md:grid-cols-2",
+                  gap: 40,
+                  spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" }
+                },
+                children: [
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Schematic 2D Layouts", "level": 3, "sizeDesktop": "md:text-2xl" } },
+                      { "type": "RichText", "props": { "content": "<p>Perfect for standard listings. Crisp black and white or color-coded diagrams including precise measurements, room labels, and total square footage.</p><ul><li>Laser-Accurate Measurements</li><li>Custom Branding Options</li><li>PDF & High-Res JPG Delivery</li></ul>", "size": "base" } }
+                    ]
+                  },
+                  {
+                    type: "DecorativeFrame",
+                    props: { "borderWidth": 1, "borderColor": "rgba(255,255,255,0.05)", "padding": 24 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "Immersive 3D Visuals", "level": 3, "sizeDesktop": "md:text-2xl" } },
+                      { "type": "RichText", "props": { "content": "<p>Elevate your presentation with volumetric renders. Helping buyers visualize the flow and volume of the property with realistic textures and lighting.</p><ul><li>Full Furniture Staging</li><li>Lighting & Texture Realism</li><li>Multiple Perspective Angles</li></ul>", "size": "base" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-20",
+              background: "bg-bg-secondary",
+              layout: "boxed",
+              spacing: { "pt": "24", "pb": "40", "mt": "0", "mb": "0" }
+            },
+            children: [
+              {
+                type: "Heading",
+                props: { "text": "Technical precision, delivered fast.", "level": 2, "sizeDesktop": "md:text-3xl", "align": "text-center" }
+              },
+              {
+                type: "GridBox",
+                props: { "columnsDesktop": "md:grid-cols-3", "gap": 24 },
+                children: [
+                  {
+                    type: "FlexBox",
+                    props: { "direction": "flex-col", "gap": 12 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "01 / Capture", "level": 4, "sizeDesktop": "text-lg", "accent": true } },
+                      { "type": "RichText", "props": { "content": "<p>We use high-precision LiDAR and photogrammetry to scan every inch of the property during our visit.</p>" } }
+                    ]
+                  },
+                  {
+                    type: "FlexBox",
+                    props: { "direction": "flex-col", "gap": 12 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "02 / Process", "level": 4, "sizeDesktop": "text-lg", "accent": true } },
+                      { "type": "RichText", "props": { "content": "<p>Our architectural draftsmen convert raw data into clean, formatted plans with 99.5% measurement accuracy.</p>" } }
+                    ]
+                  },
+                  {
+                    type: "FlexBox",
+                    props: { "direction": "flex-col", "gap": 12 },
+                    children: [
+                      { "type": "Heading", "props": { "text": "03 / Deliver", "level": 4, "sizeDesktop": "text-lg", "accent": true } },
+                      { "type": "RichText", "props": { "content": "<p>Receive your print-ready and web-optimized files via our secure client portal within 24 hours.</p>" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        root: { "props": { "title": "Floor Plans & Renders Layout", "layoutMode": "one-panel" } }
+      }
+    },
+    {
+      name: "Packages & Pricing Template",
+      category: "Pricing & Services",
+      description: "High-fidelity packages layout with standard Section components, Headings, RichTexts, and structured GridBox layouts comparing plans, plus an interactive custom calculator.",
+      previewImage: "emerald",
+      puckData: {
+        content: [
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-charcoal text-white",
+              layout: "boxed",
+              spacing: { "pt": "40", "pb": "0", "mt": "0", "mb": "0" }
+            },
+            children: [
+              {
+                type: "Heading",
+                props: {
+                  text: "INVESTMENT",
+                  level: 4,
+                  sizeDesktop: "text-[10px] tracking-[0.4em] text-brick-copper",
+                  align: "text-center",
                   accent: true,
-                  width: "full"
-                }
-              },
-              {
-                type: "RichText",
-                props: {
-                  id: "tours-value-text",
-                  content: "Photos spark interest, but a 3D tour creates certainty. By allowing potential buyers to virtually walk through a home, you eliminate unnecessary showings and ensure that the buyers who do walk through the front door are serious, qualified, and already in love with the layout.\n\n• The 24/7 Open House\n• Win More Listings\n• Attract Relocating Buyers",
-                  size: "lg",
-                  width: "full"
-                }
-              },
-              {
-                type: "TourEmbed",
-                props: {
-                  id: "tours-embed",
-                  url: "https://my.matterport.com/show/?m=your_tour_id_here",
-                  height: 600,
-                  width: "full"
+                  styles: "text-center opacity-80"
                 }
               },
               {
                 type: "Heading",
                 props: {
-                  id: "tours-specs-heading",
-                  text: "Included with Every Scan",
-                  level: 3,
-                  align: "center",
+                  text: "High-Fidelity Packages",
+                  level: 1,
+                  sizeDesktop: "md:text-6xl text-4xl",
+                  sizeMobile: "text-4xl",
+                  align: "text-center",
+                  tracking: "tracking-tight",
                   accent: false,
-                  width: "full"
+                  spacing: { "pt": "8", "pb": "16", "mt": "0", "mb": "0" }
                 }
               },
               {
                 type: "RichText",
                 props: {
-                  id: "tours-specs-text",
-                  content: "Everything you need to market the property's layout in one package.\n\n• Dollhouse View\n• Mobile Optimized\n• Fast Turnaround\n• MLS & Zillow Sync",
-                  size: "base",
-                  width: "full"
+                  content: "<p style='text-align: center;'>Elevating real estate through cinematic visual storytelling. Select a curated tier below or coordinate a bespoke production layout tailored exactly to your listing timeline.</p>",
+                  size: "lg",
+                  tracking: "tracking-normal",
+                  maxWidth: "max-w-2xl",
+                  spacing: { "pt": "0", "pb": "32", "mt": "0", "mb": "0" },
+                  styles: "mx-auto text-white/60"
                 }
-              },
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-bg-primary",
+              layout: "boxed",
+              spacing: { "pt": "0", "pb": "40", "mt": "0", "mb": "0" }
+            },
+            children: [
               {
-                type: "Contact",
+                type: "GridBox",
                 props: {
-                  id: "tours-booking",
-                  title: "Ready to digitize your listing?",
-                  width: "full"
-                }
-              },
+                  columnsDesktop: "md:grid-cols-3",
+                  columnsMobile: "grid-cols-1",
+                  gap: 32,
+                  spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" }
+                },
+                children: [
+                  {
+                    type: "DecorativeFrame",
+                    props: {
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.05)",
+                      padding: 32,
+                      spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" },
+                      styles: "bg-[#111111]/90 hover:border-white/10 transition-all duration-300 flex flex-col justify-between h-full"
+                    },
+                    children: [
+                      {
+                        type: "Heading",
+                        props: { "text": "ENTRY TIER", "level": 4, "sizeDesktop": "text-[10px] tracking-widest text-[#c87a53]", "accent": true }
+                      },
+                      {
+                        type: "Heading",
+                        props: { "text": "Essential", "level": 2, "sizeDesktop": "text-2xl font-light text-white mt-1", "accent": false }
+                      },
+                      {
+                        type: "RichText",
+                        props: { 
+                          content: "<h3><span style='font-size: 2.5rem; font-family: monospace; font-weight: bold; color: white;'>$495</span> <span style='font-size: 10px; tracking: 0.1em; color: rgba(255,255,255,0.4); text-transform: uppercase;'>/ PROJECT</span></h3><ul class='space-y-4 mt-8 mb-8'><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>25 Professional Interior Photos</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>3 Aerial Drone Stills</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>2D Schematic Floor Plan</span></li><li class='flex items-center gap-3 opacity-30'><svg class='w-4 h-4 text-white/20 shrink-0' fill='none' stroke='currentColor' stroke-width='2.5' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M10 18a8 8 0 100-16 8 8 0 000 16zm-3-7h6'></path></svg><span class='text-xs text-white/50 line-through'>3D Matterport Tour</span></li></ul>", 
+                          size: "base" 
+                        }
+                      },
+                      {
+                        type: "Button",
+                        props: { "link": { "type": "internal", "url": "contact", "label": "SELECT PACKAGE" }, "variant": "outline", "align": "center", "styles": "w-full border-white/10 hover:border-transparent text-white hover:text-black py-2.5 transition-all text-xs tracking-widest font-semibold mt-auto" }
+                      }
+                    ]
+                  },
+                  {
+                    type: "DecorativeFrame",
+                    props: {
+                      borderWidth: 2,
+                      borderColor: "#c87a53",
+                      padding: 32,
+                      spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" },
+                      styles: "bg-[#111111] shadow-[0_0_50px_rgba(200,122,83,0.12)] border-[#c87a53] relative flex flex-col justify-between h-full group"
+                    },
+                    children: [
+                      {
+                        type: "Heading",
+                        props: { "text": "PRODUCTION STANDARD", "level": 4, "sizeDesktop": "text-[10px] tracking-widest text-[#c87a53]", "accent": true }
+                      },
+                      {
+                        type: "Heading",
+                        props: { "text": "Professional", "level": 2, "sizeDesktop": "text-2xl font-light text-white mt-1", "accent": false }
+                      },
+                      {
+                        type: "RichText",
+                        props: { 
+                          content: "<h3><span style='font-size: 2.5rem; font-family: monospace; font-weight: bold; color: white;'>$850</span> <span style='font-size: 10px; tracking: 0.1em; color: rgba(255,255,255,0.4); text-transform: uppercase;'>/ PROJECT</span></h3><ul class='space-y-4 mt-8 mb-8'><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/80 font-semibold'>40 High-End Interior Photos</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/80 font-semibold'>10 Aerial Drone 4K Stills</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/80 font-semibold'>2D & 3D Interactive Floor Plans</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/80 font-semibold'>Matterport 3D Tour (6 Months)</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/80 font-semibold'>Social Media Teaser Video</span></li></ul>", 
+                          size: "base" 
+                        }
+                      },
+                      {
+                        type: "Button",
+                        props: { "link": { "type": "internal", "url": "contact", "label": "BOOK NOW" }, "variant": "solid", "align": "center", "styles": "w-full bg-[#c87a53] hover:bg-white text-black hover:text-black py-2.5 transition-all text-xs tracking-widest font-extrabold" }
+                      }
+                    ]
+                  },
+                  {
+                    type: "DecorativeFrame",
+                    props: {
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.05)",
+                      padding: 32,
+                      spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" },
+                      styles: "bg-[#111111]/90 hover:border-white/10 transition-all duration-300 flex flex-col justify-between h-full"
+                    },
+                    children: [
+                      {
+                        type: "Heading",
+                        props: { "text": "LUXURY SUITE", "level": 4, "sizeDesktop": "text-[10px] tracking-widest text-[#c87a53]", "accent": true }
+                      },
+                      {
+                        type: "Heading",
+                        props: { "text": "Elite", "level": 2, "sizeDesktop": "text-2xl font-light text-white mt-1", "accent": false }
+                      },
+                      {
+                        type: "RichText",
+                        props: { 
+                          content: "<h3><span style='font-size: 2.5rem; font-family: monospace; font-weight: bold; color: white;'>$1,450</span> <span style='font-size: 10px; tracking: 0.1em; color: rgba(255,255,255,0.4); text-transform: uppercase;'>/ PROJECT</span></h3><ul class='space-y-4 mt-8 mb-8'><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>Unlimited Multi-Flash Interior Photos</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>Aerial 4K Cinematic Video (60s)</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>Premium Dollhouse 3D Render</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>Full Walkthrough Cinematic Film</span></li><li class='flex items-center gap-3'><svg class='w-4 h-4 text-[#c87a53] shrink-0' fill='none' stroke='currentColor' stroke-width='3' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'></path></svg><span class='text-xs text-white/70 font-medium'>Twilight Session Included</span></li></ul>", 
+                          size: "base" 
+                        }
+                      },
+                      {
+                        type: "Button",
+                        props: { "link": { "type": "internal", "url": "contact", "label": "SELECT PACKAGE" }, "variant": "outline", "align": "center", "styles": "w-full border-white/10 hover:border-transparent text-white hover:text-black py-2.5 transition-all text-xs tracking-widest font-semibold mt-auto" }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-8",
+              background: "bg-transparent",
+              layout: "full",
+              spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" }
+            },
+            children: [
               {
-                type: "Footer",
+                type: "HTMLEmbed",
                 props: {
-                  id: "tours-footer",
-                  quote: "Premium real estate media services designed to help agents win more listings and sell homes faster."
+                  wrapInIframe: false,
+                  title: "Interactive Calculator block",
+                  width: "full",
+                  spacing: { "pt": "0", "pb": "32", "mt": "0", "mb": "0" },
+                  html: `<section class='py-12 bg-[#080808]/40 font-sans border border-white/5 max-w-6xl mx-auto px-6 rounded-md'>
+  <div class='relative overflow-hidden transition-all duration-300'>
+    
+    <!-- Top Title and Total -->
+    <div class='flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-8 mb-8'>
+      <div>
+        <h2 class='text-3xl font-light text-white tracking-tight mb-2'>Build Your Own</h2>
+        <p class='text-xs text-white/40 font-light'>Tailor our services to your specific project needs.</p>
+      </div>
+      <div class='flex items-center gap-6 self-stretch md:self-auto justify-between md:justify-end border-t md:border-t-0 border-white/5 pt-4 md:pt-0'>
+        <span class='text-[9px] uppercase tracking-[0.2em] text-white/40 font-semibold leading-none text-right'>ESTIMATED<br>TOTAL</span>
+        <span id='calc-total' class='text-4xl md:text-5xl font-mono text-[#c87a53] font-light'>$0</span>
+      </div>
+    </div>
+
+    <!-- Grid of Selection Cards -->
+    <div class='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8'>
+      <!-- Card 1 -->
+      <div class='calc-card group bg-[#161616]/40 border border-white/5 p-6 cursor-pointer hover:border-white/15 transition-all duration-300 relative select-none rounded-[3px]' data-price='150' data-selected='false'>
+        <!-- Icon Holder -->
+        <div class='text-white/40 group-hover:text-white transition-colors mb-6'>
+          <svg class='w-8 h-8' fill='none' stroke='currentColor' stroke-width='1.2' viewBox='0 0 24 24'>
+            <path stroke-linecap='round' stroke-linejoin='round' d='M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z' />
+            <path stroke-linecap='round' stroke-linejoin='round' d='M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z' />
+          </svg>
+        </div>
+        <h3 class='text-[10px] font-bold tracking-wider text-white/50 uppercase mb-1 font-sans'>STILL PHOTOGRAPHY</h3>
+        <p class='text-[11px] text-white/30 mb-6'>Base 15 Photos</p>
+        <span class='text-base font-mono text-white/80 font-medium'>$150</span>
+      </div>
+
+      <!-- Card 2 -->
+      <div class='calc-card group bg-[#161616]/40 border border-white/5 p-6 cursor-pointer hover:border-white/15 transition-all duration-300 relative select-none rounded-[3px]' data-price='200' data-selected='false'>
+        <!-- Icon Holder -->
+        <div class='text-white/40 group-hover:text-white transition-colors mb-6'>
+          <svg class='w-8 h-8' fill='none' stroke='currentColor' stroke-width='1.2' viewBox='0 0 24 24'>
+            <path stroke-linecap='round' stroke-linejoin='round' d='M12 18a6 6 0 100-12 6 6 0 000 12zM21 12h-3M6 12H3M12 3v3M12 18v3' />
+            <path stroke-linecap='round' stroke-linejoin='round' d='M18.364 5.636l-2.122 2.122M7.757 16.243l-2.121 2.121M18.364 18.364l-2.122-2.122M7.757 7.757l-2.121-2.121' />
+          </svg>
+        </div>
+        <h3 class='text-[10px] font-bold tracking-wider text-white/50 uppercase mb-1 font-sans'>DRONE COVERAGE</h3>
+        <p class='text-[11px] text-white/30 mb-6'>Aerial Stills + Video</p>
+        <span class='text-base font-mono text-white/80 font-medium'>$200</span>
+      </div>
+
+      <!-- Card 3 -->
+      <div class='calc-card group bg-[#161616]/40 border border-white/5 p-6 cursor-pointer hover:border-white/15 transition-all duration-300 relative select-none rounded-[3px]' data-price='125' data-selected='false'>
+        <!-- Icon Holder -->
+        <div class='text-white/40 group-hover:text-white transition-colors mb-6'>
+          <svg class='w-8 h-8' fill='none' stroke='currentColor' stroke-width='1.2' viewBox='0 0 24 24'>
+            <path stroke-linecap='round' stroke-linejoin='round' d='M4 19h16M4 14h12M4 9h8M4 4h4' />
+          </svg>
+        </div>
+        <h3 class='text-[10px] font-bold tracking-wider text-white/50 uppercase mb-1 font-sans'>FLOOR PLANS</h3>
+        <p class='text-[11px] text-white/30 mb-6'>2D Laser Measured</p>
+        <span class='text-base font-mono text-white/80 font-medium'>$125</span>
+      </div>
+
+      <!-- Card 4 -->
+      <div class='calc-card group bg-[#161616]/40 border border-white/5 p-6 cursor-pointer hover:border-white/15 transition-all duration-300 relative select-none rounded-[3px]' data-price='300' data-selected='false'>
+        <!-- Icon Holder -->
+        <div class='text-white/40 group-hover:text-white transition-colors mb-6'>
+          <svg class='w-8 h-8' fill='none' stroke='currentColor' stroke-width='1.2' viewBox='0 0 24 24'>
+            <path stroke-linecap='round' stroke-linejoin='round' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+            <path stroke-linecap='round' stroke-linejoin='round' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
+          </svg>
+        </div>
+        <h3 class='text-[10px] font-bold tracking-wider text-white/50 uppercase mb-1 font-sans'>3D VIRTUAL TOUR</h3>
+        <p class='text-[11px] text-white/30 mb-6'>Matterport Hosting</p>
+        <span class='text-base font-mono text-white/80 font-medium'>$300</span>
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <div class='flex justify-center mt-12'>
+      <button id='calc-submit-btn' class='px-8 py-3 bg-[#1d1d1d] hover:bg-[#c87a53] hover:text-black text-white/90 border border-white/10 hover:border-transparent text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 cursor-pointer rounded-sm hover:scale-[1.02]'>
+        GENERATE CUSTOM QUOTE
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    (function() {
+      // Find elements contextual to this block
+      const containerSelector = '.calc-card';
+      const cards = document.querySelectorAll(containerSelector);
+      const totalDisplay = document.getElementById('calc-total');
+      const submitBtn = document.getElementById('calc-submit-btn');
+      
+      let selectedTotal = 0;
+      
+      cards.forEach(card => {
+        card.addEventListener('click', function() {
+          const isSelected = this.getAttribute('data-selected') === 'true';
+          const price = parseInt(this.getAttribute('data-price') || '0', 10);
+          
+          if (isSelected) {
+            this.setAttribute('data-selected', 'false');
+            this.classList.remove('border-[#c87a53]', 'shadow-[0_0_20px_rgba(200,122,83,0.12)]', 'bg-[#c87a53]/5');
+            this.classList.add('border-white/5', 'bg-[#161616]/40');
+            const icon = this.querySelector('div');
+            if (icon) {
+              icon.classList.remove('text-[#c87a53]');
+              icon.classList.add('text-white/40');
+            }
+            selectedTotal -= price;
+          } else {
+            this.setAttribute('data-selected', 'true');
+            this.classList.remove('border-white/5', 'bg-[#161616]/40');
+            this.classList.add('border-[#c87a53]', 'shadow-[0_0_20px_rgba(200,122,83,0.12)]', 'bg-[#c87a53]/5');
+            const icon = this.querySelector('div');
+            if (icon) {
+              icon.classList.remove('text-white/40');
+              icon.classList.add('text-[#c87a53]');
+            }
+            selectedTotal += price;
+          }
+          
+          if (totalDisplay) {
+            totalDisplay.textContent = '$' + selectedTotal;
+          }
+          
+          if (submitBtn) {
+            if (selectedTotal > 0) {
+              submitBtn.classList.remove('bg-[#1d1d1d]', 'text-white/90', 'border-white/10');
+              submitBtn.classList.add('bg-[#c87a53]', 'text-black', 'border-transparent');
+            } else {
+              submitBtn.classList.remove('bg-[#c87a53]', 'text-black', 'border-transparent');
+              submitBtn.classList.add('bg-[#1d1d1d]', 'text-white/90', 'border-white/10');
+            }
+          }
+        });
+      });
+
+      if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (selectedTotal === 0) {
+            alert('Please select at least one custom service to configure your package recipe.');
+            return;
+          }
+          
+          const selectedServices = [];
+          document.querySelectorAll('.calc-card[data-selected="true"]').forEach(c => {
+            const h3 = c.querySelector('h3');
+            if (h3) selectedServices.push(h3.textContent.trim());
+          });
+          
+          // Render a custom elegant popup modal safely on the document body
+          const alertOverlay = document.createElement('div');
+          alertOverlay.className = 'fixed inset-0 z-[999999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans';
+          alertOverlay.style.zIndex = '999999';
+          alertOverlay.innerHTML = \`
+            <div class="bg-[#121212] border border-[#c87a53]/25 p-8 max-w-sm w-full md:max-w-md relative rounded-lg text-center shadow-[0_0_30px_rgba(200,122,83,0.1)]">
+              <div class="w-12 h-12 bg-[#c87a53]/15 rounded-full flex items-center justify-center text-[#c87a53] mx-auto mb-4 font-bold">✓</div>
+              <h4 class="text-lg font-medium text-white mb-2">Quote Generated Successfully</h4>
+              <p class="text-xs text-white/50 mb-6 leading-relaxed">
+                Your custom service menu has been configured. The estimated cost for your package recipe is:
+              </p>
+              <div class="text-3xl font-mono text-[#c87a53] font-black mb-6">
+                $\${selectedTotal}
+              </div>
+              <div class="space-y-2 mb-6 text-left bg-black/50 p-4 border border-white/5 rounded-sm max-h-40 overflow-y-auto">
+                \${selectedServices.map(s => '<div class="text-[10px] text-white/70 font-mono tracking-wider">• ' + s + '</div>').join('')}
+              </div>
+              <div class="flex gap-3">
+                <button id="close-calc-modal" class="flex-1 py-2.5 bg-[#202020] hover:bg-[#303030] text-white text-[10px] tracking-widest uppercase font-bold transition-all border border-white/5 cursor-pointer rounded-sm">
+                  Refine Specs
+                </button>
+                <button id="calc-proceed-lead" class="flex-1 py-2.5 bg-[#c87a53] hover:bg-white text-black transition-all text-[10px] tracking-widest uppercase font-black cursor-pointer rounded-sm">
+                  Lock & Book
+                </button>
+              </div>
+            </div>
+          \`;
+          document.body.appendChild(alertOverlay);
+          
+          document.getElementById('close-calc-modal').addEventListener('click', () => {
+            alertOverlay.remove();
+          });
+          
+          document.getElementById('calc-proceed-lead').addEventListener('click', () => {
+            alertOverlay.remove();
+            const bookingSec = document.getElementById('booking') || document.querySelector('[id*="booking"]') || document.querySelector('[class*="booking"]') || document.getElementById('contact');
+            if (bookingSec) {
+              bookingSec.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              window.location.hash = '#booking';
+            }
+          });
+        });
+      }
+    })();
+  </script>
+</section>`
                 }
               }
             ]
           }
-        }
-      }
-    },
-    {
-      name: "Aerial & Drone Photography",
-      category: "Media Showcase",
-      description: "High-resolution aerial vistas and cinematic drone flyovers capturing property context.",
-      previewImage: "copper",
-      puckData: {
-        content: [],
+        ],
         root: {
           props: {
-            title: "Aerial & Drone Photography",
-            side: [
-              {
-                type: "TextContent",
-                props: {
-                  id: "brand-header-aerial",
-                  title1: "AERIAL",
-                  title2: "DRONE",
-                  accent: "MEDIA",
-                  tagline: "ELEVATED PROPERTY PERSPECTIVES"
-                }
-              }
-            ],
-            main: [
-              {
-                type: "MediaBackground",
-                props: {
-                  id: "aerial-hero",
-                  mediaUrl: "https://images.unsplash.com/photo-1506126279646-a697353d3166?auto=format&fit=crop&q=80",
-                  mediaType: "image",
-                  height: "h-[80vh] min-h-[600px]",
-                  overlayOpacity: 40,
-                  content: [
-                    {
-                      type: "FlexBox",
-                      props: {
-                        id: "aerial-hero-flex",
-                        direction: "flex-col",
-                        align: "items-center",
-                        justify: "justify-center",
-                        gap: 24,
-                        content: [
-                          {
-                            type: "Heading",
-                            props: {
-                              id: "aerial-hero-heading",
-                              text: "Aerial & Drone Photography",
-                              level: 1,
-                              align: "center",
-                              accent: false,
-                              width: "full",
-                              styles: "text-white"
-                            }
-                          },
-                          {
-                            type: "RichText",
-                            props: {
-                              id: "aerial-hero-sub",
-                              content: "Elevate your listings above the competition. Showcase lot sizes, property boundaries, and neighborhood context with breathtaking drone imagery.",
-                              size: "lg",
-                              width: "full",
-                              styles: "text-white/80 text-center"
-                            }
-                          },
-                          {
-                            type: "Button",
-                            props: {
-                              id: "aerial-hero-cta",
-                              link: { type: "internal", url: "#booking", label: "Book a Shoot" },
-                              variant: "solid",
-                              align: "center"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  ]
-                }
-              },
-              {
-                type: "Heading",
-                props: {
-                  id: "aerial-value-heading",
-                  text: "Highlighting What Ground Photos Can't",
-                  level: 2,
-                  align: "left",
-                  accent: true,
-                  width: "full"
-                }
-              },
-              {
-                type: "RichText",
-                props: {
-                  id: "aerial-value-text",
-                  content: "A standard eye-level photo tells a fraction of the story. Drone media provides the critical context that luxury and rural property buyers demand before booking a showing.\n\n• Showcase Lot Size & Boundaries\n• Neighborhood Amenities\n• Unobstructed Angles",
-                  size: "lg",
-                  width: "full"
-                }
-              },
-              {
-                type: "Heading",
-                props: {
-                  id: "aerial-specs-heading",
-                  text: "Professional Drone Services",
-                  level: 3,
-                  align: "center",
-                  accent: false,
-                  width: "full"
-                }
-              },
-              {
-                type: "RichText",
-                props: {
-                  id: "aerial-specs-text",
-                  content: "We utilize state-of-the-art DJI drone platforms to deliver crisp, cinematic, and legally compliant aerial media for your listings.\n\n• High-Res Stills (20+ megapixel photos)\n• Licensed & Insured (Transport Canada certified)\n• Cinematic 4K Video",
-                  size: "base",
-                  width: "full"
-                }
-              },
-              {
-                type: "DynamicGallery",
-                props: {
-                  id: "aerial-gallery",
-                  title: "Aerial Add-Ons & Styles",
-                  subtitle: "Customize your aerial shoot to fit the unique selling points of the property.",
-                  layout: "grid",
-                  aspectRatio: "16/9",
-                  images: [
-                    {
-                      url: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80",
-                      portfolioTitle: "Standard Aerials",
-                      category: "Aerial"
-                    },
-                    {
-                      url: "https://images.unsplash.com/photo-1592595896551-12b371d546d5?auto=format&fit=crop&q=80",
-                      portfolioTitle: "Property Outlines",
-                      category: "Graphics"
-                    },
-                    {
-                      url: "https://images.unsplash.com/photo-1563456382029-79ad30950130?auto=format&fit=crop&q=80",
-                      portfolioTitle: "Video B-Roll",
-                      category: "Video"
-                    }
-                  ],
-                  width: "full"
-                }
-              },
-              {
-                type: "Contact",
-                props: {
-                  id: "aerial-booking",
-                  title: "Ready to elevate your listing?",
-                  width: "full"
-                }
-              },
-              {
-                type: "Footer",
-                props: {
-                  id: "aerial-footer",
-                  quote: "Premium real estate media services designed to help agents win more listings and sell homes faster."
-                }
-              }
-            ]
+            title: "Investment Packages",
+            layoutMode: "one-panel"
           }
         }
       }
@@ -928,69 +1318,6 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
           }
         }
       }
-    },
-    {
-      name: "Tiered Coaching & Packages",
-      category: "Pricing & Services",
-      description: "Designed to compare your premium and essential services in a structured visual layout.",
-      previewImage: "emerald",
-      puckData: {
-        content: [],
-        root: {
-          props: {
-            title: "Services and Packages",
-            side: [
-              {
-                type: "TextContent",
-                props: {
-                  id: "brand-header-pricing",
-                  title1: "SELECT",
-                  title2: "PACK",
-                  accent: "BRICK",
-                  tagline: "TIERED PRICING AND MEDIA FEES"
-                }
-              }
-            ],
-            main: [
-              {
-                type: "Heading",
-                props: {
-                  id: "heading-pricing-top",
-                  text: "Pricing Plans & Packages",
-                  level: 2,
-                  align: "center",
-                  accent: true,
-                  width: "full"
-                }
-              },
-              {
-                type: "Services",
-                props: {
-                  id: "services-pricing-table",
-                  title: "Coaching & Production Packages",
-                  subtitle: "Choose the standard tier built for scaling your visual property exposure.",
-                  width: "full"
-                }
-              },
-              {
-                type: "Contact",
-                props: {
-                  id: "contact-pricing",
-                  title: "Enquire About Bespoke Plans",
-                  width: "full"
-                }
-              },
-              {
-                type: "Footer",
-                props: {
-                  id: "footer-pricing",
-                  quote: "Flexible packages constructed for real estate listings, architects, and designers."
-                }
-              }
-            ]
-          }
-        }
-      }
     }
   ];
 
@@ -1020,23 +1347,38 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       })) as PuckTemplateItem[];
 
       if (isAdmin) {
-        const seededList: PuckTemplateItem[] = [...items];
+        const existingDocsMap = new Map<string, PuckTemplateItem>();
+        items.forEach(it => existingDocsMap.set(it.id, it));
+
         for (const preset of seedPresets) {
           const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-          const existing = items.find(item => item.id === docId);
+          const existing = existingDocsMap.get(docId);
           
-          if (!existing) {
+          // Force overwrite/update for our five templates to keep them synced on load
+          const forceRefresh = [
+            "services-interior-photography-landing-page",
+            "spatial-intelligence-3d-tours",
+            "aerial-photography-drone-operations",
+            "floor-plans-layouts-template",
+            "packages-pricing-template"
+          ].includes(docId);
+
+          if (!existing || forceRefresh) {
             const docRef = doc(db, "puck_templates", docId);
-            const newDoc = { ...preset, createdAt: serverTimestamp() };
+            const newDoc = { 
+              ...preset, 
+              createdAt: existing?.createdAt || serverTimestamp(),
+              updatedAt: serverTimestamp() 
+            };
             try {
               await setDoc(docRef, newDoc);
-              seededList.push({ id: docId, ...newDoc } as any);
+              existingDocsMap.set(docId, { id: docId, ...newDoc } as any);
             } catch (wErr) {
-              console.warn("Could not seed preset into firestore:", wErr);
+              console.warn(`Could not seed preset ${docId} into firestore:`, wErr);
             }
           }
         }
-        setTemplates(seededList);
+        setTemplates(Array.from(existingDocsMap.values()));
       } else {
         setTemplates(items.length === 0 ? seedPresets.map((p, idx) => ({ id: `seed-${idx}`, createdAt: new Date().toISOString(), ...p })) as any : items);
       }

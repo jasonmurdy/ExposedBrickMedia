@@ -4,17 +4,28 @@
  * inside Puck's Render or similar components due to corrupted or improperly pruned data.
  */
 
-function sanitizeItem(item: any): any {
+function sanitizeItem(item: any, path: string = "node"): any {
   if (!item || typeof item !== 'object') return null;
 
   const sanitized: any = { ...item };
   
+  // Ensure we have a valid, deterministic ID if missing (required by Puck)
+  if (!sanitized.id) {
+    sanitized.id = `${sanitized.type || 'Block'}-${path}`;
+  }
+
   // Ensure props is an object
   if (!sanitized.props || typeof sanitized.props !== 'object') {
     sanitized.props = {};
-  } else {
-    // Recursively sanitize props
-    sanitized.props = sanitizeProps(sanitized.props);
+  }
+
+  // Move peer slot arrays (children, content, left, right, main, side) into props
+  const slotNames = ["children", "content", "left", "right", "main", "side"];
+  for (const slotName of slotNames) {
+    if (Array.isArray(sanitized[slotName])) {
+      sanitized.props[slotName] = sanitized[slotName];
+      delete sanitized[slotName];
+    }
   }
 
   // --- AUTOMATIC SLOT MIGRATION ---
@@ -23,29 +34,32 @@ function sanitizeItem(item: any): any {
     for (const [zoneName, zoneItems] of Object.entries(sanitized.zones)) {
       if (Array.isArray(zoneItems)) {
         // Inject the old zone items into the props object so Puck treats them as Slots
-        sanitized.props[zoneName] = sanitizeArray(zoneItems);
+        sanitized.props[zoneName] = zoneItems;
       }
     }
     // Delete the legacy zones object entirely so Puck doesn't revert to old behaviors
     delete sanitized.zones;
   }
 
+  // Recursively sanitize props, passing path context
+  sanitized.props = sanitizeProps(sanitized.props, path);
+
   return sanitized;
 }
-function sanitizeProps(props: any): any {
+function sanitizeProps(props: any, path: string = "props"): any {
   if (!props || typeof props !== 'object') return {};
   
   const sanitized: any = {};
   for (const [key, value] of Object.entries(props)) {
     if (Array.isArray(value)) {
       // Check if this array seems to be composed of Puck component items or regular values
-      sanitized[key] = sanitizeArray(value);
+      sanitized[key] = sanitizeArray(value, `${path}-${key}`);
     } else if (value && typeof value === 'object') {
       // Check if this sub-object is a Puck item
       if (typeof (value as any).type === 'string') {
-        sanitized[key] = sanitizeItem(value);
+        sanitized[key] = sanitizeItem(value, `${path}-${key}`);
       } else {
-        sanitized[key] = sanitizeProps(value);
+        sanitized[key] = sanitizeProps(value, `${path}-${key}`);
       }
     } else {
       sanitized[key] = value;
@@ -54,13 +68,16 @@ function sanitizeProps(props: any): any {
   return sanitized;
 }
 
-function sanitizeArray(arr: any[]): any[] {
+function sanitizeArray(arr: any[], path: string = "array"): any[] {
   return arr
     .filter((item: any) => item !== null && typeof item === 'object')
-    .map((item: any) => {
+    .map((item: any, idx: number) => {
       // If it has a type string, it's a Puck item
       if (typeof item.type === 'string') {
-        return sanitizeItem(item);
+        const childId = item.id || `${item.type}-${path}-${idx}`;
+        const sanitizedItem = sanitizeItem(item, `${path}-${idx}`);
+        sanitizedItem.id = childId;
+        return sanitizedItem;
       }
       // Otherwise, keep it as is or try to sanitize its structure
       return item;
@@ -102,7 +119,7 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
   if (!parsed.root || typeof parsed.root !== 'object') {
     parsed.root = { props: { title: fallbackTitle } };
   } else {
-    parsed.root = sanitizeItem(parsed.root);
+    parsed.root = sanitizeItem(parsed.root, "root");
     if (!parsed.root.props.title && fallbackTitle) {
       parsed.root.props.title = fallbackTitle;
     }
@@ -110,7 +127,7 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
 
   // 2. Sanitize content array
   if (Array.isArray(parsed.content)) {
-    parsed.content = sanitizeArray(parsed.content);
+    parsed.content = sanitizeArray(parsed.content, "content");
   } else {
     parsed.content = [];
   }
@@ -120,7 +137,7 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
     const sanitizedZones: any = {};
     for (const [zoneName, zoneItems] of Object.entries(parsed.zones)) {
       if (Array.isArray(zoneItems)) {
-        sanitizedZones[zoneName] = sanitizeArray(zoneItems);
+        sanitizedZones[zoneName] = sanitizeArray(zoneItems, `zone-${zoneName}`);
       } else {
         sanitizedZones[zoneName] = [];
       }
