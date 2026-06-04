@@ -20,6 +20,7 @@ import FloorPlansPage from './pages/services/FloorPlans';
 import InteriorPhotographyPage from './pages/services/InteriorPhotography';
 import AerialPhotographyPage from './pages/services/AerialPhotography';
 import VirtualToursPage from './pages/services/VirtualTours';
+import PackagesPage from './pages/services/Packages';
 // Lazy load the AdminDashboard to reduce initial bundle size
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const PuckEditor = lazy(() => import('./components/PuckEditor').then(m => ({ default: m.PuckEditor })));
@@ -122,6 +123,7 @@ function MainLayout() {
           <Route path="/services/interior" element={<InteriorPhotographyPage />} />
           <Route path="/services/aerial" element={<AerialPhotographyPage />} />
           <Route path="/services/virtual-tours" element={<VirtualToursPage />} />
+          <Route path="/services/packages" element={<PackagesPage />} />
           <Route path="/inquiry" element={<InquiryPage />} />
           <Route path="/p/:slug" element={<DynamicPageView />} />
           <Route path="/listing/:id" element={<ProjectDetailView />} />
@@ -147,49 +149,22 @@ function MainLayout() {
 
   return (
     <div className="min-h-screen w-full bg-bg-primary text-text-primary selection:bg-brick-copper selection:text-charcoal relative transition-colors duration-500 overflow-x-hidden flex flex-col">
-      <Navbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
-      <MobileNavbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />
+      {!isListingPage && <Navbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />}
+      {!isListingPage && <MobileNavbar theme={isLight ? 'light' : 'dark'} onThemeToggle={() => setIsLight(!isLight)} />}
       
       <Suspense fallback={null}>
         {showAdmin && <AdminDashboard onClose={() => setShowAdmin(false)} />}
         {showPuck && <PuckEditor pageId={currentPage?.id || undefined} onClose={() => setShowPuck(false)} />}
       </Suspense>
 
-      {/* Admin Quick Access Trigger (Hidden but accessible) */}
-      <div className="fixed bottom-8 left-8 z-[100] flex flex-col gap-4">
-        {isAdmin && (
-          <motion.button 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 0.2, scale: 1 }}
-            whileHover={{ opacity: 1, scale: 1.05 }}
-            onClick={() => {
-              setIsEditMode(!isEditMode);
-              if (!isEditMode && (hasPuckLayout || location.pathname.startsWith('/p/'))) {
-                 setShowPuck(true);
-              }
-            }}
-            className={`p-4 rounded-full border border-brick-copper shadow-lg transition-all flex items-center gap-2 group overflow-hidden ${isEditMode ? 'bg-brick-copper text-charcoal' : 'bg-charcoal text-brick-copper'}`}
-          >
-            <Shield size={20} />
-            <span className="text-[10px] uppercase tracking-widest font-bold max-w-0 group-hover:max-w-[150px] transition-all duration-500 whitespace-nowrap overflow-hidden">
-              {isEditMode ? 'Exit Visual Editor' : 'Visual Edit Mode'}
-            </span>
-          </motion.button>
-        )}
-        <button 
-          onClick={() => setShowAdmin(true)}
-          className="p-4 bg-charcoal text-brick-copper rounded-full border border-brick-copper shadow-lg opacity-10 hover:opacity-100 transition-all"
-        >
-          <Shield size={20} />
-        </button>
-      </div>
+
 
       {hasPuckLayout ? (
         <div className="w-full pt-20 lg:pt-0">
           {renderContent()}
         </div>
       ) : (
-        <div className="w-full flex-1 flex flex-col pt-20 lg:pt-[84px]">
+        <div className={`w-full flex-1 flex flex-col ${isListingPage ? 'pt-0' : 'pt-20 lg:pt-[84px]'}`}>
           <main className="w-full flex-1 flex flex-col scroll-smooth">
             {renderContent()}
           </main>

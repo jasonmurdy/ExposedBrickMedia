@@ -6,7 +6,48 @@
 import React, { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { MoveUpRight, Shield, User, Globe, Mail, Phone, Download, FileText, Box as BoxIcon } from "lucide-react";
+import { 
+  MoveUpRight, 
+  Shield, 
+  User, 
+  Globe, 
+  Mail, 
+  Phone, 
+  Download, 
+  FileText, 
+  Box as BoxIcon,
+  Bold, 
+  Italic, 
+  Underline, 
+  Link as LinkIcon, 
+  Link2Off,
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight, 
+  AlignJustify, 
+  List, 
+  ListOrdered, 
+  Quote, 
+  Palette, 
+  Type,
+  ChevronDown,
+  Sparkles,
+  Instagram,
+  Facebook,
+  Linkedin,
+  Twitter,
+  Youtube,
+  RefreshCw,
+  Eye,
+  Trash,
+  Camera,
+  Plane,
+  Check,
+  Minus,
+  Layers,
+  Circle,
+  Ban
+} from "lucide-react";
 import { Config } from "@measured/puck";
 import { HeroVisual, BrandHeader } from "../components/Hero";
 import { Portfolio, Services } from "../components/PortfolioSections";
@@ -404,6 +445,34 @@ export type PuckConfig = {
       aspectRatio: "16/9" | "4/3" | "1/1" | "portrait" | "auto";
       grayscaleEffect: "none" | "hover-color" | "always-grayscale";
       lightbox: boolean;
+      width: "full" | "half";
+      spacing?: any;
+      entranceAnimation?: string;
+    };
+    ServicePackages: {
+      sectionLabel?: string;
+      title?: string;
+      subtitle?: string;
+      packages: Array<{
+        name: string;
+        tierLabel?: string;
+        price: string;
+        billingUnit: string;
+        featuresText: string;
+        buttonText: string;
+        isPopular?: boolean;
+        customLink?: string;
+      }>;
+      byoHeading?: string;
+      byoSubtitle?: string;
+      byoItems: Array<{
+        id: string;
+        title: string;
+        description: string;
+        price: number;
+        iconName: "camera" | "plane" | "stairs" | "box" | "video" | "home";
+      }>;
+      byoButtonText: string;
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
@@ -864,94 +933,263 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     render: ({ name, value, onChange }: any) => {
       const val = value || "";
       const containerRef = useRef<HTMLDivElement>(null);
+      const lastEmittedValue = useRef<string>(value || "");
 
-      // Synchronize content to contentEditable
+      // Synchronize content to contentEditable safely to avoid cursor jump
       useEffect(() => {
         if (containerRef.current && containerRef.current.innerHTML !== val) {
+          // If the raw val matches our last emitted edit, skip update (prevents cursor reset)
+          if (val === lastEmittedValue.current) {
+            return;
+          }
           containerRef.current.innerHTML = val;
+          lastEmittedValue.current = val;
         }
       }, [val]);
 
       const execCommand = (command: string, arg: string = "") => {
         document.execCommand(command, false, arg);
         if (containerRef.current) {
-          onChange(containerRef.current.innerHTML);
+          const newHtml = containerRef.current.innerHTML;
+          lastEmittedValue.current = newHtml;
+          onChange(newHtml);
         }
       };
 
+      const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+        const text = e.currentTarget.innerHTML;
+        lastEmittedValue.current = text;
+        onChange(text);
+      };
+
+      const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+        const text = e.currentTarget.innerHTML;
+        lastEmittedValue.current = text;
+        onChange(text);
+      };
+
       return (
-        <div className="space-y-2 p-3 bg-charcoal/80 border border-white/5 rounded-sm">
-          <div className="flex flex-wrap gap-1 bg-black/40 p-1.5 rounded border border-white/5">
-            <button 
-              type="button"
-              onClick={() => execCommand("bold")}
-              className="px-2.5 py-1 text-[10px] font-bold bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
-              title="Bold"
-            >
-              B
-            </button>
-            <button 
-              type="button"
-              onClick={() => execCommand("italic")}
-              className="px-2.5 py-1 text-[10px] italic bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
-              title="Italic"
-            >
-              I
-            </button>
-            <button 
-              type="button"
-              onClick={() => execCommand("underline")}
-              className="px-2.5 py-1 text-[10px] underline bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
-              title="Underline"
-            >
-              U
-            </button>
-            <button 
-              type="button"
-              onClick={() => {
-                const url = prompt("Enter URL:", "https://");
-                if (url) execCommand("createLink", url);
-              }}
-              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
-              title="Link"
-            >
-              Link
-            </button>
-            <button 
-              type="button"
-              onClick={() => execCommand("unlink")}
-              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
-              title="Unlink"
-            >
-              Unlink
-            </button>
-            <button 
-              type="button"
-              onClick={() => execCommand("insertUnorderedList")}
-              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
-              title="Bullet List"
-            >
-              • List
-            </button>
-            <button 
-              type="button"
-              onClick={() => execCommand("removeFormat")}
-              className="px-2.5 py-1 text-[9px] uppercase font-black tracking-widest bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-colors text-white cursor-pointer"
-              title="Clear HTML/Styles"
-            >
-              Clear
-            </button>
+        <div className="space-y-2 p-3 bg-charcoal/90 border border-white/5 rounded-sm shadow-inner">
+          {/* Custom Rich Text Toolbar */}
+          <div className="flex flex-col gap-1.5 p-1.5 bg-black/40 rounded border border-white/5">
+            {/* Font Config Selectors Row */}
+            <div className="grid grid-cols-4 gap-1">
+              {/* Font Style */}
+              <select
+                onChange={(e) => {
+                  const tag = e.target.value;
+                  if (tag) execCommand("formatBlock", tag);
+                  e.target.value = "";
+                }}
+                className="text-[9px] uppercase tracking-widest bg-[#151515] border border-white/5 rounded text-white py-1 px-1.5 font-mono select-none focus:outline-none cursor-pointer hover:border-white/20 transition-colors"
+                defaultValue=""
+              >
+                <option value="" disabled>Style</option>
+                <option value="p">Paragraph</option>
+                <option value="h1">H1 Title</option>
+                <option value="h2">H2 Subtitle</option>
+                <option value="h3">H3 Heading</option>
+                <option value="h4">H4 Small</option>
+                <option value="blockquote">Blockquote</option>
+              </select>
+
+              {/* Font Family */}
+              <select
+                onChange={(e) => {
+                  const font = e.target.value;
+                  if (font) execCommand("fontName", font);
+                  e.target.value = "";
+                }}
+                className="text-[9px] uppercase tracking-widest bg-[#151515] border border-white/5 rounded text-white py-1 px-1.5 font-mono select-none focus:outline-none cursor-pointer hover:border-white/20 transition-colors"
+                defaultValue=""
+              >
+                <option value="" disabled>Font</option>
+                <option value="Montserrat">Montserrat</option>
+                <option value="Prata">Prata</option>
+                <option value="Inter">Inter</option>
+                <option value="Playfair Display">Playfair</option>
+                <option value="monospace">Mono</option>
+              </select>
+
+              {/* Font Size */}
+              <select
+                onChange={(e) => {
+                  const size = e.target.value;
+                  if (size) execCommand("fontSize", size);
+                  e.target.value = "";
+                }}
+                className="text-[9px] uppercase tracking-widest bg-[#151515] border border-white/5 rounded text-white py-1 px-1.5 font-mono select-none focus:outline-none cursor-pointer hover:border-white/20 transition-colors"
+                defaultValue=""
+              >
+                <option value="" disabled>Size</option>
+                <option value="1">Tiny (12px)</option>
+                <option value="2">Small (14px)</option>
+                <option value="3">Base (16px)</option>
+                <option value="4">Large (18px)</option>
+                <option value="5">XL (20px)</option>
+                <option value="6">2XL (24px)</option>
+                <option value="7">3XL (32px)</option>
+              </select>
+
+              {/* Text Color */}
+              <select
+                onChange={(e) => {
+                  const color = e.target.value;
+                  if (color) execCommand("foreColor", color);
+                  e.target.value = "";
+                }}
+                className="text-[9px] uppercase tracking-widest bg-[#151515] border border-white/5 rounded text-white py-1 px-1.5 font-mono select-none focus:outline-none cursor-pointer hover:border-white/20 transition-colors"
+                defaultValue=""
+              >
+                <option value="" disabled>Color</option>
+                <option value="#A47149">Copper</option>
+                <option value="#CBBB8D">Sand</option>
+                <option value="#ffffff">White</option>
+                <option value="#9ca3af">Gray</option>
+                <option value="#1C1C1C">Charcoal</option>
+              </select>
+            </div>
+
+            {/* Inline Formatting & Lists & Linking Operations Row */}
+            <div className="flex flex-wrap gap-1 items-center pt-1 border-t border-white/5">
+              {/* Bold */}
+              <button 
+                type="button"
+                onClick={() => execCommand("bold")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Bold (B)"
+              >
+                <Bold size={11} />
+              </button>
+
+              {/* Italic */}
+              <button 
+                type="button"
+                onClick={() => execCommand("italic")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Italic (I)"
+              >
+                <Italic size={11} />
+              </button>
+
+              {/* Underline */}
+              <button 
+                type="button"
+                onClick={() => execCommand("underline")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Underline (U)"
+              >
+                <Underline size={11} />
+              </button>
+
+              <div className="h-4 w-px bg-white/10 mx-0.5" />
+
+              {/* Align Left */}
+              <button 
+                type="button"
+                onClick={() => execCommand("justifyLeft")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Align Left"
+              >
+                <AlignLeft size={11} />
+              </button>
+
+              {/* Align Center */}
+              <button 
+                type="button"
+                onClick={() => execCommand("justifyCenter")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Align Center"
+              >
+                <AlignCenter size={11} />
+              </button>
+
+              {/* Align Right */}
+              <button 
+                type="button"
+                onClick={() => execCommand("justifyRight")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Align Right"
+              >
+                <AlignRight size={11} />
+              </button>
+
+              {/* Align Justify */}
+              <button 
+                type="button"
+                onClick={() => execCommand("justifyFull")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Justify"
+              >
+                <AlignJustify size={11} />
+              </button>
+
+              <div className="h-4 w-px bg-white/10 mx-0.5" />
+
+              {/* Unordered List */}
+              <button 
+                type="button"
+                onClick={() => execCommand("insertUnorderedList")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Bullet List"
+              >
+                <List size={11} />
+              </button>
+
+              {/* Ordered List */}
+              <button 
+                type="button"
+                onClick={() => execCommand("insertOrderedList")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Numbered List"
+              >
+                <ListOrdered size={11} />
+              </button>
+
+              <div className="h-4 w-px bg-white/10 mx-0.5" />
+
+              {/* Create Link */}
+              <button 
+                type="button"
+                onClick={() => {
+                  const url = prompt("Enter complete URL:", "https://");
+                  if (url) execCommand("createLink", url);
+                }}
+                className="px-2 h-6 flex items-center justify-center gap-1 bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white text-[9px] font-bold font-mono tracking-wide cursor-pointer active:scale-95"
+                title="Insert Link"
+              >
+                <LinkIcon size={10} />
+                <span>Link</span>
+              </button>
+
+              {/* Unlink */}
+              <button 
+                type="button"
+                onClick={() => execCommand("unlink")}
+                className="w-6 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white cursor-pointer active:scale-95"
+                title="Remove Link"
+              >
+                <Link2Off size={11} />
+              </button>
+
+              {/* Clear Formatting / Reset */}
+              <button 
+                type="button"
+                onClick={() => execCommand("removeFormat")}
+                className="ml-auto px-2 h-6 flex items-center justify-center bg-[#151515] border border-white/5 rounded hover:bg-brick-copper hover:text-charcoal transition-all text-white text-[9px] font-bold font-mono tracking-widest cursor-pointer active:scale-95"
+                title="Clear Formatting"
+              >
+                Reset
+              </button>
+            </div>
           </div>
+
           <div 
             ref={containerRef}
             contentEditable
-            onBlur={(e) => {
-              onChange(e.currentTarget.innerHTML);
-            }}
-            onInput={(e) => {
-              onChange(e.currentTarget.innerHTML);
-            }}
-            className="min-h-[120px] max-h-[300px] overflow-y-auto bg-[#101010] border border-white/5 p-3 text-xs text-white outline-none focus:border-brick-copper/50 transition-colors font-sans leading-relaxed rounded wysiwyg-editor-area"
+            onBlur={handleBlur}
+            onInput={handleInput}
+            className="min-h-[140px] max-h-[350px] overflow-y-auto bg-[#101010] border border-white/5 p-3 text-xs text-white outline-none focus:border-brick-copper/50 transition-colors font-sans leading-relaxed rounded wysiwyg-editor-area"
             style={{ whiteSpace: "normal" }}
           />
         </div>
@@ -1108,7 +1346,7 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         components: ["Button", "Contact", "Testimonials", "LogoCloud", "InstagramFeed"],
       },
       Integrations: {
-        components: ["PartnerShowcase", "PropertyHighlight", "HTMLEmbed"],
+        components: ["PartnerShowcase", "PropertyHighlight", "HTMLEmbed", "ServicePackages"],
       },
       Brand: {
         components: ["Footer"],
@@ -1251,66 +1489,259 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           const partner = partners.find(p => p.id === partnerId);
           if (!partner) return <div className="p-8 text-center opacity-20 italic">Select a verified partner to display.</div>;
 
+          const localFormatSocialUrl = (val: string, platform: string) => {
+            if (!val) return "";
+            const v = val.trim();
+            if (v.startsWith("http://") || v.startsWith("https://")) return v;
+            const handle = v.startsWith("@") ? v.substring(1) : v;
+            if (platform === "instagram") return `https://instagram.com/${handle}`;
+            if (platform === "facebook") return `https://facebook.com/${handle}`;
+            if (platform === "linkedin") {
+              if (handle.startsWith('in/') || handle.startsWith('company/')) {
+                return `https://linkedin.com/${handle}`;
+              }
+              return `https://linkedin.com/in/${handle}`;
+            }
+            if (platform === "twitter") return `https://twitter.com/${handle}`;
+            if (platform === "youtube") return `https://youtube.com/${handle}`;
+            return v;
+          };
+
           if (layout === 'card') {
             return (
               <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
-                <div className="px-8">
-                  <Link to={`/partners/${partner.id}`} className="group block bg-white/5 border border-white/5 hover:border-brick-copper/30 transition-all p-6">
-                    <div className="flex items-center gap-6">
-                      <div className="w-20 h-20 overflow-hidden bg-charcoal border border-white/5 grayscale group-hover:grayscale-0 transition-all">
-                        {partner.headshotUrl ? (
-                           <img src={partner.headshotUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center opacity-20"><User size={32} /></div>
+                <div className="w-full max-w-sm mx-auto flex flex-col items-center text-center group bg-[#111111]/80 hover:bg-[#151515] p-6 border border-white/5 hover:border-brick-copper/30 transition-all duration-300 rounded shadow-md">
+                  {/* Top Linkable Area to point directly to partner showcase */}
+                  <Link 
+                    to={`/partners/${partner.id}`}
+                    className="w-full flex flex-col items-center cursor-pointer"
+                    title="Click to view complete advisor profile"
+                  >
+                    <div className="relative w-32 h-32 rounded-full p-1 border border-brick-copper/60 mb-4 bg-charcoal/40 overflow-hidden transition-transform duration-300 group-hover:scale-[1.03] group-hover:border-white">
+                      {partner.headshotUrl ? (
+                        <img
+                          src={partner.headshotUrl}
+                          alt={partner.displayName}
+                          className="w-full h-full rounded-full object-cover filter grayscale contrast-125 transition-all duration-500 group-hover:grayscale-0"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center">
+                          <span className="text-xl font-bold text-white/40">{partner.displayName?.charAt(0)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[9px] tracking-widest text-brick-copper font-semibold uppercase mb-1">
+                      {partner.role === 'preferred' ? 'PREFERRED ADVISOR' : 'ADVISORY PARTNER'}
+                    </span>
+                    <h3 className="text-sm font-medium tracking-wider text-neutral-200 uppercase mb-0.5 group-hover:text-brick-copper transition-colors">
+                      {partner.displayName}
+                    </h3>
+                    <span className="text-[8px] uppercase tracking-widest text-white/30 group-hover:text-white/60 transition-colors font-mono mb-2">
+                      Click to view profile & achievements
+                    </span>
+                  </Link>
+
+                  {/* Operational Controls Block */}
+                  <div className="w-full flex flex-col items-center mt-1">
+                    {(() => {
+                      const totalCommissions = portfolioItems?.filter(p => p.partnerUid === partner.id || p.partnerUids?.includes(partner.id))?.length || 0;
+                      if (totalCommissions > 0) {
+                        return (
+                          <span className="text-[8px] uppercase tracking-[0.2em] font-mono text-neutral-500 font-bold mb-4 block">
+                            ● {totalCommissions} {totalCommissions === 1 ? 'COMMISSION' : 'COMMISSIONS'}
+                          </span>
+                        );
+                      }
+                      return <div className="h-4" />;
+                    })()}
+
+                    <div className="flex gap-2 w-full max-w-[180px]">
+                      {partner.phone && (
+                        <a
+                          href={`tel:${partner.phone}`}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full border border-white/10 text-[10px] tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-all uppercase"
+                        >
+                          <Phone size={11} className="text-brick-copper" /> Call
+                        </a>
+                      )}
+                      {partner.email && (
+                        <a
+                          href={`mailto:${partner.email}`}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full border border-white/10 text-[10px] tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-all uppercase"
+                        >
+                          <Mail size={11} className="text-brick-copper" /> Mail
+                        </a>
+                      )}
+                    </div>
+
+                    {(partner.instagram || partner.facebook || partner.linkedin || partner.twitter || partner.youtube) && (
+                      <div className="flex items-center justify-center flex-wrap gap-2 pt-4 mt-4 border-t border-white/5 w-full max-w-[180px]">
+                        {partner.instagram && (
+                          <a
+                            href={localFormatSocialUrl(partner.instagram, 'instagram')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 rounded-full bg-white/[0.02] hover:bg-brick-copper/10 border border-white/5 hover:border-brick-copper/30 text-neutral-400 hover:text-brick-copper flex items-center justify-center transition-all duration-300"
+                            title="Contact via Instagram"
+                          >
+                            <Instagram size={13} />
+                          </a>
+                        )}
+                        {partner.facebook && (
+                          <a
+                            href={localFormatSocialUrl(partner.facebook, 'facebook')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 rounded-full bg-white/[0.02] hover:bg-brick-copper/10 border border-white/5 hover:border-brick-copper/30 text-neutral-400 hover:text-brick-copper flex items-center justify-center transition-all duration-300"
+                            title="Contact via Facebook"
+                          >
+                            <Facebook size={13} />
+                          </a>
+                        )}
+                        {partner.linkedin && (
+                          <a
+                            href={localFormatSocialUrl(partner.linkedin, 'linkedin')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 rounded-full bg-[#151515] hover:bg-white hover:text-charcoal border border-white/5 text-neutral-400 flex items-center justify-center transition-all duration-300"
+                            title="Contact via LinkedIn"
+                          >
+                            <Linkedin size={13} />
+                          </a>
+                        )}
+                        {partner.twitter && (
+                          <a
+                            href={localFormatSocialUrl(partner.twitter, 'twitter')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 rounded-full bg-white/[0.02] hover:bg-brick-copper/10 border border-white/5 hover:border-brick-copper/30 text-neutral-400 hover:text-brick-copper flex items-center justify-center transition-all duration-300"
+                            title="Contact via Twitter/X"
+                          >
+                            <Twitter size={11} />
+                          </a>
                         )}
                       </div>
-                      <div>
-                        <h4 className="font-display text-2xl italic text-white group-hover:text-brick-copper transition-colors">{partner.displayName}</h4>
-                        <p className="text-[10px] uppercase tracking-widest text-white/40">{partner.role || 'Strategic Partner'}</p>
-                      </div>
-                    </div>
-                  </Link>
+                    )}
+                  </div>
                 </div>
               </ComponentWrapper>
             );
           }
 
+          // Full Profile Layout
           return (
             <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
               <div className="px-8 md:px-12 lg:px-16 py-12 space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                   <div className="aspect-square bg-charcoal border border-white/5 overflow-hidden grayscale">
-                      {partner.headshotUrl ? (
-                         <img src={partner.headshotUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                         <div className="w-full h-full flex items-center justify-center opacity-10"><Shield size={120} /></div>
-                      )}
+                   <div className="flex justify-center">
+                     <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-full p-1 border border-brick-copper/60 bg-charcoal/40 overflow-hidden shadow-2xl">
+                        {partner.headshotUrl ? (
+                           <img 
+                             src={partner.headshotUrl} 
+                             alt={partner.displayName} 
+                             className="w-full h-full rounded-full object-cover filter grayscale contrast-125 hover:grayscale-0 transition-all duration-500" 
+                             referrerPolicy="no-referrer"
+                           />
+                        ) : (
+                           <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center">
+                             <User size={80} className="text-white/20" />
+                           </div>
+                        )}
+                     </div>
                    </div>
                    <div className="space-y-6">
                       <div className="flex items-center gap-4">
                          <span className="w-12 h-[1px] bg-brick-copper" />
-                         <span className="text-[10px] uppercase tracking-widest text-brick-copper font-black">Verified Narrative Advisor</span>
+                         <span className="text-[10px] uppercase tracking-[0.25em] text-brick-copper font-black">
+                           {partner.role === 'preferred' ? 'PREFERRED NARRATIVE ADVISOR' : 'VERIFIED NARRATIVE ADVISOR'}
+                         </span>
                       </div>
-                      <h3 className="font-display text-5xl md:text-7xl italic leading-none">{partner.displayName}<span className="text-brick-copper">.</span></h3>
-                      <p className="text-text-primary/60 italic font-serif leading-relaxed text-lg">{partner.bio || "Crafting premium architectural experiences through high-fidelity visual narratives."}</p>
-                      <div className="flex gap-4 pt-4">
-                         <Link to={`/partners/${partner.id}`} className="px-8 py-3 bg-brick-copper text-charcoal text-[9px] uppercase font-black tracking-widest hover:bg-white transition-all">View Showcase</Link>
-                         {partner.email && <a href={`mailto:${partner.email}`} className="w-10 h-10 border border-white/10 flex items-center justify-center hover:bg-white/5 transition-all"><Mail size={14} /></a>}
+                      <h3 className="font-display text-4xl md:text-5xl italic leading-none">{partner.displayName}<span className="text-brick-copper">.</span></h3>
+                      <p className="text-text-primary/60 italic font-serif leading-relaxed text-base">{partner.bio || "Crafting premium architectural experiences through high-fidelity visual narratives and trusted property portfolios."}</p>
+                      
+                      {/* Operational Commissions indicator */}
+                      {(() => {
+                        const totalCommissions = portfolioItems?.filter(p => p.partnerUid === partner.id || p.partnerUids?.includes(partner.id))?.length || 0;
+                        if (totalCommissions > 0) {
+                          return (
+                            <span className="inline-block px-3 py-1 bg-white/5 border border-white/10 rounded-xs text-[9px] uppercase tracking-[0.2em] font-mono text-brick-copper font-bold">
+                              ● {totalCommissions} {totalCommissions === 1 ? 'COMMISSIONED PORTFOLIO' : 'COMMISSIONED PORTFOLIOS'}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      <div className="flex flex-wrap gap-4 pt-2 items-center">
+                         <Link to={`/partners/${partner.id}`} className="px-8 py-3 bg-brick-copper text-charcoal text-[9px] uppercase font-black tracking-widest hover:bg-white hover:text-charcoal transition-all">View Showcase</Link>
+                         {partner.phone && <a href={`tel:${partner.phone}`} className="w-10 h-10 border border-white/10 flex items-center justify-center hover:bg-white/5 hover:border-brick-copper/40 transition-all text-neutral-300 hover:text-white" title="Call advisor"><Phone size={14} /></a>}
+                         {partner.email && <a href={`mailto:${partner.email}`} className="w-10 h-10 border border-white/10 flex items-center justify-center hover:bg-white/5 hover:border-brick-copper/40 transition-all text-neutral-300 hover:text-white" title="Email advisor"><Mail size={14} /></a>}
                       </div>
+
+                      {/* Symmetrical & Sizable Partner Social Nodes with Custom Tooltips */}
+                      {(partner.instagram || partner.facebook || partner.linkedin || partner.twitter || partner.youtube) && (
+                        <div className="flex items-center gap-2 pt-4 border-t border-white/5 w-full max-w-sm">
+                          {partner.instagram && (
+                            <a
+                              href={localFormatSocialUrl(partner.instagram, 'instagram')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-white/[0.02] hover:bg-brick-copper/10 border border-white/5 hover:border-brick-copper/30 text-neutral-400 hover:text-brick-copper flex items-center justify-center transition-all duration-300"
+                              title="Instagram Profile"
+                            >
+                              <Instagram size={13} />
+                            </a>
+                          )}
+                          {partner.facebook && (
+                            <a
+                              href={localFormatSocialUrl(partner.facebook, 'facebook')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-white/[0.02] hover:bg-brick-copper/10 border border-white/5 hover:border-brick-copper/30 text-neutral-400 hover:text-brick-copper flex items-center justify-center transition-all duration-300"
+                              title="Facebook Profile"
+                            >
+                              <Facebook size={13} />
+                            </a>
+                          )}
+                          {partner.linkedin && (
+                            <a
+                              href={localFormatSocialUrl(partner.linkedin, 'linkedin')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-[#151515] hover:bg-white hover:text-charcoal border border-white/5 text-neutral-400 flex items-center justify-center transition-all duration-300"
+                              title="LinkedIn Profile"
+                            >
+                              <Linkedin size={13} />
+                            </a>
+                          )}
+                          {partner.twitter && (
+                            <a
+                              href={localFormatSocialUrl(partner.twitter, 'twitter')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-white/[0.02] hover:bg-brick-copper/10 border border-white/5 hover:border-brick-copper/30 text-neutral-400 hover:text-brick-copper flex items-center justify-center transition-all duration-300"
+                              title="Twitter/X Profile"
+                            >
+                              <Twitter size={11} />
+                            </a>
+                          )}
+                        </div>
+                      )}
                    </div>
                 </div>
 
                 {showAssets && partner.resources && partner.resources.length > 0 && (
-                  <div className="pt-12 border-t border-white/5">
-                     <h5 className="text-[11px] uppercase tracking-[0.4em] text-white/30 mb-8">Direct Brand Resources</h5>
+                  <div className="pt-12 border-t border-white/5 animate-fade-in">
+                     <h5 className="text-[11px] uppercase tracking-[0.4em] text-white/30 mb-8 font-mono">Direct Brand Resources</h5>
                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {partner.resources.map((res: any, idx: number) => (
-                          <div key={idx} className="bg-white/5 border border-white/5 p-6 hover:border-brick-copper/50 transition-all flex flex-col justify-between">
+                          <div key={idx} className="bg-[#101010] border border-white/5 p-6 hover:border-brick-copper/30 transition-all flex flex-col justify-between rounded-sm">
                              <div className="mb-6">
                                 <FileText className="text-brick-copper/40 mb-3" size={16} />
-                                <h6 className="text-sm font-display italic text-white">{res.name}</h6>
+                                <h6 className="text-sm font-display italic text-white leading-snug">{res.name}</h6>
                              </div>
-                             <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-[9px] uppercase tracking-widest text-brick-copper border-b border-brick-copper/20 self-start hover:text-white transition-colors">Download Asset</a>
+                             <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-[9px] uppercase tracking-widest text-brick-copper border-b border-brick-copper/20 self-start hover:text-white hover:border-white transition-colors">Download Asset</a>
                           </div>
                         ))}
                      </div>
@@ -2486,6 +2917,545 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         return (
           <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
             {content}
+          </ComponentWrapper>
+        );
+      }
+    },
+    ServicePackages: {
+      fields: {
+        sectionLabel: { type: "text" },
+        title: { type: "text" },
+        subtitle: { type: "textarea" },
+        packages: {
+          type: "array",
+          getItemSummary: (p: any) => p.name || "Package",
+          arrayFields: {
+            name: { type: "text" },
+            tierLabel: { type: "text" },
+            price: { type: "text" },
+            billingUnit: { type: "text" },
+            featuresText: { type: "textarea" },
+            buttonText: { type: "text" },
+            isPopular: {
+              type: "radio",
+              options: [
+                { label: "No", value: false },
+                { label: "Yes (Popular Gold Theme)", value: true }
+              ]
+            },
+            customLink: { type: "text" }
+          }
+        },
+        byoHeading: { type: "text" },
+        byoSubtitle: { type: "textarea" },
+        byoItems: {
+          type: "array",
+          getItemSummary: (i: any) => i.title || "Add-on Item",
+          arrayFields: {
+            id: { type: "text" },
+            title: { type: "text" },
+            description: { type: "text" },
+            price: { type: "number" },
+            iconName: {
+              type: "select",
+              options: [
+                { label: "Camera", value: "camera" },
+                { label: "Plane / Drone", value: "plane" },
+                { label: "Stairs / Floor Plans", value: "stairs" },
+                { label: "Box / 3D Virtual Tour", value: "box" },
+                { label: "Video", value: "video" },
+                { label: "Home", value: "home" }
+              ]
+            }
+          }
+        },
+        byoButtonText: { type: "text" },
+        width: WidthField as any,
+        spacing: SpacingControl as any,
+        entranceAnimation: EntranceAnimationField as any,
+      },
+      defaultProps: {
+        sectionLabel: "INVESTMENT",
+        title: "High-Fidelity Packages",
+        subtitle: "Elevating real estate through cinematic visual storytelling. Select a curated tier or build a bespoke production suite.",
+        packages: [
+          {
+            name: "Essential",
+            tierLabel: "ENTRY TIER",
+            price: "$495",
+            billingUnit: "/ PROJECT",
+            featuresText: "25 Professional Interior Photos\n3 Aerial Drone Stills\n2D Schematic Floor Plan\n!3D Matterport Tour",
+            buttonText: "SELECT PACKAGE",
+            isPopular: false,
+            customLink: ""
+          },
+          {
+            name: "Professional",
+            tierLabel: "PRODUCTION STANDARD",
+            price: "$850",
+            billingUnit: "/ PROJECT",
+            featuresText: "40 High-End Interior Photos\n10 Aerial Drone 4K Stills\n2D & 3D Interactive Floor Plans\nMatterport 3D Tour (6 Months)\nSocial Media Teaser Video",
+            buttonText: "BOOK NOW",
+            isPopular: true,
+            customLink: ""
+          },
+          {
+            name: "Elite",
+            tierLabel: "LUXURY SUITE",
+            price: "$1,450",
+            billingUnit: "/ PROJECT",
+            featuresText: "Unlimited Multi-Flash Interior Photos\nAerial 4K Cinematic Video (60s)\nPremium Dollhouse 3D Render\nFull Walkthrough Cinematic Film\nTwilight Session Included",
+            buttonText: "SELECT PACKAGE",
+            isPopular: false,
+            customLink: ""
+          }
+        ],
+        byoHeading: "Build Your Own",
+        byoSubtitle: "Tailor our services to your specific project needs.",
+        byoItems: [
+          {
+            id: "still-photo",
+            title: "STILL PHOTOGRAPHY",
+            description: "Base 15 Photos",
+            price: 150,
+            iconName: "camera"
+          },
+          {
+            id: "drone-coverage",
+            title: "DRONE COVERAGE",
+            description: "Aerial Stills + Video",
+            price: 200,
+            iconName: "plane"
+          },
+          {
+            id: "floor-plans",
+            title: "FLOOR PLANS",
+            description: "2D Laser Measured",
+            price: 125,
+            iconName: "stairs"
+          },
+          {
+            id: "3d-virtual-tour",
+            title: "3D VIRTUAL TOUR",
+            description: "Matterport Hosting",
+            price: 300,
+            iconName: "box"
+          }
+        ],
+        byoButtonText: "GENERATE CUSTOM QUOTE",
+        width: "full",
+        spacing: { pt: "64", pb: "64", mt: "0", mb: "0" },
+      },
+      render: ({ sectionLabel, title, subtitle, packages, byoHeading, byoSubtitle, byoItems, byoButtonText, width, spacing, entranceAnimation }) => {
+        const [selectedBYO, setSelectedBYO] = React.useState<string[]>([]);
+        const [byoStep, setByoStep] = React.useState<number>(1);
+        const [byoSubmitted, setByoSubmitted] = React.useState<boolean>(false);
+        const [byoLoading, setByoLoading] = React.useState<boolean>(false);
+        const [contactData, setContactData] = React.useState({
+          name: "",
+          email: "",
+          address: "",
+          message: ""
+        });
+
+        const toggleBYO = (id: string) => {
+          setSelectedBYO(prev => 
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+          );
+        };
+
+        const totalBYOPrice = React.useMemo(() => {
+          return byoItems.reduce((acc, item) => {
+            if (selectedBYO.includes(item.id)) {
+              return acc + (Number(item.price) || 0);
+            }
+            return acc;
+          }, 0);
+        }, [byoItems, selectedBYO]);
+
+        const selectedItemsSummaryText = React.useMemo(() => {
+          const names = byoItems
+            .filter(item => selectedBYO.includes(item.id))
+            .map(item => `${item.title} ($${item.price})`)
+            .join(", ");
+          return names ? `Selected Add-ons: ${names}` : "No add-ons selected";
+        }, [byoItems, selectedBYO]);
+
+        const handleBYOSubmit = async (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!contactData.name || !contactData.email || !contactData.address) {
+            return;
+          }
+          setByoLoading(true);
+          try {
+            const response = await fetch("/api/crm/inquire", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                propertyAddress: contactData.address,
+                realtorName: contactData.name,
+                email: contactData.email,
+                serviceType: `Custom Package - Total: $${totalBYOPrice}. Details: ${selectedItemsSummaryText}. Message: ${contactData.message || 'No additional note.'}`
+              })
+            });
+            if (response.ok) {
+              setByoSubmitted(true);
+            } else {
+              alert("There was an issue submitting your custom packages quote. Please try again.");
+            }
+          } catch (err) {
+            console.error("Custom BYO inquiry submission failed:", err);
+          } finally {
+            setByoLoading(false);
+          }
+        };
+
+        return (
+          <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
+            <section className="bg-charcoal text-white py-12 px-4 sm:px-6 lg:px-8 w-full overflow-hidden select-text">
+              <div className="max-w-4xl mx-auto text-center mb-16">
+                {sectionLabel && (
+                  <span className="text-brick-copper text-[11px] tracking-[0.6em] font-black uppercase block mb-3 font-mono">
+                    {sectionLabel}
+                  </span>
+                )}
+                {title && (
+                  <h2 className="font-display text-4xl sm:text-5xl md:text-6xl text-white italic tracking-tighter leading-none mb-4 font-medium">
+                    {title}
+                  </h2>
+                )}
+                {subtitle && (
+                  <p className="text-sm sm:text-base text-white/50 max-w-2xl mx-auto font-light leading-relaxed">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-24 items-stretch">
+                {packages && packages.map((pkg, idx) => {
+                  const features = pkg.featuresText 
+                    ? pkg.featuresText.split("\n").filter(f => f.trim())
+                    : [];
+                  
+                  return (
+                    <div 
+                      key={idx}
+                      className={`flex flex-col justify-between h-full relative p-8 rounded transition-all duration-500 shadow-lg ${
+                        pkg.isPopular 
+                          ? "bg-[#111111]/95 border border-brick-copper hover:border-brick-copper/80 scale-[1.02] md:scale-[1.03] z-[2]" 
+                          : "bg-[#111111]/70 hover:bg-[#151515] border border-white/5 hover:border-white/10 z-[1]"
+                      }`}
+                    >
+                      {pkg.isPopular && (
+                        <div className="absolute -top-3 right-6 bg-brick-copper text-charcoal text-[8px] tracking-[0.25em] font-black font-mono py-1 px-4 uppercase rounded shadow-sm">
+                          MOST POPULAR
+                        </div>
+                      )}
+                      
+                      <div>
+                        {pkg.tierLabel && (
+                          <span className="text-[10px] tracking-widest text-[#cfa073]/80 uppercase font-mono font-bold mb-4 block">
+                            {pkg.tierLabel}
+                          </span>
+                        )}
+                        <h3 className="font-display text-3xl italic text-white mb-2 leading-tight">
+                          {pkg.name}
+                        </h3>
+                        <div className="flex items-baseline mb-6">
+                          <span className="text-4xl font-extrabold text-white tracking-tight font-mono">
+                            {pkg.price}
+                          </span>
+                          {pkg.billingUnit && (
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-white/40 ml-2 font-mono">
+                              {pkg.billingUnit}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="w-full h-px bg-white/5 my-6" />
+
+                        <ul className="space-y-4 mb-8 text-left">
+                          {features.map((feat, fidx) => {
+                            const isExcluded = feat.startsWith("!");
+                            const cleanText = isExcluded ? feat.substring(1) : feat;
+                            
+                            return (
+                              <li key={fidx} className="flex items-center gap-3">
+                                {isExcluded ? (
+                                  <Ban size={14} className="text-neutral-700 shrink-0" />
+                                ) : (
+                                  <Check size={14} className="text-brick-copper shrink-0" />
+                                )}
+                                <span className={`text-xs font-light font-sans tracking-wide ${
+                                  isExcluded 
+                                    ? "text-white/20 line-through font-light" 
+                                    : "text-white/85"
+                                }`}>
+                                  {cleanText}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+
+                      <div className="mt-auto pt-4">
+                        {pkg.customLink ? (
+                          <Link 
+                            to={pkg.customLink}
+                            className={`block w-full py-3.5 text-center text-[10px] tracking-[0.25em] uppercase font-black transition-all duration-300 font-mono shadow-sm ${
+                              pkg.isPopular 
+                                ? "bg-brick-copper hover:bg-white text-charcoal" 
+                                : "border border-white/10 hover:border-white text-white hover:bg-white/5"
+                            }`}
+                          >
+                            {pkg.buttonText}
+                          </Link>
+                        ) : (
+                          <a 
+                            href="#inquire" 
+                            className={`block w-full py-3.5 text-center text-[10px] tracking-[0.25em] uppercase font-black transition-all duration-300 font-mono shadow-sm cursor-pointer ${
+                              pkg.isPopular 
+                                ? "bg-brick-copper hover:bg-white text-charcoal animate-pulse" 
+                                : "border border-white/10 hover:border-white text-white hover:bg-white/5"
+                            }`}
+                            onClick={(e) => {
+                              const inquireEl = document.getElementById("inquire");
+                              if (inquireEl) {
+                                e.preventDefault();
+                                inquireEl.scrollIntoView({ behavior: "smooth" });
+                                const nameInput = document.querySelector('input[placeholder="Your Name / Agency"]') as HTMLInputElement;
+                                if (nameInput) nameInput.focus();
+                              }
+                            }}
+                          >
+                            {pkg.buttonText}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border border-white/5 bg-[#0a0a0a]/60 shadow-xl rounded p-8 sm:p-12 md:p-16 max-w-6xl mx-auto w-full relative overflow-hidden">
+                {byoStep === 1 ? (
+                  <div>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-8">
+                      <div>
+                        {byoHeading && (
+                          <h3 className="font-display text-2xl sm:text-4xl text-white italic tracking-tight mb-2">
+                            {byoHeading}
+                          </h3>
+                        )}
+                        {byoSubtitle && (
+                          <p className="text-xs sm:text-sm text-white/50 font-light">
+                            {byoSubtitle}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-left md:text-right">
+                        <span className="text-[10px] tracking-widest text-white/40 uppercase font-mono font-bold mb-1 block">
+                          ESTIMATED TOTAL
+                        </span>
+                        <div className="text-3xl sm:text-4xl font-mono text-brick-copper font-black tracking-tight">
+                          ${totalBYOPrice}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-12 mb-12">
+                      {byoItems && byoItems.map((item, idx) => {
+                        const isSelected = selectedBYO.includes(item.id);
+                        
+                        return (
+                          <div 
+                            key={item.id || idx}
+                            onClick={() => toggleBYO(item.id)}
+                            className={`flex flex-col justify-between p-6 border transition-all duration-300 rounded cursor-pointer select-none text-left h-full relative overflow-hidden group min-h-[180px] ${
+                              isSelected 
+                                ? "border-brick-copper bg-brick-copper/[0.04] shadow-md scale-[1.01]" 
+                                : "border-white/5 bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02]"
+                            }`}
+                          >
+                            <div className="absolute top-4 right-4 w-4 h-4 rounded-full border flex items-center justify-center transition-all duration-300 pointer-events-none">
+                              {isSelected ? (
+                                <div className="w-2.5 h-2.5 rounded-full bg-brick-copper" />
+                              ) : (
+                                <div className="w-2.5 h-2.5 rounded-full bg-transparent border border-white/15" />
+                              )}
+                            </div>
+
+                            <div className="mb-6">
+                              {(() => {
+                                if (item.iconName === "camera") return <Camera size={20} className="text-brick-copper/80 group-hover:scale-110 transition-transform duration-300" />;
+                                if (item.iconName === "plane") return <Plane size={20} className="text-brick-copper/80 group-hover:scale-110 transition-transform duration-300" />;
+                                if (item.iconName === "box") return <Layers size={20} className="text-brick-copper/80 group-hover:scale-110 transition-transform duration-300" />;
+                                if (item.iconName === "stairs") {
+                                  return (
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-brick-copper/80 group-hover:scale-110 transition-transform duration-300">
+                                      <path d="M19 19H5" />
+                                      <path d="M14 19H9" />
+                                      <path d="M9 19H4" />
+                                      <path d="M19 14h-5" />
+                                      <path d="M14 14v5" />
+                                      <line x1="14" y1="9" x2="9" y2="9" />
+                                      <line x1="9" y1="9" x2="9" y2="14" />
+                                      <line x1="9" y1="4" x2="4" y2="4" />
+                                      <line x1="4" y1="4" x2="4" y2="9" />
+                                    </svg>
+                                  );
+                                }
+                                return <Sparkles size={20} className="text-brick-copper/80 group-hover:scale-110 transition-transform duration-300" />;
+                              })()}
+                            </div>
+
+                            <div>
+                              <h4 className="text-[11px] tracking-widest text-white/90 font-mono font-bold uppercase mb-1">
+                                {item.title}
+                              </h4>
+                              <p className="text-[10px] text-white/40 font-light tracking-wide mb-6">
+                                {item.description}
+                              </p>
+                              <div className="text-base font-mono text-white/70 group-hover:text-brick-copper transition-colors font-bold">
+                                ${item.price}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex justify-center mt-6">
+                      <button 
+                        onClick={() => {
+                          if (selectedBYO.length === 0) {
+                            alert("Please select at least one package add-on to generate a custom quote.");
+                            return;
+                          }
+                          setByoStep(2);
+                        }}
+                        disabled={selectedBYO.length === 0}
+                        className="py-4 px-12 bg-brick-copper hover:bg-white text-charcoal font-semibold text-[10px] uppercase tracking-widest transition-all duration-300 tracking-[0.25em] font-mono shadow-md hover:-translate-y-0.5 active:scale-95 disabled:opacity-30 disabled:pointer-events-none"
+                      >
+                        {byoButtonText}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="animate-fadeIn max-w-xl mx-auto">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-8">
+                      <h3 className="font-display text-xl text-white italic font-medium">Bespoke Suite Specifications</h3>
+                      <button 
+                        onClick={() => setByoStep(1)} 
+                        className="text-[10px] uppercase tracking-widest text-white/50 hover:text-brick-copper transition-colors font-mono"
+                      >
+                        ← Back to Selector
+                      </button>
+                    </div>
+
+                    {byoSubmitted ? (
+                      <div className="text-center py-12">
+                        <Check size={40} className="text-brick-copper mx-auto mb-4 animate-bounce" />
+                        <h4 className="font-display text-2xl text-white italic mb-2">Quote Transmitted</h4>
+                        <p className="text-xs text-white/50 max-w-sm mx-auto mb-6">
+                          Your selections have been securely transferred to our CRM dashboard. An advisory partner will contact you shortly with custom schedules.
+                        </p>
+                        <button 
+                          onClick={() => {
+                            setByoSubmitted(false);
+                            setSelectedBYO([]);
+                            setByoStep(1);
+                            setContactData({ name: "", email: "", address: "", message: "" });
+                          }}
+                          className="text-[9px] uppercase tracking-widest bg-white/5 hover:bg-white/10 text-white font-mono py-2.5 px-6 rounded transition-all"
+                        >
+                          Configure Another Quote
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleBYOSubmit} className="space-y-6 text-left">
+                        <div className="p-4 bg-white/[0.02] border border-white/5 rounded">
+                          <span className="text-[9px] uppercase tracking-wider font-mono text-zinc-500 font-bold block mb-1">
+                            Your Selections Summary
+                          </span>
+                          <p className="text-xs text-brick-copper font-medium">
+                            {selectedItemsSummaryText}
+                          </p>
+                          <span className="text-sm font-mono font-bold text-white block mt-2">
+                            Estimated Price: ${totalBYOPrice}
+                          </span>
+                        </div>
+
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Property Address</label>
+                          <input 
+                            required
+                            type="text" 
+                            placeholder="Address of the project" 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white"
+                            value={contactData.address}
+                            onChange={e => setContactData({ ...contactData, address: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Your Full Name</label>
+                          <input 
+                            required
+                            type="text" 
+                            placeholder="Full name / Realtor agency" 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white"
+                            value={contactData.name}
+                            onChange={e => setContactData({ ...contactData, name: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Email Coordinates</label>
+                          <input 
+                            required
+                            type="email" 
+                            placeholder="your@email.com" 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white"
+                            value={contactData.email}
+                            onChange={e => setContactData({ ...contactData, email: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Message Detail (Optional)</label>
+                          <textarea 
+                            rows={2}
+                            placeholder="Any specific instructions or timeframe constraints..." 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white resize-none"
+                            value={contactData.message}
+                            onChange={e => setContactData({ ...contactData, message: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="pt-4 flex gap-4">
+                          <button 
+                            type="button"
+                            onClick={() => setByoStep(1)}
+                            className="flex-1 py-4 border border-white/10 hover:border-white/20 text-white/80 hover:text-white text-[10px] uppercase tracking-widest font-mono duration-300"
+                          >
+                            Cancel
+                          </button>
+                          <button 
+                            type="submit"
+                            disabled={byoLoading}
+                            className="flex-1 py-4 bg-brick-copper hover:bg-white text-charcoal font-semibold text-[10px] uppercase tracking-widest transition-all duration-300 font-mono shadow-md disabled:opacity-50"
+                          >
+                            {byoLoading ? "Transmission..." : "Submit Proposal"}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
           </ComponentWrapper>
         );
       }

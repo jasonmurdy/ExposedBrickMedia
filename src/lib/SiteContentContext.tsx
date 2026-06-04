@@ -366,6 +366,15 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
           content: '# 3D Virtual Tours\n\nImmersive 3D Matterport captures allowing interactive navigation and responsive dollhouse perspective tours on any device.',
           showInNav: true,
           order: 5
+        },
+        {
+          id: 'packages',
+          title: 'Packages',
+          slug: 'packages',
+          description: 'High-fidelity service packages and bespoke custom pricing configurators.',
+          content: '# Service Packages\n\nCurated service tiers and interactive bespoke add-ons selector to customize your real estate visual storytelling suite.',
+          showInNav: true,
+          order: 6
         }
       ];
 
@@ -374,6 +383,92 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (!exists) {
           console.log(`Auto-seeding page: ${rp.title}`);
           const docRef = doc(db, 'pages', rp.id);
+          
+          let initialLayout: any = { content: [], root: { props: { title: rp.title } } };
+          if (rp.slug === 'packages') {
+            initialLayout = {
+              content: [
+                {
+                  type: "ServicePackages",
+                  props: {
+                    id: "service-packages-seed-block",
+                    sectionLabel: "INVESTMENT",
+                    title: "High-Fidelity Packages",
+                    subtitle: "Elevating real estate through cinematic visual storytelling. Select a curated tier or build a bespoke production suite. Created with Puck Editor.",
+                    packages: [
+                      {
+                        name: "Essential",
+                        tierLabel: "ENTRY TIER",
+                        price: "$495",
+                        billingUnit: "/ PROJECT",
+                        featuresText: "25 Professional Interior Photos\n3 Aerial Drone Stills\n2D Schematic Floor Plan\n!3D Matterport Tour",
+                        buttonText: "SELECT PACKAGE",
+                        isPopular: false,
+                        customLink: ""
+                      },
+                      {
+                        name: "Professional",
+                        tierLabel: "PRODUCTION STANDARD",
+                        price: "$850",
+                        billingUnit: "/ PROJECT",
+                        featuresText: "40 High-End Interior Photos\n10 Aerial Drone 4K Stills\n2D & 3D Interactive Floor Plans\nMatterport 3D Tour (6 Months)\nSocial Media Teaser Video",
+                        buttonText: "BOOK NOW",
+                        isPopular: true,
+                        customLink: ""
+                      },
+                      {
+                        name: "Elite",
+                        tierLabel: "LUXURY SUITE",
+                        price: "$1,450",
+                        billingUnit: "/ PROJECT",
+                        featuresText: "Unlimited Multi-Flash Interior Photos\nAerial 4K Cinematic Video (60s)\nPremium Dollhouse 3D Render\nFull Walkthrough Cinematic Film\nTwilight Session Included",
+                        buttonText: "SELECT PACKAGE",
+                        isPopular: false,
+                        customLink: ""
+                      }
+                    ],
+                    byoHeading: "Build Your Own",
+                    byoSubtitle: "Tailor our services to your specific project needs.",
+                    byoItems: [
+                      {
+                        id: "still-photo",
+                        title: "STILL PHOTOGRAPHY",
+                        description: "Base 15 Photos",
+                        price: 150,
+                        iconName: "camera"
+                      },
+                      {
+                        id: "drone-coverage",
+                        title: "DRONE COVERAGE",
+                        description: "Aerial Stills + Video",
+                        price: 200,
+                        iconName: "plane"
+                      },
+                      {
+                        id: "floor-plans",
+                        title: "FLOOR PLANS",
+                        description: "2D Laser Measured",
+                        price: 125,
+                        iconName: "stairs"
+                      },
+                      {
+                        id: "3d-virtual-tour",
+                        title: "3D VIRTUAL TOUR",
+                        description: "Matterport Hosting",
+                        price: 300,
+                        iconName: "box"
+                      }
+                    ],
+                    byoButtonText: "GENERATE CUSTOM QUOTE",
+                    width: "full",
+                    spacing: { pt: "64", pb: "64", mt: "0", mb: "0" }
+                  }
+                }
+              ],
+              root: { props: { title: rp.title } }
+            };
+          }
+
           try {
             await setDoc(docRef, {
               title: rp.title,
@@ -382,7 +477,7 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
               content: rp.content,
               showInNav: rp.showInNav,
               order: rp.order,
-              layout: { content: [], root: { props: { title: rp.title } } },
+              layout: initialLayout,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp()
             });

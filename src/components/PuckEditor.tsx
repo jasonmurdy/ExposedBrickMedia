@@ -8,9 +8,10 @@ import "@measured/puck/dist/index.css";
 import { createConfig, BASELINE_LAYOUT } from "../lib/puck.config";
 import { useSiteContent } from "../lib/SiteContentContext";
 import { db } from "../lib/firebase";
-import { doc, setDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus, Undo2, Redo2 } from "lucide-react";
+import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus, Undo2, Redo2, Upload, Terminal, AlertTriangle, Trash2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 import { sanitizeLayout } from "../lib/sanitizeLayout";
 import html2canvas from "html2canvas";
@@ -189,6 +190,18 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   const [templateDescription, setTemplateDescription] = useState("");
   const [selectedImgPlaceholder, setSelectedImgPlaceholder] = useState("slate");
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
+  // Upgrade template feature: Admin Upload / Paste JSON state
+  const [pickerTab, setPickerTab] = useState<"browse" | "import">("browse");
+  const [pastedJson, setPastedJson] = useState("");
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [parsedPuckData, setParsedPuckData] = useState<any>(null);
+  const [importSaveName, setImportSaveName] = useState("");
+  const [importSaveCategory, setImportSaveCategory] = useState("Custom Layouts");
+  const [importSaveDesc, setImportSaveDesc] = useState("");
+  const [isSavingImportTemplate, setIsSavingImportTemplate] = useState(false);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [isDeletingTemplate, setIsDeletingTemplate] = useState<boolean>(false);
 
   const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources, popups), [pages, portfolioItems, partners, teams, brandResources, popups]);
 
@@ -1347,38 +1360,29 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       })) as PuckTemplateItem[];
 
       if (isAdmin) {
-        const existingDocsMap = new Map<string, PuckTemplateItem>();
-        items.forEach(it => existingDocsMap.set(it.id, it));
-
-        for (const preset of seedPresets) {
-          const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-          const existing = existingDocsMap.get(docId);
-          
-          // Force overwrite/update for our five templates to keep them synced on load
-          const forceRefresh = [
-            "services-interior-photography-landing-page",
-            "spatial-intelligence-3d-tours",
-            "aerial-photography-drone-operations",
-            "floor-plans-layouts-template",
-            "packages-pricing-template"
-          ].includes(docId);
-
-          if (!existing || forceRefresh) {
+        if (items.length === 0) {
+          // If the template database is completely empty, seed the initial set
+          const seededItems: PuckTemplateItem[] = [];
+          for (const preset of seedPresets) {
+            const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
             const docRef = doc(db, "puck_templates", docId);
             const newDoc = { 
               ...preset, 
-              createdAt: existing?.createdAt || serverTimestamp(),
+              createdAt: serverTimestamp(),
               updatedAt: serverTimestamp() 
             };
             try {
               await setDoc(docRef, newDoc);
-              existingDocsMap.set(docId, { id: docId, ...newDoc } as any);
+              seededItems.push({ id: docId, ...newDoc } as any);
             } catch (wErr) {
               console.warn(`Could not seed preset ${docId} into firestore:`, wErr);
             }
           }
+          setTemplates(seededItems.length > 0 ? seededItems : seedPresets.map((p, idx) => ({ id: `seed-${idx}`, createdAt: new Date().toISOString(), ...p })) as any);
+        } else {
+          // Display the stored templates as is - any deleted ones will stay deleted!
+          setTemplates(items);
         }
-        setTemplates(Array.from(existingDocsMap.values()));
       } else {
         setTemplates(items.length === 0 ? seedPresets.map((p, idx) => ({ id: `seed-${idx}`, createdAt: new Date().toISOString(), ...p })) as any : items);
       }
@@ -1475,11 +1479,112 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
     }
   };
 
+  // JSON layout parsing and full-tree structural sanitizing
+  const validateAndParseJson = (text: string) => {
+    setJsonError(null);
+    setParsedPuckData(null);
+    if (!text.trim()) return;
+
+    try {
+      const parsed = JSON.parse(text);
+      let puckCompatible: any = {};
+      
+      if (Array.isArray(parsed)) {
+        puckCompatible = { content: parsed };
+      } else if (parsed && typeof parsed === 'object') {
+        if (parsed.content || parsed.zones || parsed.root) {
+          puckCompatible = parsed;
+        } else {
+          // Wrap loose single-component layouts
+          puckCompatible = { content: [parsed] };
+        }
+      } else {
+        throw new Error("JSON should be a valid configuration object or section blocks array.");
+      }
+
+      // Convert using our advanced cyclic-resilient sanitizers
+      const sanitized = sanitizeLayout(cleanObject(puckCompatible), page?.title || settings.brandName || "Imported Code");
+      setParsedPuckData(sanitized);
+    } catch (err: any) {
+      setJsonError(err.message || "Invalid JSON syntax");
+    }
+  };
+
+  const handleImportFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      setPastedJson(text);
+      validateAndParseJson(text);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportTemplateSave = async () => {
+    if (!parsedPuckData || !importSaveName.trim()) return;
+    setIsSavingImportTemplate(true);
+    try {
+      const docId = `imported-${importSaveName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString().slice(-4)}`;
+      const docRef = doc(db, "puck_templates", docId);
+
+      const newTemplate = {
+        name: importSaveName,
+        category: importSaveCategory || "Custom Layouts",
+        description: importSaveDesc || "Imported layout converted from custom JSON file.",
+        previewImage: "indigo", // default beautiful gradient placeholder
+        puckData: cleanObject(parsedPuckData),
+        createdAt: serverTimestamp()
+      };
+
+      await setDoc(docRef, newTemplate);
+
+      // Reset states
+      setImportSaveName("");
+      setImportSaveDesc("");
+      setPastedJson("");
+      setParsedPuckData(null);
+      setPickerTab("browse");
+      setIsPickerOpen(false);
+
+      await fetchTemplates();
+    } catch (err) {
+      console.error("Error saving imported JSON preset:", err);
+    } finally {
+      setIsSavingImportTemplate(false);
+    }
+  };
+
+  const handleDeployDraft = () => {
+    if (!parsedPuckData) return;
+    handleLoadTemplate(parsedPuckData);
+    setPastedJson("");
+    setParsedPuckData(null);
+  };
+
   // Handler to load template to Puck Editor
   const handleLoadTemplate = (templateData: any) => {
     setEditorData(sanitizeLayout(cleanObject(templateData), page?.title || settings.brandName || "Page"));
     setPuckVersion(v => v + 1);
     setIsPickerOpen(false);
+  };
+
+  // Handler to delete template from Firestore
+  const handleDeleteTemplate = async (templateId: string, templateName: string) => {
+    setIsDeletingTemplate(true);
+    try {
+      await deleteDoc(doc(db, "puck_templates", templateId));
+      toast.success(`Template "${templateName}" deleted successfully!`);
+      setConfirmingDeleteId(null);
+      await fetchTemplates();
+    } catch (err) {
+      console.error("Error deleting template:", err);
+      toast.error(`Failed to delete template: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsDeletingTemplate(false);
+    }
   };
 
   // Filter templates list by category
@@ -1549,21 +1654,53 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[500] p-4 animate-fade-in">
           <div className="bg-charcoal border border-white/10 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl text-white">
             {/* Header */}
-            <div className="p-6 border-b border-white/15 flex justify-between items-center">
+            <div className="p-6 border-b border-white/15 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h3 className="font-display text-xl text-brick-copper italic">Page Template Selector</h3>
-                <p className="text-xs text-white/50 mt-1">Select a visual template layout to replace current workspace content.</p>
+                <h3 className="font-display text-xl text-brick-copper italic">Page Template Manager</h3>
+                <p className="text-xs text-white/50 mt-1">Select a visual template layout preset or convert and import custom JSON layout code.</p>
               </div>
-              <button 
-                onClick={() => setIsPickerOpen(false)}
-                className="text-white/40 hover:text-white transition-colors p-2"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="border border-white/10 bg-black/30 p-1 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickerTab("browse");
+                    }}
+                    className={`px-3 py-1.5 text-[9px] uppercase font-mono font-bold tracking-widest transition-all cursor-pointer ${
+                      pickerTab === "browse" 
+                        ? "bg-brick-copper text-charcoal font-black" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Browse Presets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickerTab("import");
+                    }}
+                    className={`px-3 py-1.5 text-[9px] uppercase font-mono font-bold tracking-widest transition-all cursor-pointer ${
+                      pickerTab === "import" 
+                        ? "bg-brick-copper text-charcoal font-black" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Converter & Importer
+                  </button>
+                </div>
+                <button 
+                  onClick={() => setIsPickerOpen(false)}
+                  className="text-white/40 hover:text-white transition-colors p-2"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
-            {/* Filter Categories */}
-            <div className="px-6 py-3 bg-white/5 border-b border-white/5 flex gap-2 overflow-x-auto">
+            {pickerTab === "browse" ? (
+              <>
+                {/* Filter Categories */}
+                <div className="px-6 py-3 bg-white/5 border-b border-white/5 flex gap-2 overflow-x-auto">
               {categoriesList.map(category => (
                 <button
                   key={category}
@@ -1636,13 +1773,47 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                           {template.description}
                         </p>
                         <div className="flex justify-between items-center pt-2 border-t border-white/5">
-                          <span className="text-[9px] text-white/45 uppercase tracking-widest flex items-center gap-1">
-                            <Info size={10} className="text-brick-copper" />
-                            Puck Layout
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {confirmingDeleteId === template.id ? (
+                              <div className="flex items-center gap-1.5 bg-red-950/40 border border-red-500/20 px-2 py-1">
+                                <span className="text-[8px] text-red-100 uppercase tracking-widest font-mono">Confirm?</span>
+                                <button
+                                  type="button"
+                                  disabled={isDeletingTemplate}
+                                  onClick={() => handleDeleteTemplate(template.id, template.name)}
+                                  className="px-1.5 py-0.5 bg-red-650 hover:bg-red-500 text-white rounded-[2px] text-[8px] uppercase tracking-widest font-bold font-mono transition-colors cursor-pointer"
+                                >
+                                  {isDeletingTemplate ? "..." : "Yes"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isDeletingTemplate}
+                                  onClick={() => setConfirmingDeleteId(null)}
+                                  className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 text-white rounded-[2px] text-[8px] uppercase tracking-widest font-bold font-mono transition-colors cursor-pointer"
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  title="Delete Template"
+                                  onClick={() => setConfirmingDeleteId(template.id)}
+                                  className="p-1.5 border border-white/5 hover:border-red-500/30 bg-white/[0.01] hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all rounded cursor-pointer"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                                <span className="text-[9px] text-white/45 uppercase tracking-widest flex items-center gap-1">
+                                  <Info size={10} className="text-brick-copper" />
+                                  Puck Layout
+                                </span>
+                              </div>
+                            )}
+                          </div>
                           <button
                             onClick={() => handleLoadTemplate(template.puckData)}
-                            className="bg-brick-copper/90 hover:bg-white text-charcoal font-bold text-[9px] tracking-widest uppercase px-4 py-1.5 transition-all flex items-center gap-1.5"
+                            className="bg-brick-copper/90 hover:bg-white text-charcoal font-bold text-[9px] tracking-widest uppercase px-4 py-1.5 transition-all flex items-center gap-1.5 cursor-pointer"
                           >
                             <Check size={10} />
                             Deploy Layout
@@ -1654,14 +1825,188 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                 </div>
               )}
             </div>
+              </>
+            ) : (
+              <div className="flex-grow flex flex-col overflow-hidden max-h-[60vh]">
+                {/* Importer Panel Split View */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 flex-grow overflow-y-auto">
+                  {/* Left Side: Drag & Drop/Copy paste JSON */}
+                  <div className="lg:col-span-7 p-6 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col gap-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs uppercase font-mono font-bold tracking-widest text-[#cfa073] flex items-center gap-2">
+                        <Terminal size={14} />
+                        Pasted Layout Code JSON
+                      </span>
+                      <label className="bg-white/5 border border-white/10 hover:border-[#cfa073] hover:text-white text-[9px] uppercase tracking-wider font-bold font-mono px-3 py-1 cursor-pointer transition-colors flex items-center gap-1 hover:bg-white/10 text-white/70">
+                        <Upload size={10} className="text-[#cfa073]" />
+                        Upload File (.json)
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImportFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex-grow flex flex-col gap-1 min-h-[180px]">
+                      <textarea
+                        value={pastedJson}
+                        onChange={(e) => {
+                          setPastedJson(e.target.value);
+                          validateAndParseJson(e.target.value);
+                        }}
+                        placeholder='Paste standard Puck Layout JSON here...
+Example:
+{
+  "content": [
+    {
+      "type": "Section",
+      "props": {
+        "padding": "py-20",
+        "background": "bg-bg-primary"
+      }
+    }
+  ]
+}'
+                        className="w-full flex-grow bg-black/60 border border-white/10 p-4 text-xs font-mono text-emerald-400 outline-none focus:border-brick-copper focus:ring-1 focus:ring-brick-copper/20 resize-none h-64 border-b border-t leading-relaxed tracking-wide placeholder-white/20 select-text"
+                      />
+                    </div>
+
+                    {/* Syntax Status Display */}
+                    {jsonError ? (
+                      <div className="bg-[#1f1212] border border-red-950/40 text-red-400 p-4 rounded-sm text-xs flex gap-3 items-start font-mono">
+                        <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                        <div className="flex-grow overflow-hidden break-words">
+                          <strong className="uppercase block text-[9px] tracking-wider mb-1 text-red-300">Layout Parse Error:</strong>
+                          {jsonError}
+                        </div>
+                      </div>
+                    ) : parsedPuckData ? (
+                      <div className="bg-[#121f14] border border-emerald-900/40 text-emerald-400 p-4 rounded-sm text-xs flex gap-3 items-center font-mono">
+                        <Check size={16} className="text-emerald-500 shrink-0" />
+                        <div>
+                          <strong className="uppercase block text-[9px] tracking-wider mb-1 text-emerald-300">Converter Succeeded:</strong>
+                          Recognized layout schema with {parsedPuckData.content?.length || 0} top-level element(s).
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Right Side: Convert & Save Panel */}
+                  <div className="lg:col-span-5 p-6 bg-black/25 flex flex-col justify-between gap-6 overflow-y-auto">
+                    <div className="space-y-4">
+                      <div className="pb-3 border-b border-white/10">
+                        <h4 className="font-display font-medium text-white text-sm">Save Layout to Shared Presets</h4>
+                        <p className="text-[10px] text-white/50 leading-relaxed mt-1">
+                          After typing or uploading layout code on the left, you can immediately deploy it to this session or name and persist it as an official reusable template.
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[9px] uppercase tracking-wider text-white/65 hover:text-white/80 font-mono mb-1.5 font-bold">
+                            Preset Template Name <span className="text-brick-copper">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={importSaveName}
+                            onChange={(e) => setImportSaveName(e.target.value)}
+                            placeholder="e.g. Asymmetric Grid Layout"
+                            className="w-full bg-[#161616] border border-white/10 focus:border-[#cfa073] px-3.5 py-2 text-xs outline-none transition-all font-mono placeholder-white/20"
+                            disabled={!parsedPuckData}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9px] uppercase tracking-wider text-white/65 font-mono mb-1.5 font-bold">
+                            Category Selection
+                          </label>
+                          <select
+                            value={importSaveCategory}
+                            onChange={(e) => setImportSaveCategory(e.target.value)}
+                            className="w-full bg-[#161616] border border-white/10 focus:border-[#cfa073] px-3 py-2 text-xs text-white outline-none font-mono appearance-none"
+                            disabled={!parsedPuckData}
+                          >
+                            <option value="Custom Layouts">Custom Layouts</option>
+                            <option value="Media Showcase">Media Showcase</option>
+                            <option value="Core Business">Core Business</option>
+                            <option value="Page Structures">Page Structures</option>
+                            <option value="Header & Footer">Header & Footer</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[9px] uppercase tracking-wider text-white/65 font-mono mb-1.5 font-bold">
+                            Preset Description
+                          </label>
+                          <textarea
+                            value={importSaveDesc}
+                            onChange={(e) => setImportSaveDesc(e.target.value)}
+                            placeholder="Briefly summarize what components are featured in this imported preset."
+                            className="w-full min-h-[80px] bg-[#161616] border border-white/10 focus:border-[#cfa073] px-3.5 py-2 text-xs outline-none transition-all font-mono resize-none placeholder-white/20"
+                            disabled={!parsedPuckData}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5 pt-4 border-t border-white/5">
+                      <button
+                        type="button"
+                        onClick={handleDeployDraft}
+                        disabled={!parsedPuckData}
+                        className={`w-full py-2.5 text-[10px] tracking-widest font-bold font-mono uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          parsedPuckData 
+                            ? "bg-white text-charcoal hover:bg-[#cfa073] hover:text-charcoal" 
+                            : "bg-white/5 text-white/30 border border-white/5 cursor-not-allowed pointer-events-none"
+                        }`}
+                      >
+                        <Check size={12} />
+                        Deploy to Workspace Only
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleImportTemplateSave}
+                        disabled={!parsedPuckData || !importSaveName.trim() || isSavingImportTemplate}
+                        className={`w-full py-2.5 text-[10px] tracking-widest font-bold font-mono uppercase transition-all flex items-center justify-center gap-2 border cursor-pointer ${
+                          parsedPuckData && importSaveName.trim()
+                            ? "border-[#cfa073] bg-[#cfa073]/10 text-[#cfa073] hover:bg-[#cfa073] hover:text-charcoal font-extrabold" 
+                            : "border-white/5 bg-transparent text-white/20 cursor-not-allowed pointer-events-none"
+                        }`}
+                      >
+                        {isSavingImportTemplate ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            Saving Template...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={12} />
+                            Save as Shared Template
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Footer */}
             <div className="px-6 py-4 bg-white/5 border-t border-white/10 flex justify-end">
               <button
-                onClick={() => setIsPickerOpen(false)}
-                className="px-4 py-2 border border-white/15 text-white/60 hover:text-white hover:border-white/30 text-xs uppercase tracking-widest transition-colors font-medium"
+                onClick={() => {
+                  setIsPickerOpen(false);
+                  setPastedJson("");
+                  setParsedPuckData(null);
+                  setJsonError(null);
+                  setPickerTab("browse");
+                }}
+                className="px-4 py-2 border border-white/15 text-white/60 hover:text-white hover:border-white/30 text-xs uppercase tracking-widest transition-colors font-medium cursor-pointer"
               >
-                Cancel
+                Close
               </button>
             </div>
           </div>

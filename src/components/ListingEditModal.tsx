@@ -23,6 +23,7 @@ export function ListingEditModal({ listing, isOpen, onClose }: ListingEditModalP
     baths: listing.baths || '',
     sqft: listing.sqft || '',
     status: listing.status || 'Active',
+    videoUrl: listing.videoUrl || '',
     gallery: listing.gallery || []
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -155,6 +156,17 @@ export function ListingEditModal({ listing, isOpen, onClose }: ListingEditModalP
                   />
                 </div>
               ))}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/40 font-black">Video Tour URL (YouTube/Vimeo)</label>
+              <input 
+                type="text" 
+                placeholder="Cinematic video link (e.g. https://www.youtube.com/watch?v=... or https://vimeo.com/...)"
+                value={formData.videoUrl}
+                onChange={e => setFormData(prev => ({ ...prev, videoUrl: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:border-brick-copper outline-none transition-colors font-mono"
+              />
             </div>
 
             {/* Gallery Manager */}

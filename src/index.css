@@ -222,3 +222,44 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* WYSIWYG Content Mapping for Document ExecCommand */
+.wysiwyg-content font[face="Montserrat"],
+.wysiwyg-editor-area font[face="Montserrat"] {
+  font-family: 'Montserrat', sans-serif !important;
+}
+.wysiwyg-content font[face="Prata"],
+.wysiwyg-editor-area font[face="Prata"] {
+  font-family: 'Prata', serif !important;
+}
+.wysiwyg-content font[face="Inter"],
+.wysiwyg-editor-area font[face="Inter"] {
+  font-family: 'Inter', sans-serif !important;
+}
+.wysiwyg-content font[face="Playfair Display"],
+.wysiwyg-editor-area font[face="Playfair Display"] {
+  font-family: 'Playfair Display', serif !important;
+}
+.wysiwyg-content font[face="monospace"],
+.wysiwyg-editor-area font[face="monospace"] {
+  font-family: monospace !important;
+}
+
+/* WYSIWYG Font Sizes */
+.wysiwyg-content font[size="1"], .wysiwyg-editor-area font[size="1"] { font-size: 11px !important; }
+.wysiwyg-content font[size="2"], .wysiwyg-editor-area font[size="2"] { font-size: 13px !important; }
+.wysiwyg-content font[size="3"], .wysiwyg-editor-area font[size="3"] { font-size: 15px !important; }
+.wysiwyg-content font[size="4"], .wysiwyg-editor-area font[size="4"] { font-size: 17px !important; }
+.wysiwyg-content font[size="5"], .wysiwyg-editor-area font[size="5"] { font-size: 20px !important; }
+.wysiwyg-content font[size="6"], .wysiwyg-editor-area font[size="6"] { font-size: 24px !important; }
+.wysiwyg-content font[size="7"], .wysiwyg-editor-area font[size="7"] { font-size: 32px !important; }
+
+/* Quote block styling */
+.wysiwyg-content blockquote, .wysiwyg-editor-area blockquote {
+  border-left: 2px solid #A47149 !important;
+  padding-left: 1rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+  font-style: italic !important;
+  opacity: 0.85 !important;
+}

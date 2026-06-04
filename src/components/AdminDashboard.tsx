@@ -33,7 +33,8 @@ import {
   Layout, MoveUp, MoveDown, Compass, Save, Palette, Type, Globe, 
   Users, MessageSquare, Briefcase, FileText, Settings, Instagram, 
   Twitter, Linkedin, Facebook, Mail, Phone, MapPin, Loader2, Box,
-  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell, Zap, ChevronDown, UserPlus
+  Eye, EyeOff, GripVertical, ArrowUp, ArrowDown, Bed, Bath, Square, ExternalLink, Download, Bell, Zap, ChevronDown, UserPlus,
+  Video, Youtube
 } from 'lucide-react';
 import {
   DndContext, 
@@ -3097,7 +3098,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             {isEditing && portfolioItems.find(i => i.id === isEditing) && (
               <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
                 <div className="bg-charcoal border border-brick-copper/30 w-full max-w-4xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl">
-                  <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80">
+                  <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80 shrink-0">
                     <div>
                       <h4 className="text-xl font-display italic text-white">{editData.title}</h4>
                       <p className="text-[9px] text-brick-copper uppercase tracking-widest font-bold tracking-[0.2em]">{editData.category}</p>
@@ -3105,7 +3106,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                     <button onClick={() => setIsEditing(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
                   </header>
                   
-                  <nav className="flex overflow-x-auto no-scrollbar border-b border-white/5 bg-white/[0.02]">
+                  <nav className="flex overflow-x-auto no-scrollbar border-b border-white/5 bg-white/[0.02] shrink-0">
                     {[
                       { id: 'media', label: 'Media Assets', icon: Palette },
                       { id: 'details', label: 'Listing Details', icon: FileText },
@@ -3248,6 +3249,17 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-white/5">
+                              <div>
+                                <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
+                                  <Video size={10} /> Cinematic Video Tour
+                                </label>
+                                <input 
+                                  placeholder="YouTube or Vimeo video link"
+                                  className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-[10px] text-white font-mono" 
+                                  value={editData.videoUrl || ''} 
+                                  onChange={e => setEditData({...editData, videoUrl: e.target.value})} 
+                                />
+                              </div>
                                <div>
                                  <label className="text-[9px] uppercase tracking-widest text-brick-copper block mb-2 font-bold flex items-center gap-2">
                                    <ExternalLink size={10} /> Fotello Package
@@ -3264,7 +3276,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                                    <ExternalLink size={10} /> Matterport Tour
                                  </label>
                                  <input 
-                                   placeholder="Matterport scan link"
+                                    placeholder="Matterport scan link"
                                    className="bg-charcoal/50 border border-white/10 w-full outline-none py-3 px-4 text-[10px] text-white font-mono" 
                                    value={editData.matterportUrl || ''} 
                                    onChange={e => setEditData({...editData, matterportUrl: e.target.value})} 
@@ -6040,10 +6052,36 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                          />
                       </div>
                       <div>
-                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Social ID (IG Handle)</label>
+                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Instagram Handle</label>
                          <input 
                            className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
                            value={editData.instagram || ''} 
+                           placeholder="@username or handle"
+                         />
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Facebook Handle / URL</label>
+                         <input 
+                           className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                           value={editData.facebook || ''} 
+                           onChange={e => setEditData({...editData, facebook: e.target.value})} 
+                           placeholder="username or link"
+                         />
+                      </div>
+                      <div>
+                         <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">LinkedIn Handle / URL</label>
+                         <input 
+                           className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                           value={editData.linkedin || ''} 
+                           onChange={e => setEditData({...editData, linkedin: e.target.value})} 
+                           placeholder="in/username or link"
+                         />
+                      </div>
+                   </div>
+                   <div className="hidden" style={{display: 'none'}}><div className="grid"><input 
                            onChange={e => setEditData({...editData, instagram: e.target.value})} 
                          />
                       </div>

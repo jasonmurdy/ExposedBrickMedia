@@ -4,7 +4,7 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, Search, CloudSun, CloudMoon, X, Check, Edit3, MoveUpRight } from 'lucide-react';
+import { Menu, Search, CloudSun, CloudMoon, X, Check, Edit3, MoveUpRight, ArrowLeft } from 'lucide-react';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -158,7 +158,7 @@ export const BrandHeader = ({ theme, override }: { theme?: 'light' | 'dark', ove
 };
 
 export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onThemeToggle: () => void }) => {
-  const { pages, settings, isEditMode } = useSiteContent();
+  const { pages, settings, isEditMode, portfolioItems } = useSiteContent();
   const location = useLocation();
 
   const navItems = settings.navigationItems || [];
@@ -171,17 +171,37 @@ export const Navbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark', onTh
     });
   };
 
+  const isListingPage = location.pathname.startsWith('/listing/');
+  const listingId = isListingPage ? location.pathname.split('/listing/')[1]?.split('?')[0] : null;
+  const project = listingId ? portfolioItems?.find(p => p.id === listingId || p.mlsNumber === listingId) : null;
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 px-12 py-8 hidden lg:flex justify-between items-center bg-bg-primary/50 backdrop-blur-sm">
-      <Link to="/" className="group flex items-center italic">
-        <span className="font-display text-2xl text-text-primary outline-none focus:ring-1 focus:ring-brick-copper/50 rounded px-1"
-          contentEditable={isEditMode}
-          suppressContentEditableWarning
-          onBlur={(e) => saveBrandName(e.currentTarget.textContent || 'The Exposed Brick')}
-        >
-          The Exposed <span className="text-brick-copper" contentEditable={false}>Brick</span>
-        </span>
-      </Link>
+    <nav className={`fixed top-0 left-0 right-0 z-50 px-12 py-6 hidden lg:flex justify-between items-center transition-all ${
+      isListingPage ? 'bg-bg-primary border-b border-white/5' : 'bg-bg-primary/50 backdrop-blur-sm'
+    }`}>
+      <div className="flex items-center">
+        <Link to="/" className="group flex items-center italic shrink-0">
+          <span className="font-display text-2xl text-text-primary outline-none focus:ring-1 focus:ring-brick-copper/50 rounded px-1"
+            contentEditable={isEditMode}
+            suppressContentEditableWarning
+            onBlur={(e) => saveBrandName(e.currentTarget.textContent || 'The Exposed Brick')}
+          >
+            The Exposed <span className="text-brick-copper" contentEditable={false}>Brick</span>
+          </span>
+        </Link>
+
+        {project && (
+          <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest text-text-primary/65 ml-6 border-l border-white/10 pl-6 h-6 animate-fade-in">
+            <Link to="/" className="hover:text-brick-copper transition-colors flex items-center gap-1.5 group font-bold">
+              <ArrowLeft size={12} className="group-hover:-translate-x-0.5 transition-transform text-brick-copper" /> Back
+            </Link>
+            <span className="text-white/20">/</span>
+            <span className="text-text-primary font-bold">{project.category}</span>
+            <span className="text-white/20">/</span>
+            <span className="text-white/40 truncate max-w-[125px] xl:max-w-[200px]">{project.title}</span>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-6">
         <Link 
