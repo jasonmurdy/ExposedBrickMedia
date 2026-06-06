@@ -1331,6 +1331,242 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
           }
         }
       }
+    },
+    {
+      name: "Aerial New",
+      category: "Media Showcase",
+      description: "Premium cinematic views and location media layout designed for luxury real estate and surrounding terrain storytelling.",
+      previewImage: "copper",
+      puckData: {
+        content: [
+          {
+            type: "Section",
+            props: {
+              padding: "py-32",
+              background: "bg-charcoal text-white",
+              bgImage: "/images/hero-architectural-bg.jpg",
+              overlayOpacity: 60,
+              blur: 0,
+              parallax: true,
+              layout: "bleed",
+              gradientDirection: "bg-gradient-to-b from-black/80 to-transparent",
+              spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
+              anchorId: "hero"
+            },
+            children: [
+              {
+                type: "Columns",
+                props: {
+                  leftColumnWidth: 60,
+                  gap: 48,
+                  spacing: { pt: "0", pb: "0", mt: "0", mb: "0" }
+                },
+                children: [
+                  {
+                    type: "FlexBox",
+                    props: {
+                      direction: "flex-col",
+                      align: "items-start",
+                      justify: "justify-center",
+                      gap: 24,
+                      wrap: "flex-nowrap"
+                    },
+                    children: [
+                      {
+                        type: "Heading",
+                        props: {
+                          text: "ELEVATING ARCHITECTURAL NARRATIVES",
+                          level: 1,
+                          sizeDesktop: "md:text-6xl",
+                          sizeMobile: "text-3xl",
+                          align: "text-left",
+                          tracking: "tracking-wide",
+                          lineHeight: "leading-tight",
+                          accent: false
+                        }
+                      },
+                      {
+                        type: "Heading",
+                        props: {
+                          text: "Premium Real Estate Media & Cinema",
+                          level: 2,
+                          sizeDesktop: "md:text-2xl",
+                          sizeMobile: "text-xl",
+                          align: "text-left",
+                          tracking: "tracking-normal",
+                          lineHeight: "leading-normal",
+                          accent: true
+                        }
+                      },
+                      {
+                        type: "RichText",
+                        props: {
+                          content: "<p>A meticulous blend of light, symmetry, and atmosphere. We craft high-fidelity visual spaces designed exclusively for luxury architectural portfolios, developers, and premium listings.</p>",
+                          size: "lg",
+                          maxWidth: "max-w-prose"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-bg-primary",
+              layout: "boxed",
+              spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
+              anchorId: "portfolio"
+            },
+            children: [
+              {
+                type: "FlexBox",
+                props: {
+                  direction: "flex-col",
+                  align: "items-center",
+                  justify: "justify-start",
+                  gap: 16,
+                  wrap: "flex-nowrap"
+                },
+                children: [
+                  {
+                    type: "Heading",
+                    props: {
+                      text: "CURATED WORKS",
+                      level: 2,
+                      sizeDesktop: "md:text-4xl",
+                      sizeMobile: "text-2xl",
+                      align: "text-center",
+                      tracking: "tracking-[0.3em]",
+                      lineHeight: "leading-none",
+                      accent: false
+                    }
+                  },
+                  {
+                    type: "RichText",
+                    props: {
+                      content: "<p>Explore our recent spatial frameworks capturing industrial textures, clean lines, and editorial exposures.</p>",
+                      size: "base",
+                      maxWidth: "max-w-xl"
+                    }
+                  }
+                ]
+              },
+              {
+                type: "GridBox",
+                props: {
+                  columnsDesktop: "md:grid-cols-3",
+                  columnsMobile: "grid-cols-1",
+                  gap: 24
+                },
+                children: [
+                  {
+                    type: "Image",
+                    props: {
+                      imageUrl: "/images/portfolio-interior-1.jpg",
+                      aspectRatio: "aspect-[4/5]",
+                      objectFit: "cover",
+                      borderRadius: "rounded-none"
+                    }
+                  },
+                  {
+                    type: "Image",
+                    props: {
+                      imageUrl: "/images/portfolio-exterior-2.jpg",
+                      aspectRatio: "aspect-[4/5]",
+                      objectFit: "cover",
+                      borderRadius: "rounded-none"
+                    }
+                  },
+                  {
+                    type: "Image",
+                    props: {
+                      imageUrl: "/images/portfolio-loft-3.jpg",
+                      aspectRatio: "aspect-[4/5]",
+                      objectFit: "cover",
+                      borderRadius: "rounded-none"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "Section",
+            props: {
+              padding: "py-16",
+              background: "bg-bg-secondary",
+              layout: "boxed",
+              spacing: { pt: "0", pb: "0", mt: "0", mb: "0" },
+              anchorId: "rates"
+            },
+            children: [
+              {
+                type: "Columns",
+                props: {
+                  leftColumnWidth: 40,
+                  gap: 32,
+                  spacing: { pt: "0", pb: "0", mt: "0", mb: "0" }
+                },
+                children: [
+                  {
+                    type: "FlexBox",
+                    props: {
+                      direction: "flex-col",
+                      align: "items-start",
+                      justify: "justify-start",
+                      gap: 16,
+                      wrap: "flex-nowrap"
+                    },
+                    children: [
+                      {
+                        type: "Heading",
+                        props: {
+                          text: "INVESTMENT",
+                          level: 2,
+                          sizeDesktop: "md:text-4xl",
+                          sizeMobile: "text-2xl",
+                          align: "text-left",
+                          tracking: "tracking-tight",
+                          lineHeight: "leading-tight",
+                          accent: false
+                        }
+                      },
+                      {
+                        type: "RichText",
+                        props: {
+                          content: "<p>Transparent structured pricing tailored to single-asset property documentation or long-term multi-location developments.</p>",
+                          size: "base",
+                          maxWidth: "max-w-sm"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                type: "ServicePackages",
+                props: {
+                  byoItems: [
+                    { name: "Twilight Premium Session Upgrade", price: 175 },
+                    { name: "Precision Matte 2D/3D Floor Plans", price: 120 },
+                    { name: "Cinema Drone 4K Pro Res Package", price: 250 }
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        root: {
+          props: {
+            title: "Exposed Brick Media - Premium Landing Layout",
+            layoutMode: "one-panel"
+          }
+        }
+      }
     }
   ];
 
@@ -1360,11 +1596,12 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       })) as PuckTemplateItem[];
 
       if (isAdmin) {
-        if (items.length === 0) {
-          // If the template database is completely empty, seed the initial set
-          const seededItems: PuckTemplateItem[] = [];
-          for (const preset of seedPresets) {
-            const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        // Automatically seed any completely new presets (like 'Aerial New') that don't exist in the database
+        const seededItems = [...items];
+        for (const preset of seedPresets) {
+          const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const exists = items.some(item => item.id === docId);
+          if (!exists) {
             const docRef = doc(db, "puck_templates", docId);
             const newDoc = { 
               ...preset, 
@@ -1378,13 +1615,23 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               console.warn(`Could not seed preset ${docId} into firestore:`, wErr);
             }
           }
-          setTemplates(seededItems.length > 0 ? seededItems : seedPresets.map((p, idx) => ({ id: `seed-${idx}`, createdAt: new Date().toISOString(), ...p })) as any);
-        } else {
-          // Display the stored templates as is - any deleted ones will stay deleted!
-          setTemplates(items);
         }
+        setTemplates(seededItems);
       } else {
-        setTemplates(items.length === 0 ? seedPresets.map((p, idx) => ({ id: `seed-${idx}`, createdAt: new Date().toISOString(), ...p })) as any : items);
+        // Non-admin fallback / display combination
+        const combined = [...items];
+        for (const preset of seedPresets) {
+          const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const exists = items.some(item => item.id === docId);
+          if (!exists) {
+            combined.push({
+              id: `seed-${docId}`,
+              createdAt: new Date().toISOString(),
+              ...preset
+            } as any);
+          }
+        }
+        setTemplates(combined);
       }
     } catch (err) {
       console.error("Failed to load puck templates general error:", err);
