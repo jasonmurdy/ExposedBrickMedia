@@ -432,6 +432,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [partnerSortField, setPartnerSortField] = useState<'displayName' | 'email' | 'createdAt' | 'role'>('displayName');
   const [partnerSortOrder, setPartnerSortOrder] = useState<'asc' | 'desc'>('asc');
   const [partnerDirectorySearch, setPartnerDirectorySearch] = useState('');
+  const [syncQueue, setSyncQueue] = useState<any[]>([]);
 
   // Sync pages to 1 on active tab / search change
   useEffect(() => {
@@ -752,6 +753,36 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
        setTeams(list);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'teams'));
+    return () => unSub();
+  }, [user]);
+
+  // Load Fotello Sync Pending Review Queue
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchQueueList = async () => {
+      try {
+        const res = await fetch('/api/admin/partners/sync-queue');
+        if (res.ok) {
+          const list = await res.json();
+          setSyncQueue(list);
+        }
+      } catch (err) {
+        console.warn("API fallback queue fetch failed:", err);
+      }
+    };
+
+    fetchQueueList();
+
+    const unSub = onSnapshot(collection(db, 'fotello_sync_queue'), (snapshot) => {
+       const list = snapshot.docs
+         .map(doc => ({ id: doc.id, ...doc.data() }))
+         .filter((item: any) => item.status !== 'resolved');
+       setSyncQueue(list);
+    }, (error) => {
+       console.warn("Firebase collection 'fotello_sync_queue' listener failed:", error.message || error);
+       fetchQueueList();
+    });
     return () => unSub();
   }, [user]);
   const [activeEditTab, setActiveEditTab] = useState<'media' | 'details' | 'narrative' | 'display'>('media');
@@ -1774,6 +1805,27 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       await logAction('UPDATE_USER_TEAM', { userId, teamId });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
+  const handleResolveQueue = async (queueId: string, action: 'skip' | 'merge' | 'create', name: string) => {
+    const tid = toast.loading(`Resolving match for ${name}: ${action.toUpperCase()}...`);
+    try {
+      const response = await fetch('/api/admin/partners/sync-queue/resolve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ queueId, action }),
+      });
+      if (response.ok) {
+        toast.success(`Successfully resolved match for ${name}!`, { id: tid });
+      } else {
+        const errData = await response.json();
+        throw new Error(errData.error || `Server responded with ${response.status}`);
+      }
+    } catch (err: any) {
+      toast.error(`Error resolving match: ${err.message}`, { id: tid });
     }
   };
 
@@ -4382,6 +4434,101 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               </div>
             </div>
 
+            {/* Fotello Sync Conflict Resolving Queue */}
+            {syncQueue && syncQueue.length > 0 && (
+              <div className="mb-8 border border-amber-500/20 bg-amber-500/[0.02] p-5 rounded-xs animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center justify-between border-b border-amber-500/10 pb-3 mb-4">
+                  <div className="flex items-center gap-2 text-amber-500">
+                    <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping" />
+                    <h4 className="font-display text-base uppercase tracking-wider font-semibold">Fotello Directory Sync Review ({syncQueue.length} Pending)</h4>
+                  </div>
+                  <span className="text-[10px] text-amber-500/60 uppercase tracking-widest font-black">Manual Action Required</span>
+                </div>
+                <p className="text-[10px] text-white/50 mb-4 tracking-wide max-w-3xl leading-relaxed">
+                  We found partial matching conflicts between newly imported Fotello partners and current profiles synchronized on our website. To maintain database pristine fidelity, decide whether to skip, merge new details, or register a distinct new partner layout card.
+                </p>
+
+                <div className="space-y-4 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
+                  {syncQueue.map((item) => {
+                    const fp = item.fotelloPartner || {};
+                    const ep = item.existingPartner || {};
+                    let matchLabel = "";
+                    if (item.matchType === "email_match_different_details") matchLabel = "Email belongs to another synchronized user on our database (name or phone differs)";
+                    else if (item.matchType === "name_match_different_email") matchLabel = "Name represents a synchronized user with a different matching email on file";
+                    else if (item.matchType === "phone_match_different_email") matchLabel = "Phone matches a synchronized user on file but exists under a different user email";
+                    else matchLabel = "Conflicting overlapping data on duplicate fields";
+
+                    return (
+                      <div key={item.id} className="border border-white/5 bg-charcoal/45 p-4 rounded-xs flex flex-col md:flex-row gap-4 items-stretch justify-between transition-all hover:border-white/10">
+                        {/* Conflict Detail Boxes */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                          
+                          {/* Left: Our Site Existing Partner */}
+                          <div className="border border-charcoal bg-charcoal/30 p-3 rounded-xs flex gap-3">
+                            <div className="w-10 h-10 bg-white/5 flex items-center justify-center text-white/20 select-none text-xs font-bold shrink-0 rounded-xs">
+                              SITE
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-[8px] uppercase tracking-wider text-white/30 font-bold mb-1">Active Site Partner</span>
+                              <h5 className="font-display font-semibold text-xs text-white truncate">{ep.displayName || "Unknown User"}</h5>
+                              <p className="text-[10px] text-white/50 font-mono truncate">{ep.email}</p>
+                              {ep.phone && <p className="text-[9px] text-white/40 font-mono mt-0.5">{ep.phone}</p>}
+                            </div>
+                          </div>
+
+                          {/* Right: incoming Fotello Partner */}
+                          <div className="border border-amber-500/10 bg-amber-500/[0.01] p-3 rounded-xs flex gap-3">
+                            <div className="w-10 h-10 bg-amber-500/10 flex items-center justify-center text-amber-500 text-xs font-bold shrink-0 rounded-xs">
+                              FOT
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-[8px] uppercase tracking-wider text-amber-500/50 font-bold mb-1">Incoming Fotello Profile</span>
+                              <h5 className="font-display font-semibold text-xs text-amber-500 truncate">{fp.displayName || "No Name"}</h5>
+                              <p className="text-[10px] text-amber-500/70 font-mono truncate">{fp.email}</p>
+                              {fp.phone && <p className="text-[9px] text-amber-500/60 font-mono mt-0.5">{fp.phone}</p>}
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Middle: Match Alert Message */}
+                        <div className="flex flex-col justify-center min-w-[200px] max-w-[280px] text-left border-t md:border-t-0 md:border-l border-white/5 pt-3 md:pt-0 md:pl-4">
+                          <span className="text-[8px] uppercase tracking-wider text-amber-500 font-black mb-1">Conflict Scenario</span>
+                          <p className="text-[10px] text-white/70 leading-normal font-sans italic font-medium">"{matchLabel}"</p>
+                        </div>
+
+                        {/* Right: Actions */}
+                        <div className="flex items-center md:flex-col justify-end gap-2 shrink-0 border-t md:border-t-0 md:border-l border-white/5 pt-3 md:pt-0 md:pl-4">
+                          <button
+                            onClick={() => handleResolveQueue(item.id, 'skip', fp.displayName || "Incoming")}
+                            className="bg-white/5 hover:bg-white/10 text-white/80 active:scale-95 px-3 py-1.5 text-[8px] uppercase font-bold tracking-wider rounded-xs transition-all w-full text-center hover:cursor-pointer"
+                            title="Ignore subsequent sync imports for this user strictly, keeping site profile pristine and untouched."
+                          >
+                            Skip Always
+                          </button>
+                          <button
+                            onClick={() => handleResolveQueue(item.id, 'merge', fp.displayName || "Incoming")}
+                            className="bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-black active:scale-95 px-3 py-1.5 text-[8px] uppercase font-bold tracking-wider rounded-xs transition-all w-full text-center hover:cursor-pointer"
+                            title="Update active site partner with complementary new details from Fotello partner."
+                          >
+                            Merge Profile
+                          </button>
+                          <button
+                            onClick={() => handleResolveQueue(item.id, 'create', fp.displayName || "Incoming")}
+                            className="bg-white hover:bg-brick-copper hover:text-charcoal text-black active:scale-95 px-3 py-1.5 text-[8px] uppercase font-bold tracking-wider rounded-xs transition-all w-full text-center hover:cursor-pointer"
+                            title="Create a completely distinct and independent new partner profile using Fotello credentials."
+                          >
+                            Force Create
+                          </button>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Filter and Sorting Control Strip */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 bg-white/[0.02] border border-white/5 p-4 rounded-xs">
               <div>
@@ -6055,8 +6202,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                          <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">Instagram Handle</label>
                          <input 
                            className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
-                           value={editData.instagram || ''} 
-                           placeholder="@username or handle"
+                           value={editData.instagram || ''} onChange={e => setEditData({...editData, instagram: e.target.value})}                            placeholder="@username or handle"
                          />
                       </div>
                    </div>

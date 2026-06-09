@@ -841,8 +841,83 @@ Make sure every component in the returned JSON has a unique "id" string generate
     }
   ];
 
+  async function autoCreatePartner(email: string, displayName: string, phone: string = "") {
+    const normalizedEmail = email.toLowerCase().trim();
+    const docId = "partner-" + normalizedEmail.replace(/[^a-z0-9]/g, "-");
+    
+    const partnerData: any = {
+      email: normalizedEmail,
+      displayName: displayName,
+      phone: phone,
+      bio: `${displayName} is an elite real estate professional representing elite residential architectural estates. Automatically registered via website booking inquiry on ${new Date().toLocaleDateString()}.`,
+      headshotUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2", 
+      logoUrl: "",
+      instagram: "",
+      facebook: "",
+      linkedin: "",
+      role: "partner",
+      teamId: null,
+      teamName: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+      const userDocRef = adminDb.collection("users").doc(docId);
+      await userDocRef.set(partnerData, { merge: true });
+      console.log(`[Auto Partner Sync] Created client partner ${displayName} (${normalizedEmail})`);
+    } catch (dbErr: any) {
+      console.error(`[Auto Partner Sync Error] Firestore write failed: ${dbErr.message}`);
+    }
+
+    // Synchronize down to local JSON
+    const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+    let localPartners: any[] = [];
+    if (fs.existsSync(listPath)) {
+      try {
+        localPartners = JSON.parse(fs.readFileSync(listPath, "utf8"));
+      } catch (fileErr) {
+        // ignore
+      }
+    }
+
+    const existingIndex = localPartners.findIndex((item: any) => item.uid === docId || item.email === normalizedEmail);
+    const localPayload = {
+      uid: docId,
+      email: normalizedEmail,
+      displayName: displayName,
+      phone: phone,
+      role: "partner",
+      headshotUrl: partnerData.headshotUrl,
+      logoUrl: "",
+      bio: partnerData.bio,
+      instagram: "",
+      facebook: "",
+      linkedin: "",
+      teamId: null,
+      teamName: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (existingIndex === -1) {
+      localPartners.push(localPayload);
+    } else {
+      localPartners[existingIndex] = { ...localPartners[existingIndex], ...localPayload };
+    }
+
+    try {
+      fs.writeFileSync(listPath, JSON.stringify(localPartners, null, 2), "utf8");
+    } catch (fileErr) {
+      console.error("[Auto Partner Sync] Write cache file error:", fileErr);
+    }
+
+    return { id: docId, ...localPayload };
+  }
+
   async function syncPartnersWithBackend() {
-    console.log("[Partners Sync] Synchronizing all 17 Fotello directory partners with system DB and local files...");
+    console.log("[Partners Sync] Synchronizing and cross-referencing Fotello directory partners...");
+    
     const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
     let currentLocalList: any[] = [];
     try {
@@ -853,122 +928,440 @@ Make sure every component in the returned JSON has a unique "id" string generate
       console.warn("[Partners Sync] Could not read existing local list:", err.message);
     }
 
-    const updatedLocalList = [...currentLocalList];
+    // 1. Fetch registered partners on our site
+    let registeredOnSite: any[] = [];
+    try {
+      const usersSnapshot = await adminDb.collection("users").get();
+      registeredOnSite = usersSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((u: any) => u.role === 'partner' || u.role === 'preferred');
+    } catch (err) {
+      registeredOnSite = currentLocalList.filter((item: any) => item.role === 'partner' || item.role === 'preferred');
+    }
+
+    // 2. Fetch past decisions
+    let parsedDecisions: string[] = [];
+    const decisionsPath = path.resolve(process.cwd(), "local-sync-decisions.json");
+    try {
+      if (fs.existsSync(decisionsPath)) {
+        parsedDecisions = JSON.parse(fs.readFileSync(decisionsPath, "utf8"));
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    try {
+      const decSnapshot = await adminDb.collection("fotello_sync_decisions").get();
+      decSnapshot.docs.forEach(doc => {
+        const d = doc.data();
+        if (d.fotelloEmail) {
+          parsedDecisions.push(d.fotelloEmail.toLowerCase().trim());
+        }
+      });
+      parsedDecisions = Array.from(new Set(parsedDecisions));
+    } catch (err) {
+      // ignore
+    }
+
+    // 3. Get existing queue items to prevent duplicate sync-queue items
+    let existingQueueEmails: string[] = [];
+    try {
+      const queueSnapshot = await adminDb.collection("fotello_sync_queue").get();
+      queueSnapshot.docs.forEach(doc => {
+        const item = doc.data();
+        if (item.fotelloPartner && item.fotelloPartner.email && item.status !== 'resolved') {
+          existingQueueEmails.push(item.fotelloPartner.email.toLowerCase().trim());
+        }
+      });
+    } catch (err) {
+      // ignore
+    }
+
+    let ignoredCount = 0;
+    let queuedCount = 0;
+    let autoCreatedCount = 0;
 
     for (const partner of INITIAL_PARTNERS) {
-      const docId = "partner-" + partner.email.toLowerCase().replace(/[^a-z0-9]/g, "-");
-      
-      // Look up existing partner details from local cache first to ensure offline edits are preserved!
-      const existingLocal = currentLocalList.find((item: any) => item.email?.toLowerCase().trim() === partner.email.toLowerCase().trim());
+      const fotelloEmail = partner.email.toLowerCase().trim();
+      const fotelloName = partner.displayName.trim();
+      const fotelloPhone = (partner.phone || "").trim();
 
-      let currentData: any = {
-        email: partner.email,
-        displayName: existingLocal?.displayName || partner.displayName,
-        phone: existingLocal?.phone || partner.phone || "",
-        role: "partner",
-        headshotUrl: existingLocal?.headshotUrl || partner.headshotUrl,
-        logoUrl: existingLocal?.logoUrl || partner.logoUrl,
-        bio: existingLocal?.bio || partner.bio,
-        instagram: existingLocal?.instagram || "",
-        facebook: existingLocal?.facebook || "",
-        linkedin: existingLocal?.linkedin || "",
-        teamId: existingLocal?.teamId || null,
-        teamName: existingLocal?.teamName || null
-      };
-      
-      try {
-        const userDocRef = adminDb.collection("users").doc(docId);
-        const docSnapshot = await userDocRef.get();
-
-        if (!docSnapshot.exists) {
-          currentData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-          currentData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-          await userDocRef.set(currentData);
-          console.log(`[Partners Sync] Synced new Firestore partner: ${partner.displayName} (${partner.email})`);
-        } else {
-          const existingData = docSnapshot.data() || {};
-          const updatePayload: any = {
-            displayName: existingData.displayName || partner.displayName,
-            phone: existingData.phone || partner.phone || "",
-            role: "partner",
-            headshotUrl: existingData.headshotUrl || partner.headshotUrl,
-            logoUrl: existingData.logoUrl || partner.logoUrl,
-            bio: existingData.bio || partner.bio,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          };
-          if (existingData.instagram !== undefined) updatePayload.instagram = existingData.instagram;
-          if (existingData.facebook !== undefined) updatePayload.facebook = existingData.facebook;
-          if (existingData.linkedin !== undefined) updatePayload.linkedin = existingData.linkedin;
-          if (existingData.teamId !== undefined) updatePayload.teamId = existingData.teamId;
-          if (existingData.teamName !== undefined) updatePayload.teamName = existingData.teamName;
-          
-          await userDocRef.update(updatePayload);
-          currentData = { ...currentData, ...existingData, ...updatePayload };
-          console.log(`[Partners Sync] Verified existing Firestore partner: ${partner.displayName} (${partner.email})`);
-        }
-      } catch (dbErr: any) {
-        // Quiet backup flag without printing diagnostic error keywords
-        console.log(`[Partners Sync Info] Bypassed Firestore check for ${partner.displayName} (using local catalog fallback).`);
+      // Skip if already has a decision
+      if (parsedDecisions.includes(fotelloEmail)) {
+        console.log(`[Partners Sync] Strictly ignoring Fotello partner ${fotelloName} (${fotelloEmail}) based on previous sync determination.`);
+        ignoredCount++;
+        continue;
       }
 
-      const existingIndex = updatedLocalList.findIndex((item: any) => item.email === partner.email);
+      let exactMatch = false;
+      let partialMatchUser: any = null;
+      let matchType: string = "";
+
+      for (const siteUser of registeredOnSite) {
+        const siteEmail = (siteUser.email || "").toLowerCase().trim();
+        const siteName = (siteUser.displayName || "").trim();
+        const sitePhone = (siteUser.phone || "").trim();
+
+        // Exact 1-to-1 Match: same email AND same name (case-insensitive)
+        if (siteEmail === fotelloEmail && siteName.toLowerCase() === fotelloName.toLowerCase()) {
+          exactMatch = true;
+          break;
+        }
+
+        // Partial match scenarios
+        if (siteEmail === fotelloEmail && (siteName.toLowerCase() !== fotelloName.toLowerCase() || sitePhone !== fotelloPhone)) {
+          partialMatchUser = siteUser;
+          matchType = "email_match_different_details";
+          break;
+        }
+
+        if (siteName.toLowerCase() === fotelloName.toLowerCase() && siteEmail !== fotelloEmail) {
+          partialMatchUser = siteUser;
+          matchType = "name_match_different_email";
+          break;
+        }
+
+        if (fotelloPhone && sitePhone === fotelloPhone && siteEmail !== fotelloEmail) {
+          partialMatchUser = siteUser;
+          matchType = "phone_match_different_email";
+          break;
+        }
+      }
+
+      if (exactMatch) {
+        console.log(`[Partners Sync] Ignored ${fotelloName} (${fotelloEmail}) -> Complete 1-to-1 match found on our site.`);
+        ignoredCount++;
+        continue;
+      }
+
+      if (partialMatchUser) {
+        if (existingQueueEmails.includes(fotelloEmail)) {
+          console.log(`[Partners Sync] Partner ${fotelloName} is already in the review queue.`);
+          queuedCount++;
+          continue;
+        }
+
+        console.log(`[Partners Sync] Partial match found for ${fotelloName}. Queueing for admin review.`);
+        const queueId = "q-" + fotelloEmail.replace(/[^a-z0-9]/g, "-");
+        const queueItem = {
+          id: queueId,
+          fotelloPartner: {
+            email: fotelloEmail,
+            displayName: partner.displayName,
+            phone: partner.phone || "",
+            headshotUrl: partner.headshotUrl || "",
+            logoUrl: partner.logoUrl || "",
+            bio: partner.bio || "",
+            role: partner.role || "partner"
+          },
+          existingPartner: {
+            id: partialMatchUser.id,
+            email: partialMatchUser.email || "",
+            displayName: partialMatchUser.displayName || "",
+            phone: partialMatchUser.phone || "",
+            role: partialMatchUser.role || "partner"
+          },
+          matchType,
+          status: "pending",
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await adminDb.collection("fotello_sync_queue").doc(queueId).set(queueItem, { merge: true });
+        } catch (err) {
+          console.error("[Partners Sync] Firestore queue save failed:", err);
+        }
+
+        try {
+          const queuePath = path.resolve(process.cwd(), "local-sync-queue.json");
+          let localQueue: any[] = [];
+          if (fs.existsSync(queuePath)) {
+            localQueue = JSON.parse(fs.readFileSync(queuePath, "utf8"));
+          }
+          if (!localQueue.some((item: any) => item.id === queueId)) {
+            localQueue.push(queueItem);
+            fs.writeFileSync(queuePath, JSON.stringify(localQueue, null, 2), "utf8");
+          }
+        } catch (localErr) {
+          // ignore
+        }
+
+        queuedCount++;
+        continue;
+      }
+
+      // No match at all -> Auto-create
+      console.log(`[Partners Sync] Auto-creating brand new partner: ${fotelloName} (${fotelloEmail})`);
+      const docId = "partner-" + fotelloEmail.replace(/[^a-z0-9]/g, "-");
+      const currentData: any = {
+        email: fotelloEmail,
+        displayName: partner.displayName,
+        phone: partner.phone || "",
+        role: "partner",
+        headshotUrl: partner.headshotUrl,
+        logoUrl: partner.logoUrl,
+        bio: partner.bio,
+        instagram: "",
+        facebook: "",
+        linkedin: "",
+        teamId: null,
+        teamName: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+
+      try {
+        await adminDb.collection("users").doc(docId).set(currentData, { merge: true });
+      } catch (dbErr) {
+        // ignore
+      }
+
+      const existingIndex = currentLocalList.findIndex((item: any) => item.email === partner.email);
       const localPayload = {
         uid: docId,
         email: partner.email,
-        displayName: currentData.displayName || partner.displayName,
-        phone: currentData.phone || partner.phone || "",
+        displayName: partner.displayName,
+        phone: partner.phone || "",
         role: "partner",
-        headshotUrl: currentData.headshotUrl || partner.headshotUrl,
-        logoUrl: currentData.logoUrl || partner.logoUrl,
-        bio: currentData.bio || partner.bio,
-        instagram: currentData.instagram || "",
-        facebook: currentData.facebook || "",
-        linkedin: currentData.linkedin || "",
-        teamId: currentData.teamId || null,
-        teamName: currentData.teamName || null,
-        createdAt: currentData.createdAt ? (currentData.createdAt.toDate ? currentData.createdAt.toDate().toISOString() : (typeof currentData.createdAt === 'string' ? currentData.createdAt : new Date().toISOString())) : (existingLocal?.createdAt || new Date().toISOString()),
+        headshotUrl: partner.headshotUrl,
+        logoUrl: partner.logoUrl,
+        bio: partner.bio,
+        instagram: "",
+        facebook: "",
+        linkedin: "",
+        teamId: null,
+        teamName: null,
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
       if (existingIndex === -1) {
-        updatedLocalList.push(localPayload);
+        currentLocalList.push(localPayload);
       } else {
-        updatedLocalList[existingIndex] = {
-          ...updatedLocalList[existingIndex],
-          ...localPayload,
-          uid: docId
-        };
+        currentLocalList[existingIndex] = { ...currentLocalList[existingIndex], ...localPayload, uid: docId };
       }
+
+      autoCreatedCount++;
     }
 
     try {
-      fs.writeFileSync(listPath, JSON.stringify(updatedLocalList, null, 2), "utf8");
-      console.log("[Partners Sync] Local JSON partner cache successfully rewritten.");
+      fs.writeFileSync(listPath, JSON.stringify(currentLocalList, null, 2), "utf8");
+      console.log("[Partners Sync] Local Cache rewritten with new synchronized partner additions.");
     } catch (fileErr: any) {
-      console.warn("[Partners Sync] Could not write local partner cache:", fileErr.message);
+      console.warn("[Partners Sync] Write local partners JSON cache failed:", fileErr.message);
     }
+
+    return {
+      total: INITIAL_PARTNERS.length,
+      ignored: ignoredCount,
+      queued: queuedCount,
+      created: autoCreatedCount
+    };
   }
 
-  // Support manual trigger route for syncing the partner roster
+  // Support manual trigger route for syncing the partner roster with intelligent queue results
   app.post("/api/admin/partners/import-sync", async (req, res) => {
     try {
-      await syncPartnersWithBackend();
+      const results = await syncPartnersWithBackend();
       
       systemLogs.push({
         timestamp: new Date().toISOString(),
         action: "FOTELLO_DIRECTORY_PARTNERS_SYNC",
-        details: "Instigated sync of 17 elite realtors from Fotello directory with backend.",
+        details: `Instigated cross-referenced sync: Checked ${results.total}, Auto-Created ${results.created}, Queued ${results.queued} for Review, Ignored ${results.ignored} identical partners.`,
         user: "Admin Portal"
       });
 
       return res.json({
         success: true,
-        message: "Successfully synchronized 17 Partners from Fotello directory with your backend system!",
-        count: 17
+        message: `Partners directory processed. Auto-Created: ${results.created} new profiles, Queued: ${results.queued} duplicate conflicts for manual Admin review, and Ignored: ${results.ignored} perfectly synchronized identical partners.`,
+        details: results
       });
     } catch (err: any) {
       console.error("[Manual sync failed]:", err);
       return res.status(500).json({ error: "Failed to synchronize partners", details: err.message });
+    }
+  });
+
+  // Retrieve current cross-reference pending match queue
+  app.get("/api/admin/partners/sync-queue", async (req, res) => {
+    try {
+      let queueList: any[] = [];
+      try {
+        const snap = await adminDb.collection("fotello_sync_queue").where("status", "==", "pending").get();
+        queueList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } catch (err) {
+        // fallback
+      }
+
+      if (queueList.length === 0) {
+        try {
+          const queuePath = path.resolve(process.cwd(), "local-sync-queue.json");
+          if (fs.existsSync(queuePath)) {
+            queueList = JSON.parse(fs.readFileSync(queuePath, "utf8")).filter((item: any) => item.status === "pending" || !item.status);
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      return res.json(queueList);
+    } catch (err: any) {
+      return res.status(500).json({ error: "Failed to retrieve sync queue", details: err.message });
+    }
+  });
+
+  // Resolve cross-reference matching queue decisions (Skip, Merge, or Create)
+  app.post("/api/admin/partners/sync-queue/resolve", async (req, res) => {
+    try {
+      const { queueId, action } = req.body;
+      if (!queueId || !action) {
+        return res.status(400).json({ error: "Missing queueId or action" });
+      }
+
+      console.log(`[Queue Resolve] Resolving queue item ${queueId} with action ${action}`);
+
+      // 1. Load queue item
+      let queueItem: any = null;
+      try {
+        const doc = await adminDb.collection("fotello_sync_queue").doc(queueId).get();
+        if (doc.exists) {
+          queueItem = doc.data();
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      // Fallback to local queue file
+      if (!queueItem) {
+        try {
+          const queuePath = path.resolve(process.cwd(), "local-sync-queue.json");
+          if (fs.existsSync(queuePath)) {
+            const localQueue = JSON.parse(fs.readFileSync(queuePath, "utf8"));
+            queueItem = localQueue.find((item: any) => item.id === queueId);
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      if (!queueItem) {
+        return res.status(404).json({ error: "Sync queue item not found" });
+      }
+
+      const { fotelloPartner, existingPartner } = queueItem;
+      const fotelloEmail = fotelloPartner.email.toLowerCase().trim();
+
+      // 2. Perform the selected action
+      if (action === "skip") {
+        console.log(`[Queue Resolve] Skipping Fotello partner: ${fotelloPartner.displayName}`);
+      } else if (action === "merge") {
+        console.log(`[Queue Resolve] Merging Fotello details of ${fotelloPartner.displayName} into existing partner ${existingPartner.displayName}`);
+        // Merge details into existing partner
+        const targetId = existingPartner.id;
+        const userRef = adminDb.collection("users").doc(targetId);
+        
+        const mergeData: any = {
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        // Merge missing or newer fields from fotelloPartner
+        if (fotelloPartner.phone) mergeData.phone = fotelloPartner.phone;
+        if (fotelloPartner.bio) mergeData.bio = fotelloPartner.bio;
+        if (fotelloPartner.headshotUrl) mergeData.headshotUrl = fotelloPartner.headshotUrl;
+        if (fotelloPartner.logoUrl) mergeData.logoUrl = fotelloPartner.logoUrl;
+
+        try {
+          await userRef.set(mergeData, { merge: true });
+        } catch (dbErr) {
+          console.warn("[Queue Merge] Fallback to local cache only:", dbErr);
+        }
+
+        // Keep local cache synchronized
+        const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+        if (fs.existsSync(listPath)) {
+          try {
+            const localPartners = JSON.parse(fs.readFileSync(listPath, "utf8"));
+            const idx = localPartners.findIndex((item: any) => item.uid === targetId || item.email === existingPartner.email);
+            if (idx !== -1) {
+              localPartners[idx] = {
+                ...localPartners[idx],
+                phone: fotelloPartner.phone || localPartners[idx].phone,
+                bio: fotelloPartner.bio || localPartners[idx].bio,
+                headshotUrl: fotelloPartner.headshotUrl || localPartners[idx].headshotUrl,
+                logoUrl: fotelloPartner.logoUrl || localPartners[idx].logoUrl,
+                updatedAt: new Date().toISOString()
+              };
+              fs.writeFileSync(listPath, JSON.stringify(localPartners, null, 2), "utf8");
+            }
+          } catch (fileErr) {
+            // ignore
+          }
+        }
+      } else if (action === "create") {
+        console.log(`[Queue Resolve] Explicitly creating new partner profile for: ${fotelloPartner.displayName}`);
+        // Create full partner
+        await autoCreatePartner(fotelloPartner.email, fotelloPartner.displayName, fotelloPartner.phone);
+      }
+
+      // 3. Persist the decision so we strictly ignore it in subsequent checks!
+      try {
+        const decId = "decision-" + fotelloEmail.replace(/[^a-z0-9]/g, "-");
+        await adminDb.collection("fotello_sync_decisions").doc(decId).set({
+          fotelloEmail: fotelloEmail,
+          action: action,
+          resolvedAt: new Date().toISOString()
+        });
+      } catch (dbErr) {
+        console.warn("[Queue Resolve] Firestore decisions save failed:", dbErr);
+      }
+
+      // Write decision to local local-sync-decisions.json as fallback
+      try {
+        const decisionsPath = path.resolve(process.cwd(), "local-sync-decisions.json");
+        let localDecisions: string[] = [];
+        if (fs.existsSync(decisionsPath)) {
+          localDecisions = JSON.parse(fs.readFileSync(decisionsPath, "utf8"));
+        }
+        if (!localDecisions.includes(fotelloEmail)) {
+          localDecisions.push(fotelloEmail);
+          fs.writeFileSync(decisionsPath, JSON.stringify(localDecisions, null, 2), "utf8");
+        }
+      } catch (fileErr) {
+        // ignore
+      }
+
+      // 4. Mark queue item as resolved in Firestore and local JSON
+      try {
+        await adminDb.collection("fotello_sync_queue").doc(queueId).delete();
+      } catch (err) {
+        try {
+          await adminDb.collection("fotello_sync_queue").doc(queueId).set({ status: "resolved" }, { merge: true });
+        } catch (dbErr) {
+          // ignore
+        }
+      }
+
+      try {
+        const queuePath = path.resolve(process.cwd(), "local-sync-queue.json");
+        if (fs.existsSync(queuePath)) {
+          let localQueue = JSON.parse(fs.readFileSync(queuePath, "utf8"));
+          localQueue = localQueue.filter((item: any) => item.id !== queueId);
+          fs.writeFileSync(queuePath, JSON.stringify(localQueue, null, 2), "utf8");
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      systemLogs.push({
+        timestamp: new Date().toISOString(),
+        action: "FOTELLO_SYNC_QUEUE_RESOLVED",
+        details: `Resolved pending match for ${fotelloPartner.displayName} via: ${action}`,
+        user: "Admin Portal"
+      });
+
+      return res.json({ success: true, message: `Successfully resolved ${fotelloPartner.displayName} via: ${action}` });
+    } catch (err: any) {
+      console.error("[Queue resolve failed]:", err);
+      return res.status(500).json({ error: "Failed to resolve sync queue item", details: err.message });
     }
   });
 
@@ -2202,7 +2595,42 @@ Make sure every component in the returned JSON has a unique "id" string generate
     }
 
     try {
-      // 1. Write to local Firestore via Admin SDK or local JSON file backup
+      // 1. Check if the inquiry email belongs to a registered partner. If not, automatically register them!
+      let isPartnerAssigned = false;
+      const normalizedInquiryEmail = email.toLowerCase().trim();
+      try {
+        const usersSnap = await adminDb.collection("users").where("email", "==", normalizedInquiryEmail).get();
+        if (!usersSnap.empty) {
+          for (const doc of usersSnap.docs) {
+            const userData = doc.data();
+            if (userData.role === "partner" || userData.role === "preferred") {
+              isPartnerAssigned = true;
+              break;
+            }
+          }
+        }
+      } catch (checkErr) {
+        // Fallback check against local cache
+        try {
+          const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+          if (fs.existsSync(listPath)) {
+            const localPartners = JSON.parse(fs.readFileSync(listPath, "utf8"));
+            isPartnerAssigned = localPartners.some((item: any) => 
+              item.email?.toLowerCase().trim() === normalizedInquiryEmail &&
+              (item.role === "partner" || item.role === "preferred")
+            );
+          }
+        } catch (localCheckErr) {
+          // ignore
+        }
+      }
+
+      if (!isPartnerAssigned) {
+        console.log(`[Auto Partner Create] No existing partner assigned to email ${email}. Automatically registering new partner profile.`);
+        await autoCreatePartner(email, realtorName);
+      }
+
+      // 2. Write inquiry to local Firestore via Admin SDK or local JSON file backup
       let inquiryId = "";
       try {
         // Safe check-write to local JSON first for high-fidelity offline availability
