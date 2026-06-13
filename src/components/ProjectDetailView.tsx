@@ -127,6 +127,7 @@ export const ProjectDetailView = () => {
 
   // Inquiry state
   const [showInquiryModal, setShowInquiryModal] = useState(false);
+  const [inquiryTargetPartner, setInquiryTargetPartner] = useState<any | null>(null);
   const [inquiryForm, setInquiryForm] = useState({
     name: '',
     email: '',
@@ -135,13 +136,19 @@ export const ProjectDetailView = () => {
   });
   const [submittingInquiry, setSubmittingInquiry] = useState(false);
 
+  const handleCloseInquiryModal = () => {
+    setShowInquiryModal(false);
+    setInquiryTargetPartner(null);
+  };
+
 
   useEffect(() => {
     if (project) {
       setActiveImage(project.img);
+      const welcomeName = inquiryTargetPartner?.displayName ? ` ${inquiryTargetPartner.displayName}` : "";
       setInquiryForm(prev => ({
         ...prev,
-        message: `Hello, I'm interested in receiving technical documentation, active listing brochures, and HDR media files regarding this property listing: ${project.title || 'Subject Property'} (ID: ${project.mlsNumber || project.id}).`
+        message: `Hello${welcomeName}, I'm interested in receiving technical documentation, active listing brochures, and HDR media files regarding this property listing: ${project.title || 'Subject Property'} (ID: ${project.mlsNumber || project.id}).`
       }));
       trackMediaInteraction({
         property_id: project.id,
@@ -163,7 +170,7 @@ export const ProjectDetailView = () => {
         img.src = src;
       });
     }
-  }, [project]);
+  }, [project, inquiryTargetPartner]);
 
 
   if (loading) {
@@ -246,17 +253,18 @@ export const ProjectDetailView = () => {
           realtorName: inquiryForm.name,
           email: inquiryForm.email,
           serviceType: "Documentation & Listing Resource Request",
-          skipAdminNotification: associatedPartners.length > 0
+          skipAdminNotification: (inquiryTargetPartner || associatedPartners[0]) ? true : false
         })
       });
 
 
       await crmResponse.json();
-      const targetEmail = associatedPartners[0]?.email || 'jasonmurdy@gmail.com';
+      const targetEmail = inquiryTargetPartner?.email || associatedPartners[0]?.email || 'jasonmurdy@gmail.com';
+      const recipientName = inquiryTargetPartner?.displayName || associatedPartners[0]?.displayName || 'Representative';
       
       const emailBody = `
         <h3>New Strategic Documentation Request</h3>
-        <p>An inquiry has been captured specifically for your architectural listing:</p>
+        <p>An inquiry has been captured specifically for your architectural listing and routed to <strong>${recipientName}</strong>:</p>
         <p><strong>Property:</strong> ${project.title} (${project.mlsNumber || project.id})</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <table style="width: 100%; border-collapse: collapse;">
@@ -286,7 +294,7 @@ export const ProjectDetailView = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: targetEmail,
-          subject: `[Dossier Inquiry] ${project.title} - ${inquiryForm.name}`,
+          subject: `[Direct Advisor Inquiry] ${project.title} - ${inquiryForm.name}`,
           body: emailBody,
           type: "listing_inquiry"
         })
@@ -299,8 +307,8 @@ export const ProjectDetailView = () => {
       }
 
 
-      toast.success("Inquiry dispatched! The brochure and links will be sent shortly.", { id: toastId });
-      setShowInquiryModal(false);
+      toast.success(`Inquiry dispatched directly to ${recipientName}! The brochure and links will be sent shortly.`, { id: toastId });
+      handleCloseInquiryModal();
       setInquiryForm({
         name: '',
         email: '',
@@ -413,24 +421,39 @@ export const ProjectDetailView = () => {
                     }
                     return <div className="h-4" />;
                   })()}
-                  <div className="flex gap-2 w-full max-w-[180px]">
-                    {partner.phone && (
-                      <a
-                        href={`tel:${partner.phone}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full border border-white/10 text-[10px] tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-all uppercase"
+                  <div className="flex flex-col gap-2 w-full max-w-[180px]">
+                    <div className="flex gap-2">
+                      {partner.phone && (
+                        <a
+                          href={`tel:${partner.phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full border border-white/10 text-[10px] tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-all uppercase"
+                        >
+                          <Phone size={11} className="text-brick-copper" /> Call
+                        </a>
+                      )}
+                      {partner.email && (
+                        <a
+                          href={`mailto:${partner.email}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full border border-white/10 text-[10px] tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-all uppercase"
+                        >
+                          <Mail size={11} className="text-brick-copper" /> Mail
+                        </a>
+                      )}
+                    </div>
+                    {(partner.email || partner.phone) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInquiryTargetPartner(partner);
+                          setShowInquiryModal(true);
+                        }}
+                        className="w-full py-2 bg-brick-copper/10 hover:bg-brick-copper hover:text-charcoal border border-brick-copper/20 hover:border-transparent text-[9px] font-mono font-bold uppercase tracking-widest text-brick-copper transition-all duration-300 rounded-full text-center"
                       >
-                        <Phone size={11} className="text-brick-copper" /> Call
-                      </a>
-                    )}
-                    {partner.email && (
-                      <a
-                        href={`mailto:${partner.email}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full border border-white/10 text-[10px] tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-all uppercase"
-                      >
-                        <Mail size={11} className="text-brick-copper" /> Mail
-                      </a>
+                        Inquire Directly
+                      </button>
                     )}
                   </div>
 
@@ -1217,7 +1240,7 @@ export const ProjectDetailView = () => {
               className="bg-charcoal border border-white/10 w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative text-left"
             >
               <button 
-                onClick={() => setShowInquiryModal(false)}
+                onClick={handleCloseInquiryModal}
                 className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors"
                 type="button"
               >
@@ -1230,6 +1253,15 @@ export const ProjectDetailView = () => {
                 <h3 className="font-display text-2xl text-white italic">Request Technical Documentation</h3>
                 <p className="text-[10px] text-white/40 font-mono">{project.title}</p>
               </div>
+
+              {inquiryTargetPartner && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-brick-copper/10 border border-brick-copper/20 rounded-xs text-brick-copper mt-3">
+                  <Shield size={12} className="shrink-0" />
+                  <span className="text-[9px] font-mono uppercase tracking-[0.1em]">
+                    Routed to Strategic Advisor: <strong className="font-bold underline">{inquiryTargetPartner.displayName}</strong>
+                  </span>
+                </div>
+              )}
 
 
               <form onSubmit={handleSendInquiry} className="space-y-4">
@@ -1286,7 +1318,7 @@ export const ProjectDetailView = () => {
                 <div className="pt-4 flex justify-end gap-3 text-[9px] uppercase font-bold tracking-wider">
                   <button 
                     type="button" 
-                    onClick={() => setShowInquiryModal(false)}
+                    onClick={handleCloseInquiryModal}
                     className="border border-white/10 text-white px-5 py-3 hover:bg-white hover:text-charcoal transition-all rounded-xs"
                   >
                     Cancel
@@ -1380,6 +1412,20 @@ export const ProjectDetailView = () => {
                     >
                       <Mail size={11} className="text-brick-copper" /> {selectedPartnerProfile.email}
                     </a>
+                  )}
+                  {(selectedPartnerProfile.email || selectedPartnerProfile.phone) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentPartner = selectedPartnerProfile;
+                        setSelectedPartnerProfile(null);
+                        setInquiryTargetPartner(currentPartner);
+                        setShowInquiryModal(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded bg-brick-copper text-charcoal hover:bg-white transition-all text-[10px] tracking-widest font-black uppercase shadow-lg mt-3"
+                    >
+                      <Mail size={11} /> Inquire Directly
+                    </button>
                   )}
                 </div>
               </div>

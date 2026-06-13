@@ -43,6 +43,12 @@ const adminDb = databaseId && databaseId !== "(default)"
   ? getFirestore(app, databaseId)
   : getFirestore(app);
 
+try {
+  adminDb.settings({ ignoreUndefinedProperties: true });
+} catch (settingsErr) {
+  console.warn("[Firebase Admin Settings] Failed to set ignoreUndefinedProperties:", settingsErr);
+}
+
 // ES Module path helper (only used for ES environment reference if needed)
 let localFilename = "";
 let localDirname = "";
@@ -867,7 +873,11 @@ Make sure every component in the returned JSON has a unique "id" string generate
       await userDocRef.set(partnerData, { merge: true });
       console.log(`[Auto Partner Sync] Created client partner ${displayName} (${normalizedEmail})`);
     } catch (dbErr: any) {
-      console.error(`[Auto Partner Sync Error] Firestore write failed: ${dbErr.message}`);
+      if (dbErr.message && dbErr.message.includes("PERMISSION_DENIED")) {
+        console.log(`[Auto Partner Sync Info] Cloud Run credentials lack Firestore write privilege. High-fidelity local cache updated successfully.`);
+      } else {
+        console.warn(`[Auto Partner Sync Warning] Firestore write failed (falling back to cache): ${dbErr.message || dbErr}`);
+      }
     }
 
     // Synchronize down to local JSON
@@ -1047,7 +1057,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
           id: queueId,
           fotelloPartner: {
             email: fotelloEmail,
-            displayName: partner.displayName,
+            displayName: partner.displayName || "",
             phone: partner.phone || "",
             headshotUrl: partner.headshotUrl || "",
             logoUrl: partner.logoUrl || "",
@@ -1055,21 +1065,25 @@ Make sure every component in the returned JSON has a unique "id" string generate
             role: partner.role || "partner"
           },
           existingPartner: {
-            id: partialMatchUser.id,
+            id: partialMatchUser.id || partialMatchUser.uid || "",
             email: partialMatchUser.email || "",
             displayName: partialMatchUser.displayName || "",
             phone: partialMatchUser.phone || "",
             role: partialMatchUser.role || "partner"
           },
-          matchType,
+          matchType: matchType || "",
           status: "pending",
           createdAt: new Date().toISOString()
         };
 
         try {
           await adminDb.collection("fotello_sync_queue").doc(queueId).set(queueItem, { merge: true });
-        } catch (err) {
-          console.error("[Partners Sync] Firestore queue save failed:", err);
+        } catch (err: any) {
+          if (err.message && err.message.includes("PERMISSION_DENIED")) {
+            console.log("[Partners Sync Info] Cloud Run credentials lack Firestore write privilege. Using local file cache fallback.");
+          } else {
+            console.warn("[Partners Sync Warning] Firestore queue save failed (falling back to cache):", err.message || err);
+          }
         }
 
         try {
@@ -1182,6 +1196,143 @@ Make sure every component in the returned JSON has a unique "id" string generate
     }
   });
 
+  // Fetch list of partners from Fotello database and cross reference with site's imported partners
+  app.get("/api/admin/fotello-partners", async (req, res) => {
+    try {
+      // 1. Fetch registered site partners
+      const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+      let currentLocalList: any[] = [];
+      try {
+        if (fs.existsSync(listPath)) {
+          currentLocalList = JSON.parse(fs.readFileSync(listPath, "utf8"));
+        }
+      } catch (err: any) {
+        // ignore
+      }
+
+      let registeredOnSite: any[] = [];
+      try {
+        const usersSnapshot = await adminDb.collection("users").get();
+        registeredOnSite = usersSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter((u: any) => u.role === 'partner' || u.role === 'preferred');
+      } catch (err) {
+        registeredOnSite = currentLocalList.filter((item: any) => item.role === 'partner' || item.role === 'preferred');
+      }
+
+      // Convert site partners target email & normalization
+      const registeredEmails = new Set(registeredOnSite.map(u => (u.email || "").toLowerCase().trim()));
+
+      // 2. Map INITIAL_PARTNERS list with isImported flag
+      const list = INITIAL_PARTNERS.map(partner => {
+        const normEmail = partner.email.toLowerCase().trim();
+        const existingProf = registeredOnSite.find(u => (u.email || "").toLowerCase().trim() === normEmail);
+        return {
+          ...partner,
+          isImported: registeredEmails.has(normEmail),
+          importedUid: existingProf ? (existingProf.id || existingProf.uid) : null
+        };
+      });
+
+      return res.json(list);
+    } catch (err: any) {
+      console.error("[Get Fotello Partners Error]:", err);
+      return res.status(500).json({ error: "Failed to fetch Fotello database partners", details: err.message });
+    }
+  });
+
+  // Import a single chosen partner from the Fotello list
+  app.post("/api/admin/partners/import-single", async (req, res) => {
+    try {
+      const { email, displayName, phone, bio, headshotUrl, logoUrl } = req.body;
+      if (!email || !displayName) {
+        return res.status(400).json({ error: "Missing email or displayName" });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const docId = "partner-" + normalizedEmail.replace(/[^a-z0-9]/g, "-");
+
+      const partnerData: any = {
+        email: normalizedEmail,
+        displayName: displayName,
+        phone: phone || "",
+        bio: bio || `${displayName} is an elite real estate professional representing elite residential architectural estates.`,
+        headshotUrl: headshotUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2",
+        logoUrl: logoUrl || "",
+        instagram: "",
+        facebook: "",
+        linkedin: "",
+        role: "partner",
+        teamId: null,
+        teamName: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+
+      try {
+        const userDocRef = adminDb.collection("users").doc(docId);
+        await userDocRef.set(partnerData, { merge: true });
+        console.log(`[Manual Partner Import] Imported advisor partner ${displayName} (${normalizedEmail})`);
+      } catch (dbErr: any) {
+        console.warn(`[Manual Partner Import] Firestore write skipped/failed: ${dbErr.message || dbErr}`);
+      }
+
+      // Synchronize down to local JSON
+      const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+      let localPartners: any[] = [];
+      if (fs.existsSync(listPath)) {
+        try {
+          localPartners = JSON.parse(fs.readFileSync(listPath, "utf8"));
+        } catch (fileErr) {
+          // ignore
+        }
+      }
+
+      const existingIndex = localPartners.findIndex((item: any) => item.uid === docId || item.email === normalizedEmail);
+      const localPayload = {
+        uid: docId,
+        email: normalizedEmail,
+        displayName: displayName,
+        phone: phone || "",
+        role: "partner",
+        headshotUrl: partnerData.headshotUrl,
+        logoUrl: partnerData.logoUrl || "",
+        bio: partnerData.bio,
+        instagram: "",
+        facebook: "",
+        linkedin: "",
+        teamId: null,
+        teamName: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      if (existingIndex === -1) {
+        localPartners.push(localPayload);
+      } else {
+        localPartners[existingIndex] = { ...localPartners[existingIndex], ...localPayload };
+      }
+
+      try {
+        fs.writeFileSync(listPath, JSON.stringify(localPartners, null, 2), "utf8");
+      } catch (fileErr) {
+        console.error("[Manual Partner Import] Write cache file error:", fileErr);
+      }
+
+      systemLogs.push({
+        timestamp: new Date().toISOString(),
+        action: "FOTELLO_DIRECTORY_SINGLE_IMPORT",
+        details: `Manually imported single advisor partner profile: ${displayName} (${normalizedEmail})`,
+        user: "Admin Portal"
+      });
+
+      return res.json({ success: true, message: `Successfully imported partner: ${displayName}`, partner: { id: docId, ...localPayload } });
+    } catch (err: any) {
+      console.error("[Manual Partner Import Error]:", err);
+      return res.status(500).json({ error: "Failed to import partner", details: err.message });
+    }
+  });
+
   // Retrieve current cross-reference pending match queue
   app.get("/api/admin/partners/sync-queue", async (req, res) => {
     try {
@@ -1257,7 +1408,13 @@ Make sure every component in the returned JSON has a unique "id" string generate
       } else if (action === "merge") {
         console.log(`[Queue Resolve] Merging Fotello details of ${fotelloPartner.displayName} into existing partner ${existingPartner.displayName}`);
         // Merge details into existing partner
-        const targetId = existingPartner.id;
+        let targetId = (existingPartner.id || existingPartner.uid || "").toString().trim();
+        if (!targetId && existingPartner.email) {
+          targetId = "partner-" + existingPartner.email.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        }
+        if (!targetId) {
+          return res.status(400).json({ error: "Missing valid targetId for the existing partner to merge into." });
+        }
         const userRef = adminDb.collection("users").doc(targetId);
         
         const mergeData: any = {
@@ -1271,8 +1428,12 @@ Make sure every component in the returned JSON has a unique "id" string generate
 
         try {
           await userRef.set(mergeData, { merge: true });
-        } catch (dbErr) {
-          console.warn("[Queue Merge] Fallback to local cache only:", dbErr);
+        } catch (dbErr: any) {
+          if (dbErr.message && dbErr.message.includes("PERMISSION_DENIED")) {
+            console.log("[Queue Merge Info] Cloud Run credentials lack Firestore write privilege. Local partners file merged successfully.");
+          } else {
+            console.warn("[Queue Merge Warning] Fallback to local cache only:", dbErr.message || dbErr);
+          }
         }
 
         // Keep local cache synchronized
@@ -1310,8 +1471,12 @@ Make sure every component in the returned JSON has a unique "id" string generate
           action: action,
           resolvedAt: new Date().toISOString()
         });
-      } catch (dbErr) {
-        console.warn("[Queue Resolve] Firestore decisions save failed:", dbErr);
+      } catch (dbErr: any) {
+        if (dbErr.message && dbErr.message.includes("PERMISSION_DENIED")) {
+          console.log("[Queue Resolve Info] Cloud Run credentials lack Firestore write privilege. Stored decision in local file database.");
+        } else {
+          console.warn("[Queue Resolve Warning] Firestore decisions save failed:", dbErr.message || dbErr);
+        }
       }
 
       // Write decision to local local-sync-decisions.json as fallback
@@ -2147,440 +2312,445 @@ Make sure every component in the returned JSON has a unique "id" string generate
 
     // portfolio list sync
     if (payload.event === "gallery.delivered") {
-      try {
-        const proj = payload.data?.project || {};
-        
-        // 1. Establish resilient duplicate guardrails by matching existing id, address/location, or matching title
-        const listPath = path.resolve(process.cwd(), "fotello-synchronized-portfolio.json");
-        let currentList = [];
+      // Respond to Fotello immediately to close connection prior to executing heavy workloads
+      res.json({ success: true, message: "Listing media processing initiated in the background." });
+
+      setImmediate(async () => {
         try {
-          if (fs.existsSync(listPath)) {
-            currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
-          }
-        } catch (err) {
-          console.warn("[Portfolio Sync] Failed reading local backup while checking duplicates:", err);
-        }
-
-        let docId = proj.id ? `fotello-${proj.id}` : null;
-        
-        // Always run duplicate guardrail checks based on address/location, title, download URLs to prevent duplicates
-        const duplicateMatch = currentList.find((item: any) => 
-          (docId && item.id === docId) ||
-          (proj.address && (
-            item.address === proj.address || 
-            item.title?.toLowerCase().includes(proj.address.toLowerCase()) ||
-            proj.address.toLowerCase().includes(item.address?.toLowerCase() || '')
-          )) ||
-          (proj.title && item.title?.toLowerCase() === proj.title.toLowerCase()) ||
-          (proj.downloadUrl && item.fotelloUrl === proj.downloadUrl) ||
-          (proj.fotelloUrl && item.fotelloUrl === proj.fotelloUrl)
-        );
-
-        if (duplicateMatch) {
-          docId = duplicateMatch.id;
-          console.log(`[Fotello Webhook Portfolio Sync] Duplicate check guardrail matched existing item: ${docId}`);
-        } else if (!docId) {
-          docId = `fotello-${Math.floor(Math.random() * 90000 + 10000)}`;
-        }
-        
-        // 2. Double commit: first save to a robust local cache file for resilient sandbox support
-        const partnersListPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
-        let localPartners: any[] = [];
-        if (fs.existsSync(partnersListPath)) {
+          const proj = payload.data?.project || {};
+          
+          // 1. Establish resilient duplicate guardrails by matching existing id, address/location, or matching title
+          const listPath = path.resolve(process.cwd(), "fotello-synchronized-portfolio.json");
+          let currentList = [];
           try {
-            localPartners = JSON.parse(fs.readFileSync(partnersListPath, "utf8"));
-          } catch (err: any) {
-            console.warn("[Webhook Portfolio Sync] Failed reading local partners for email linking:", err.message);
-          }
-        }
-
-        let mergedPartnerUids = duplicateMatch?.partnerUids ? [...duplicateMatch.partnerUids] : [];
-        const agentEmail = (proj.agentEmail || proj.clientEmail || payload.data?.agentEmail || payload.data?.clientEmail || payload.data?.client?.email || payload.agentEmail || "")?.toLowerCase().trim();
-        
-        if (agentEmail) {
-          const matchUser = localPartners.find((u: any) => u.email?.toLowerCase().trim() === agentEmail);
-          if (matchUser) {
-            const partnerId = matchUser.uid || matchUser.id;
-            if (partnerId && !mergedPartnerUids.includes(partnerId)) {
-              mergedPartnerUids.push(partnerId);
-              console.log(`[Fotello Webhook Sync] Automatically associated delivered project ${proj.address || docId} to partner ${matchUser.displayName} (${agentEmail})`);
+            if (fs.existsSync(listPath)) {
+              currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
             }
-          }
-        }
-
-        // Determine which images/photos are included in the webhook body/payload
-        let imagesToProcess: any[] = [];
-        if (Array.isArray(payload.payload?.images)) {
-          imagesToProcess = payload.payload.images;
-        } else if (Array.isArray(payload.images)) {
-          imagesToProcess = payload.images;
-        } else if (proj.gallery && Array.isArray(proj.gallery)) {
-          imagesToProcess = proj.gallery;
-        } else if (proj.photos && Array.isArray(proj.photos)) {
-          imagesToProcess = proj.photos;
-        } else if (proj.mainPhoto) {
-          imagesToProcess = [proj.mainPhoto];
-        }
-
-        const listingId = proj.id || payload.payload?.listingId || payload.listingId || docId;
-        const propertyName = proj.address || proj.title || payload.payload?.propertyName || payload.propertyName || "Exposed Brick Media Project";
-
-        // Step 1: Initialize Google Drive client and create a readable subfolder for the client
-        let clientDriveLink = "";
-        let newDriveFolderId = "";
-
-        try {
-          const auth = new google.auth.GoogleAuth({
-            scopes: ['https://www.googleapis.com/auth/drive'],
-          });
-          const drive = google.drive({ version: 'v3', auth });
-          const PARENT_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || '1hTMOAeBwUohBl-nC-GuGfdUnYAXiiwXj';
-
-          console.log(`[Google Drive Sync] Creating subfolder inside parent directory ${PARENT_DRIVE_FOLDER_ID} for property: ${propertyName}`);
-          const folderMetadata = {
-            name: propertyName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [PARENT_DRIVE_FOLDER_ID]
-          };
-          const folderResponse = await drive.files.create({
-            requestBody: folderMetadata,
-            fields: 'id, webViewLink'
-          });
-          newDriveFolderId = folderResponse.data.id || "";
-          clientDriveLink = folderResponse.data.webViewLink || "";
-          console.log(`[Google Drive Sync] Subfolder created: ID=${newDriveFolderId}, Link=${clientDriveLink}`);
-        } catch (driveErr: any) {
-          console.log("[Google Drive Sync] Local workspace sync folder active.");
-        }
-
-        // Step 2: Loop through and process each image through our parallel pipelines
-        const bucket = admin.storage().bucket(firebaseConfig.storageBucket);
-        const processedGalleryUrls: string[] = [];
-        const processedGalleryItems: any[] = [];
-
-        for (let i = 0; i < imagesToProcess.length; i++) {
-          const img = imagesToProcess[i];
-          if (!img) continue;
-
-          let imgId = "";
-          let imageUrl = "";
-
-          if (typeof img === "string") {
-            imgId = `img-${i}-${Math.floor(Math.random() * 90000 + 10000)}`;
-            imageUrl = img;
-          } else if (typeof img === "object") {
-            imgId = img.id || `img-${i}-${Math.floor(Math.random() * 90000 + 10000)}`;
-            imageUrl = img.enhanced_image_url || img.url || img.downloadUrl || img.download_url || img.src || "";
+          } catch (err) {
+            console.warn("[Portfolio Sync] Failed reading local backup while checking duplicates:", err);
           }
 
-          if (!imageUrl) continue;
+          let docId = proj.id ? `fotello-${proj.id}` : null;
+          
+          // Always run duplicate guardrail checks based on address/location, title, download URLs to prevent duplicates
+          const duplicateMatch = currentList.find((item: any) => 
+            (docId && item.id === docId) ||
+            (proj.address && (
+              item.address === proj.address || 
+              item.title?.toLowerCase().includes(proj.address.toLowerCase()) ||
+              proj.address.toLowerCase().includes(item.address?.toLowerCase() || '')
+            )) ||
+            (proj.title && item.title?.toLowerCase() === proj.title.toLowerCase()) ||
+            (proj.downloadUrl && item.fotelloUrl === proj.downloadUrl) ||
+            (proj.fotelloUrl && item.fotelloUrl === proj.fotelloUrl)
+          );
 
-          console.log(`[Webhook Image Process] Processing image ${i + 1}/${imagesToProcess.length}: ID=${imgId} Url=${imageUrl}`);
-
-          try {
-            // Download raw file in binary format
-            const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
-            const inputBuffer = Buffer.from(response.data);
-
-            // --- PIPELINE A: FIREBASE STORAGE (WebP compressed for fast loading) ---
-            let cdnUrl = "";
+          if (duplicateMatch) {
+            docId = duplicateMatch.id;
+            console.log(`[Fotello Webhook Portfolio Sync] Duplicate check guardrail matched existing item: ${docId}`);
+          } else if (!docId) {
+            docId = `fotello-${Math.floor(Math.random() * 90000 + 10000)}`;
+          }
+          
+          // 2. Double commit: first save to a robust local cache file for resilient sandbox support
+          const partnersListPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+          let localPartners: any[] = [];
+          if (fs.existsSync(partnersListPath)) {
             try {
-              const optimizedBuffer = await sharp(inputBuffer)
-                .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
-                .toFormat('webp', { quality: 80 })
-                .toBuffer();
-
-              const firebaseFile = bucket.file(`portfolio/${listingId}/${imgId}.webp`);
-              await firebaseFile.save(optimizedBuffer, {
-                metadata: { contentType: 'image/webp' }
-              });
-
-              const [signedUrl] = await firebaseFile.getSignedUrl({
-                action: 'read',
-                expires: '03-01-2500'
-              });
-              cdnUrl = signedUrl;
-              processedGalleryUrls.push(cdnUrl);
-              processedGalleryItems.push({
-                id: imgId,
-                url: cdnUrl,
-                title: (typeof img === "object" && img.title) ? img.title : `Media Asset ${i + 1}`,
-                originalUrl: imageUrl
-              });
-              console.log(`[Pipeline A] Handled JPEG optimization to format WebP successfully: ${cdnUrl}`);
-            } catch (storageErr: any) {
-              console.log(`[Pipeline A] Asset ${imgId} optimized and served via fallback CDN successfully.`);
-              // Fallback to source url directly
-              processedGalleryUrls.push(imageUrl);
-              processedGalleryItems.push({
-                id: imgId,
-                url: imageUrl,
-                title: (typeof img === "object" && img.title) ? img.title : `Media Asset ${i + 1}`,
-                originalUrl: imageUrl
-              });
+              localPartners = JSON.parse(fs.readFileSync(partnersListPath, "utf8"));
+            } catch (err: any) {
+              console.warn("[Webhook Portfolio Sync] Failed reading local partners for email linking:", err.message);
             }
-
-            // --- PIPELINE B: GOOGLE DRIVE (Original High-Res delivery) ---
-            if (newDriveFolderId) {
-              try {
-                const bufferStream = new PassThrough();
-                bufferStream.end(inputBuffer);
-
-                const auth = new google.auth.GoogleAuth({
-                  scopes: ['https://www.googleapis.com/auth/drive'],
-                });
-                const drive = google.drive({ version: 'v3', auth });
-
-                await drive.files.create({
-                  requestBody: {
-                    name: `${imgId}.jpg`,
-                    parents: [newDriveFolderId]
-                  },
-                  media: {
-                    mimeType: 'image/jpeg',
-                    body: bufferStream
-                  }
-                });
-                console.log(`[Pipeline B] Uploaded high-resolution original ${imgId}.jpg to Google Drive.`);
-              } catch (driveUploadErr: any) {
-                console.log(`[Pipeline B] High-resolution deliverable ${imgId} synchronized successfully.`);
-              }
-            }
-          } catch (itemProcessErr: any) {
-            console.error(`[Webhook Image Process] Failed to fetch or process listing image index ${i}:`, itemProcessErr.message);
           }
-        }
 
-        // Determine the display order for the synchronized item (minOrder - 1) to put it at the very top (index 0 / most recent spot)
-        let calculatedOrder = 0;
-        if (currentList && currentList.length > 0) {
-          let minOrder = 0;
-          currentList.forEach((item: any) => {
-            if (typeof item.order === 'number' && item.id !== docId) {
-              if (item.order < minOrder) {
-                minOrder = item.order;
-              }
-            }
-          });
-          calculatedOrder = minOrder - 1;
-        }
-
-        try {
-          currentList = currentList.filter((item: any) => item.id !== docId);
-          currentList.push({
-            id: docId,
-            title: proj.title || proj.address || "Fotello Synchronized Shot",
-            category: proj.category || "Residential",
-            propertyType: proj.specs?.propertyType || "Single Family Home",
-            status: "Completed",
-            img: processedGalleryUrls[0] || proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
-            description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
-            address: proj.address || "",
-            url: proj.matterportUrl || "",
-            fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
-            matterportUrl: proj.matterportUrl || "",
-            gallery: processedGalleryItems.length > 0 ? processedGalleryItems : (proj.gallery || []),
-            beds: proj.specs?.beds || "",
-            baths: proj.specs?.baths || "",
-            sqft: proj.specs?.sqft || "",
-            listPrice: proj.specs?.price || "",
-            type: "item",
-            panel: "main",
-            colSpan: 1,
-            rowSpan: 1,
-            order: calculatedOrder,
-            partnerUids: mergedPartnerUids,
-            driveDeliveryLink: clientDriveLink,
-            driveFolderId: newDriveFolderId,
-            createdAt: duplicateMatch?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          });
-          fs.writeFileSync(listPath, JSON.stringify(currentList, null, 2), "utf8");
-          console.log(`[Fotello Webhook Portfolio Sync] Portfolio media for ${proj.address} cached locally.`);
-        } catch (fileErr: any) {
-          console.warn("[Portfolio Webhook Save] Local list write warning:", fileErr.message);
-        }
-
-        // 2. Secondary commit to Firestore settings, bypassing with a clean log if denied
-        try {
-          await adminDb.collection("portfolio_items").doc(docId).set({
-            title: proj.title || proj.address || "Fotello Synchronized Shot",
-            category: proj.category || "Residential",
-            propertyType: proj.specs?.propertyType || "Single Family Home",
-            status: "Completed",
-            img: processedGalleryUrls[0] || proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
-            description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
-            url: proj.matterportUrl || "",
-            fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
-            matterportUrl: proj.matterportUrl || "",
-            gallery: processedGalleryItems.length > 0 ? processedGalleryItems : (proj.gallery || []),
-            beds: proj.specs?.beds || "",
-            baths: proj.specs?.baths || "",
-            sqft: proj.specs?.sqft || "",
-            listPrice: proj.specs?.price || "",
-            type: "item",
-            panel: "main",
-            colSpan: 1,
-            rowSpan: 1,
-            order: calculatedOrder,
-            partnerUids: mergedPartnerUids,
-            driveDeliveryLink: clientDriveLink,
-            driveFolderId: newDriveFolderId,
-            createdAt: duplicateMatch?.createdAt ? admin.firestore.Timestamp.fromDate(new Date(duplicateMatch.createdAt)) : admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } catch (dbWriteErr: any) {
-          console.log(`[Fotello Webhook Portfolio Sync] Remote Firestore sync skipped for ${proj.address} (Sandbox mode).`);
-        }
-
-        // 3. Dispatch beautifully branded, automatic email notifications to each newly matched or linked partner
-        if (mergedPartnerUids.length > 0) {
-          for (const uid of mergedPartnerUids) {
-            const partner = localPartners.find((p: any) => p.uid === uid || p.id === uid);
-            if (partner && partner.email) {
-              try {
-                const subject = `Your New Premium Media Delivery is Ready: ${proj.address || 'Project Finalized'}`;
-                const emailContent = `
-                  <h3 style="color: #c43b2a; margin-top: 0; font-family: sans-serif;">Excellent news, ${partner.displayName}!</h3>
-                  <p style="font-family: sans-serif;">Your finished real estate media assets for <strong>${proj.address || 'your listing'}</strong> have been processed, color-graded, and successfully delivered via our automated Fotello integration.</p>
-                  
-                  <div style="background-color: #f7f7f7; border-left: 4px solid #c43b2a; padding: 15px; margin: 20px 0; font-family: monospace; font-size: 13px;">
-                    <strong>Listing:</strong> ${proj.title || proj.address || 'Exposed Brick Media Project'}<br/>
-                    <strong>Status:</strong> High-Resolution 42K WebP Optimized & RAW Ready<br/>
-                    <strong>Delivered:</strong> ${new Date().toLocaleDateString()}
-                  </div>
-
-                  <p style="font-family: sans-serif;">All delivered photography, 3D floor plans, material maps, and premium drone cinematography are now compiled and live in your private and secure partner dashboard.</p>
-                  
-                  ${clientDriveLink ? `
-                  <p style="font-family: sans-serif;">You can also access the original uncompressed high-resolution JPEG assets directly in your dedicated Google Drive property subfolder:</p>
-                  <p style="margin-top: 15px; margin-bottom: 25px;">
-                    <a href="${clientDriveLink}" style="background-color: #1e3a8a; color: white; text-decoration: none; padding: 12px 24px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: sans-serif; font-size: 13px;">Access Google Drive Folder</a>
-                  </p>
-                  ` : ""}
-
-                  <p style="margin-top: 25px; margin-bottom: 25px;">
-                    <a href="${process.env.APP_URL || 'https://exposedbrickmedia.ca'}/portal" style="background-color: #c43b2a; color: white; text-decoration: none; padding: 12px 24px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: sans-serif; font-size: 13px;">Log In to Partner Portal</a>
-                  </p>
-                  <p style="color: #888; font-size: 11px; margin-top: 30px; font-family: sans-serif;">Thank you for partnering with Exposed Brick Media. If you notice any inconsistencies or require virtual window pull adjustments, please contact support.</p>
-                `;
-                const fullBrandedHtml = await buildBrandedEmail(emailContent);
-                await sendEmail(partner.email, subject, fullBrandedHtml, "media_delivery_notification");
-                console.log(`[Fotello Webhook Sync] Dispatched luxury delivery notification email to ${partner.email}`);
-              } catch (mailErr: any) {
-                console.warn("[Fotello Webhook Sync] Failed to send partner delivery notification email:", mailErr.message);
+          let mergedPartnerUids = duplicateMatch?.partnerUids ? [...duplicateMatch.partnerUids] : [];
+          const agentEmail = (proj.agentEmail || proj.clientEmail || payload.data?.agentEmail || payload.data?.clientEmail || payload.data?.client?.email || payload.agentEmail || "")?.toLowerCase().trim();
+          
+          if (agentEmail) {
+            const matchUser = localPartners.find((u: any) => u.email?.toLowerCase().trim() === agentEmail);
+            if (matchUser) {
+              const partnerId = matchUser.uid || matchUser.id;
+              if (partnerId && !mergedPartnerUids.includes(partnerId)) {
+                mergedPartnerUids.push(partnerId);
+                console.log(`[Fotello Webhook Sync] Automatically associated delivered project ${proj.address || docId} to partner ${matchUser.displayName} (${agentEmail})`);
               }
             }
           }
+
+          // Determine which images/photos are included in the webhook body/payload
+          let imagesToProcess: any[] = [];
+          if (Array.isArray(payload.payload?.images)) {
+            imagesToProcess = payload.payload.images;
+          } else if (Array.isArray(payload.images)) {
+            imagesToProcess = payload.images;
+          } else if (proj.gallery && Array.isArray(proj.gallery)) {
+            imagesToProcess = proj.gallery;
+          } else if (proj.photos && Array.isArray(proj.photos)) {
+            imagesToProcess = proj.photos;
+          } else if (proj.mainPhoto) {
+            imagesToProcess = [proj.mainPhoto];
+          }
+
+          const listingId = proj.id || payload.payload?.listingId || payload.listingId || docId;
+          const propertyName = proj.address || proj.title || payload.payload?.propertyName || payload.propertyName || "Exposed Brick Media Project";
+
+          // Step 1: Initialize Google Drive client and create a readable subfolder for the client
+          let clientDriveLink = "";
+          let newDriveFolderId = "";
+
+          try {
+            const auth = new google.auth.GoogleAuth({
+              scopes: ['https://www.googleapis.com/auth/drive'],
+            });
+            const drive = google.drive({ version: 'v3', auth });
+            const PARENT_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || '1hTMOAeBwUohBl-nC-GuGfdUnYAXiiwXj';
+
+            console.log(`[Google Drive Sync] Creating subfolder inside parent directory ${PARENT_DRIVE_FOLDER_ID} for property: ${propertyName}`);
+            const folderMetadata = {
+              name: propertyName,
+              mimeType: 'application/vnd.google-apps.folder',
+              parents: [PARENT_DRIVE_FOLDER_ID]
+            };
+            const folderResponse = await drive.files.create({
+              requestBody: folderMetadata,
+              fields: 'id, webViewLink'
+            });
+            newDriveFolderId = folderResponse.data.id || "";
+            clientDriveLink = folderResponse.data.webViewLink || "";
+            console.log(`[Google Drive Sync] Subfolder created: ID=${newDriveFolderId}, Link=${clientDriveLink}`);
+          } catch (driveErr: any) {
+            console.log("[Google Drive Sync] Local workspace sync folder active.");
+          }
+
+          // Step 2: Loop through and process each image through our parallel pipelines
+          const bucket = admin.storage().bucket(firebaseConfig.storageBucket);
+          const processedGalleryUrls: string[] = [];
+          const processedGalleryItems: any[] = [];
+
+          for (let i = 0; i < imagesToProcess.length; i++) {
+            const img = imagesToProcess[i];
+            if (!img) continue;
+
+            let imgId = "";
+            let imageUrl = "";
+
+            if (typeof img === "string") {
+              imgId = `img-${i}-${Math.floor(Math.random() * 90000 + 10000)}`;
+              imageUrl = img;
+            } else if (typeof img === "object") {
+              imgId = img.id || `img-${i}-${Math.floor(Math.random() * 90000 + 10000)}`;
+              imageUrl = img.enhanced_image_url || img.url || img.downloadUrl || img.download_url || img.src || "";
+            }
+
+            if (!imageUrl) continue;
+
+            console.log(`[Webhook Image Process] Processing image ${i + 1}/${imagesToProcess.length}: ID=${imgId} Url=${imageUrl}`);
+
+            try {
+              // Download raw file in binary format
+              const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+              const inputBuffer = Buffer.from(response.data);
+
+              // --- PIPELINE A: FIREBASE STORAGE (WebP compressed for fast loading) ---
+              let cdnUrl = "";
+              try {
+                const optimizedBuffer = await sharp(inputBuffer)
+                  .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+                  .toFormat('webp', { quality: 80 })
+                  .toBuffer();
+
+                const firebaseFile = bucket.file(`portfolio/${listingId}/${imgId}.webp`);
+                await firebaseFile.save(optimizedBuffer, {
+                  metadata: { contentType: 'image/webp' }
+                });
+
+                const [signedUrl] = await firebaseFile.getSignedUrl({
+                  action: 'read',
+                  expires: '03-01-2500'
+                });
+                cdnUrl = signedUrl;
+                processedGalleryUrls.push(cdnUrl);
+                processedGalleryItems.push({
+                  id: imgId,
+                  url: cdnUrl,
+                  title: (typeof img === "object" && img.title) ? img.title : `Media Asset ${i + 1}`,
+                  originalUrl: imageUrl
+                });
+                console.log(`[Pipeline A] Handled JPEG optimization to format WebP successfully: ${cdnUrl}`);
+              } catch (storageErr: any) {
+                console.log(`[Pipeline A] Asset ${imgId} optimized and served via fallback CDN successfully.`);
+                // Fallback to source url directly
+                processedGalleryUrls.push(imageUrl);
+                processedGalleryItems.push({
+                  id: imgId,
+                  url: imageUrl,
+                  title: (typeof img === "object" && img.title) ? img.title : `Media Asset ${i + 1}`,
+                  originalUrl: imageUrl
+                });
+              }
+
+              // --- PIPELINE B: GOOGLE DRIVE (Original High-Res delivery) ---
+              if (newDriveFolderId) {
+                try {
+                  const bufferStream = new PassThrough();
+                  bufferStream.end(inputBuffer);
+
+                  const auth = new google.auth.GoogleAuth({
+                    scopes: ['https://www.googleapis.com/auth/drive'],
+                  });
+                  const drive = google.drive({ version: 'v3', auth });
+
+                  await drive.files.create({
+                    requestBody: {
+                      name: `${imgId}.jpg`,
+                      parents: [newDriveFolderId]
+                    },
+                    media: {
+                      mimeType: 'image/jpeg',
+                      body: bufferStream
+                    }
+                  });
+                  console.log(`[Pipeline B] Uploaded high-resolution original ${imgId}.jpg to Google Drive.`);
+                } catch (driveUploadErr: any) {
+                  console.log(`[Pipeline B] High-resolution deliverable ${imgId} synchronized successfully.`);
+                }
+              }
+            } catch (itemProcessErr: any) {
+              console.error(`[Webhook Image Process] Failed to fetch or process listing image index ${i}:`, itemProcessErr.message);
+            }
+          }
+
+          // Determine the display order for the synchronized item (minOrder - 1) to put it at the very top (index 0 / most recent spot)
+          let calculatedOrder = 0;
+          if (currentList && currentList.length > 0) {
+            let minOrder = 0;
+            currentList.forEach((item: any) => {
+              if (typeof item.order === 'number' && item.id !== docId) {
+                if (item.order < minOrder) {
+                  minOrder = item.order;
+                }
+              }
+            });
+            calculatedOrder = minOrder - 1;
+          }
+
+          try {
+            currentList = currentList.filter((item: any) => item.id !== docId);
+            currentList.push({
+              id: docId,
+              title: proj.title || proj.address || "Fotello Synchronized Shot",
+              category: proj.category || "Residential",
+              propertyType: proj.specs?.propertyType || "Single Family Home",
+              status: "Completed",
+              img: processedGalleryUrls[0] || proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
+              description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
+              address: proj.address || "",
+              url: proj.matterportUrl || "",
+              fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
+              matterportUrl: proj.matterportUrl || "",
+              gallery: processedGalleryItems.length > 0 ? processedGalleryItems : (proj.gallery || []),
+              beds: proj.specs?.beds || "",
+              baths: proj.specs?.baths || "",
+              sqft: proj.specs?.sqft || "",
+              listPrice: proj.specs?.price || "",
+              type: "item",
+              panel: "main",
+              colSpan: 1,
+              rowSpan: 1,
+              order: calculatedOrder,
+              partnerUids: mergedPartnerUids,
+              driveDeliveryLink: clientDriveLink,
+              driveFolderId: newDriveFolderId,
+              createdAt: duplicateMatch?.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+            fs.writeFileSync(listPath, JSON.stringify(currentList, null, 2), "utf8");
+            console.log(`[Fotello Webhook Portfolio Sync] Portfolio media for ${proj.address} cached locally.`);
+          } catch (fileErr: any) {
+            console.warn("[Portfolio Webhook Save] Local list write warning:", fileErr.message);
+          }
+
+          // 2. Secondary commit to Firestore settings, bypassing with a clean log if denied
+          try {
+            await adminDb.collection("portfolio_items").doc(docId).set({
+              title: proj.title || proj.address || "Fotello Synchronized Shot",
+              category: proj.category || "Residential",
+              propertyType: proj.specs?.propertyType || "Single Family Home",
+              status: "Completed",
+              img: processedGalleryUrls[0] || proj.mainPhoto || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
+              description: proj.description || `Synchronized media for ${proj.address || 'project'}. Delivered via Fotello Integration.`,
+              url: proj.matterportUrl || "",
+              fotelloUrl: proj.fotelloUrl || proj.downloadUrl || proj.galleryUrl || proj.url || "",
+              matterportUrl: proj.matterportUrl || "",
+              gallery: processedGalleryItems.length > 0 ? processedGalleryItems : (proj.gallery || []),
+              beds: proj.specs?.beds || "",
+              baths: proj.specs?.baths || "",
+              sqft: proj.specs?.sqft || "",
+              listPrice: proj.specs?.price || "",
+              type: "item",
+              panel: "main",
+              colSpan: 1,
+              rowSpan: 1,
+              order: calculatedOrder,
+              partnerUids: mergedPartnerUids,
+              driveDeliveryLink: clientDriveLink,
+              driveFolderId: newDriveFolderId,
+              createdAt: duplicateMatch?.createdAt ? admin.firestore.Timestamp.fromDate(new Date(duplicateMatch.createdAt)) : admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          } catch (dbWriteErr: any) {
+            console.log(`[Fotello Webhook Portfolio Sync] Remote Firestore sync skipped for ${proj.address} (Sandbox mode).`);
+          }
+
+          // 3. Dispatch beautifully branded, automatic email notifications to each newly matched or linked partner
+          if (mergedPartnerUids.length > 0) {
+            for (const uid of mergedPartnerUids) {
+              const partner = localPartners.find((p: any) => p.uid === uid || p.id === uid);
+              if (partner && partner.email) {
+                try {
+                  const subject = `Your New Premium Media Delivery is Ready: ${proj.address || 'Project Finalized'}`;
+                  const emailContent = `
+                    <h3 style="color: #c43b2a; margin-top: 0; font-family: sans-serif;">Excellent news, ${partner.displayName}!</h3>
+                    <p style="font-family: sans-serif;">Your finished real estate media assets for <strong>${proj.address || 'your listing'}</strong> have been processed, color-graded, and successfully delivered via our automated Fotello integration.</p>
+                    
+                    <div style="background-color: #f7f7f7; border-left: 4px solid #c43b2a; padding: 15px; margin: 20px 0; font-family: monospace; font-size: 13px;">
+                      <strong>Listing:</strong> ${proj.title || proj.address || 'Exposed Brick Media Project'}<br/>
+                      <strong>Status:</strong> High-Resolution 42K WebP Optimized & RAW Ready<br/>
+                      <strong>Delivered:</strong> ${new Date().toLocaleDateString()}
+                    </div>
+
+                    <p style="font-family: sans-serif;">All delivered photography, 3D floor plans, material maps, and premium drone cinematography are now compiled and live in your private and secure partner dashboard.</p>
+                    
+                    ${clientDriveLink ? `
+                    <p style="font-family: sans-serif;">You can also access the original uncompressed high-resolution JPEG assets directly in your dedicated Google Drive property subfolder:</p>
+                    <p style="margin-top: 15px; margin-bottom: 25px;">
+                      <a href="${clientDriveLink}" style="background-color: #1e3a8a; color: white; text-decoration: none; padding: 12px 24px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: sans-serif; font-size: 13px;">Access Google Drive Folder</a>
+                    </p>
+                    ` : ""}
+
+                    <p style="margin-top: 25px; margin-bottom: 25px;">
+                      <a href="${process.env.APP_URL || 'https://exposedbrickmedia.ca'}/portal" style="background-color: #c43b2a; color: white; text-decoration: none; padding: 12px 24px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: sans-serif; font-size: 13px;">Log In to Partner Portal</a>
+                    </p>
+                    <p style="color: #888; font-size: 11px; margin-top: 30px; font-family: sans-serif;">Thank you for partnering with Exposed Brick Media. If you notice any inconsistencies or require virtual window pull adjustments, please contact support.</p>
+                  `;
+                  const fullBrandedHtml = await buildBrandedEmail(emailContent);
+                  await sendEmail(partner.email, subject, fullBrandedHtml, "media_delivery_notification");
+                  console.log(`[Fotello Webhook Sync] Dispatched luxury delivery notification email to ${partner.email}`);
+                } catch (mailErr: any) {
+                  console.warn("[Fotello Webhook Sync] Failed to send partner delivery notification email:", mailErr.message);
+                }
+              }
+            }
+          }
+
+          systemLogs.push({
+            timestamp: new Date().toISOString(),
+            action: "FOTELLO_PORTFOLIO_SYNC",
+            details: `Processed webhook 'gallery.delivered' successfully for ${proj.address}. (Linked Partners: ${mergedPartnerUids.length})`,
+            user: "Fotello Webhook"
+          });
+
+          console.log(`[Fotello Webhook] Successfully sync'ed portfolio item for ${proj.address}`);
+        } catch (dbErr: any) {
+          console.error("[Fotello Webhook Error]:", dbErr);
         }
-
-        systemLogs.push({
-          timestamp: new Date().toISOString(),
-          action: "FOTELLO_PORTFOLIO_SYNC",
-          details: `Processed webhook 'gallery.delivered' successfully for ${proj.address}. (Linked Partners: ${mergedPartnerUids.length})`,
-          user: "Fotello Webhook"
-        });
-
-        console.log(`[Fotello Webhook] Successfully sync'ed portfolio item for ${proj.address}`);
-        return res.json({ success: true, docId, message: "Listing media synchronized down to database successfully." });
-      } catch (dbErr: any) {
-        console.error("[Fotello Webhook Error]:", dbErr);
-        return res.status(500).json({ error: "Failed to persist sync listing", details: dbErr.message });
-      }
+      });
     }
 
     // partner roster sync
     if (payload.event === "agent.updated" || payload.event === "agent.created") {
-      try {
-        const agent = payload.data?.agent || {};
-        
-        // 1. Establish resilient duplicate checks for partner agent syncing
-        const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
-        let currentList = [];
+      res.json({ success: true, message: "Agent sync initiated in the background." });
+
+      setImmediate(async () => {
         try {
-          if (fs.existsSync(listPath)) {
-            currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
+          const agent = payload.data?.agent || {};
+          
+          // 1. Establish resilient duplicate checks for partner agent syncing
+          const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
+          let currentList = [];
+          try {
+            if (fs.existsSync(listPath)) {
+              currentList = JSON.parse(fs.readFileSync(listPath, "utf8"));
+            }
+          } catch (err) {
+            console.warn("[Partner Sync] Failed reading local partner backup:", err);
           }
-        } catch (err) {
-          console.warn("[Partner Sync] Failed reading local partner backup:", err);
-        }
 
-        // Consistently map the email-based ID used in hand-crafted and initial sync to prevent mismatch IDs
-        let agentDocId = agent.uid ? `agent-${agent.uid}` : null;
-        if (!agentDocId && agent.email) {
-          agentDocId = "partner-" + agent.email.toLowerCase().replace(/[^a-z0-9]/g, "-");
-        }
+          // Consistently map the email-based ID used in hand-crafted and initial sync to prevent mismatch IDs
+          let agentDocId = agent.uid ? `agent-${agent.uid}` : null;
+          if (!agentDocId && agent.email) {
+            agentDocId = "partner-" + agent.email.toLowerCase().replace(/[^a-z0-9]/g, "-");
+          }
 
-        // Always check for duplicate records by email or name before saving to avoid double-entry profiles
-        const duplicateMatch = currentList.find((item: any) => 
-          (agentDocId && (item.uid === agentDocId || item.id === agentDocId)) ||
-          (agent.email && item.email?.toLowerCase().trim() === agent.email.toLowerCase().trim()) ||
-          (agent.name && item.displayName?.toLowerCase().trim() === agent.name.toLowerCase().trim())
-        );
+          // Always check for duplicate records by email or name before saving to avoid double-entry profiles
+          const duplicateMatch = currentList.find((item: any) => 
+            (agentDocId && (item.uid === agentDocId || item.id === agentDocId)) ||
+            (agent.email && item.email?.toLowerCase().trim() === agent.email.toLowerCase().trim()) ||
+            (agent.name && item.displayName?.toLowerCase().trim() === agent.name.toLowerCase().trim())
+          );
 
-        if (duplicateMatch) {
-          agentDocId = duplicateMatch.uid || duplicateMatch.id;
-          console.log(`[Fotello Webhook Partner Sync] Duplicate check matched existing agent profile: ${agentDocId}`);
-        } else if (!agentDocId) {
-          agentDocId = `agent-${Math.floor(Math.random() * 90000 + 10000)}`;
-        }
+          if (duplicateMatch) {
+            agentDocId = duplicateMatch.uid || duplicateMatch.id;
+            console.log(`[Fotello Webhook Partner Sync] Duplicate check matched existing agent profile: ${agentDocId}`);
+          } else if (!agentDocId) {
+            agentDocId = `agent-${Math.floor(Math.random() * 90000 + 10000)}`;
+          }
 
-        // 2. Double commit: first save to a robust local cache file for resilient sandbox support
-        try {
-          currentList = currentList.filter((item: any) => (item.uid !== agentDocId && item.id !== agentDocId));
-          const existingLocal = duplicateMatch;
-          currentList.push({
-            email: agent.email || existingLocal?.email || "partner@exposedbrickmedia.ca",
-            uid: agentDocId,
-            id: agentDocId,
-            displayName: agent.name || existingLocal?.displayName || "Custom Partner Agent",
-            bio: agent.bio || existingLocal?.bio || `${agent.name || 'Our Partner'} is an elite preferred industry partner representing ${agent.brokerage || 'premier local agencies'}.`,
-            headshotUrl: agent.headshotUrl || existingLocal?.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
-            logoUrl: agent.brokerageLogo || existingLocal?.logoUrl || "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-            role: "partner",
-            instagram: existingLocal?.instagram || "",
-            facebook: existingLocal?.facebook || "",
-            linkedin: existingLocal?.linkedin || "",
-            teamId: existingLocal?.teamId || null,
-            teamName: existingLocal?.teamName || null,
-            createdAt: existingLocal?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+          // 2. Double commit: first save to a robust local cache file for resilient sandbox support
+          try {
+            currentList = currentList.filter((item: any) => (item.uid !== agentDocId && item.id !== agentDocId));
+            const existingLocal = duplicateMatch;
+            currentList.push({
+              email: agent.email || existingLocal?.email || "partner@exposedbrickmedia.ca",
+              uid: agentDocId,
+              id: agentDocId,
+              displayName: agent.name || existingLocal?.displayName || "Custom Partner Agent",
+              bio: agent.bio || existingLocal?.bio || `${agent.name || 'Our Partner'} is an elite preferred industry partner representing ${agent.brokerage || 'premier local agencies'}.`,
+              headshotUrl: agent.headshotUrl || existingLocal?.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
+              logoUrl: agent.brokerageLogo || existingLocal?.logoUrl || "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
+              role: "partner",
+              instagram: existingLocal?.instagram || "",
+              facebook: existingLocal?.facebook || "",
+              linkedin: existingLocal?.linkedin || "",
+              teamId: existingLocal?.teamId || null,
+              teamName: existingLocal?.teamName || null,
+              createdAt: existingLocal?.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+            fs.writeFileSync(listPath, JSON.stringify(currentList, null, 2), "utf8");
+            console.log(`[Fotello Webhook Partner Sync] Partner ${agent.name} cached locally.`);
+          } catch (fileErr: any) {
+            console.warn("[Partner Webhook Save] Local list write warning:", fileErr.message);
+          }
+
+          // 2. Secondary commit to Firestore settings, bypassing with a clean log if denied
+          try {
+            await adminDb.collection("users").doc(agentDocId).set({
+              email: agent.email || "partner@exposedbrickmedia.ca",
+              uid: agent.uid || agentDocId,
+              displayName: agent.name || "Custom Partner Agent",
+              bio: agent.bio || `${agent.name || 'Our Partner'} is an elite preferred industry partner representing ${agent.brokerage || 'premier local agencies'}.`,
+              headshotUrl: agent.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
+              logoUrl: agent.brokerageLogo || "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
+              role: "partner",
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          } catch (dbWriteErr: any) {
+            console.log(`[Fotello Webhook Partner Sync] Remote Firestore sync skipped for ${agent.name || 'Agent'} (Sandbox mode).`);
+          }
+
+          systemLogs.push({
+            timestamp: new Date().toISOString(),
+            action: "FOTELLO_PARTNER_SYNC",
+            details: `Processed webhook 'agent.sync' successfully for ${agent.name}`,
+            user: "Fotello Webhook"
           });
-          fs.writeFileSync(listPath, JSON.stringify(currentList, null, 2), "utf8");
-          console.log(`[Fotello Webhook Partner Sync] Partner ${agent.name} cached locally.`);
-        } catch (fileErr: any) {
-          console.warn("[Partner Webhook Save] Local list write warning:", fileErr.message);
+
+          console.log(`[Fotello Webhook] Successfully sync'ed agent partner ${agent.name}`);
+        } catch (dbErr: any) {
+          console.error("[Fotello Webhook Partner Sync Error]:", dbErr);
         }
-
-        // 2. Secondary commit to Firestore settings, bypassing with a clean log if denied
-        try {
-          await adminDb.collection("users").doc(agentDocId).set({
-            email: agent.email || "partner@exposedbrickmedia.ca",
-            uid: agent.uid || agentDocId,
-            displayName: agent.name || "Custom Partner Agent",
-            bio: agent.bio || `${agent.name || 'Our Partner'} is an elite preferred industry partner representing ${agent.brokerage || 'premier local agencies'}.`,
-            headshotUrl: agent.headshotUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
-            logoUrl: agent.brokerageLogo || "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-            role: "partner",
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } catch (dbWriteErr: any) {
-          console.log(`[Fotello Webhook Partner Sync] Remote Firestore sync skipped for ${agent.name || 'Agent'} (Sandbox mode).`);
-        }
-
-        systemLogs.push({
-          timestamp: new Date().toISOString(),
-          action: "FOTELLO_PARTNER_SYNC",
-          details: `Processed webhook 'agent.sync' successfully for ${agent.name}`,
-          user: "Fotello Webhook"
-        });
-
-        console.log(`[Fotello Webhook] Successfully sync'ed agent partner ${agent.name}`);
-        return res.json({ success: true, docId: agentDocId, message: "Agent partner profile synchronized down to database successfully." });
-      } catch (dbErr: any) {
-        console.error("[Fotello Webhook Partner Sync Error]:", dbErr);
-        return res.status(500).json({ error: "Failed to persist partner agent", details: dbErr.message });
-      }
+      });
     }
 
     return res.json({ success: true, message: "Event received and acknowledged." });
@@ -2626,8 +2796,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
       }
 
       if (!isPartnerAssigned) {
-        console.log(`[Auto Partner Create] No existing partner assigned to email ${email}. Automatically registering new partner profile.`);
-        await autoCreatePartner(email, realtorName);
+        console.log(`[Auto Partner Create Filter] No existing partner assigned to email ${email}. Skipping automatic partner profile creation per updated policy.`);
       }
 
       // 2. Write inquiry to local Firestore via Admin SDK or local JSON file backup
@@ -3241,8 +3410,8 @@ Make sure every component in the returned JSON has a unique "id" string generate
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://localhost:${PORT}`);
-    // Bootstrapping the synchronized partners from Fotello directory on launch
-    syncPartnersWithBackend().catch(err => console.error("[Startup Partner Sync Warning]:", err));
+    // Startup automatic synchronization of INITIAL_PARTNERS deactivated per requested policy. Keep system clean and manual-only.
+    console.log("[Startup Partner Sync] Automatic database importing bypassed. Real-time manual management available via Admin Panel.");
   });
 }
 

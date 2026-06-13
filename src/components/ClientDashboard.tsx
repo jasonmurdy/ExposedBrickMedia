@@ -146,8 +146,10 @@ export function ClientDashboard() {
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'referrals'));
 
     // Load Associated Listings (where the partner UID is present in the assignment array OR teamId matches)
+    // To prevent massive document over-fetching and minimize Firestore read costs, we fetch listings in a standard query
+    // and limit the admin query to the most recent 200 items. Clients stay restricted to their actual specific profiles.
     const listingsQuery = currentUser.uid === auth.currentUser?.uid && (isAdmin || userProfile?.role === 'admin') 
-      ? query(collection(db, 'portfolio_items')) // Admins see all
+      ? query(collection(db, 'portfolio_items'), limit(200)) // Admins view top 200 items to optimize billing
       : query(
           collection(db, 'portfolio_items'), 
           or(
@@ -156,10 +158,16 @@ export function ClientDashboard() {
           )
         );
     
-    const unSubListings = onSnapshot(listingsQuery, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setListings(list);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'portfolio_items'));
+    const fetchListings = async () => {
+      try {
+        const snapshot = await getDocs(listingsQuery);
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setListings(list);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'portfolio_items');
+      }
+    };
+    fetchListings();
 
     // Load Team
     let unSubTeam = () => {};
@@ -185,24 +193,13 @@ export function ClientDashboard() {
     return () => {
       unSubProfile();
       unSubReferrals();
-      unSubListings();
       unSubTeam();
       unSubTeamMembers();
       unSubResources();
     };
   }, [currentUser, userProfile?.teamId]);
 
-  // Preload all listing cover images upon initial sync for instant list rendering
-  useEffect(() => {
-    if (listings && listings.length > 0) {
-      listings.forEach((item) => {
-        if (item.img) {
-          const img = new Image();
-          img.src = item.img;
-        }
-      });
-    }
-  }, [listings]);
+  // Aggressive cover preloading hook removed to optimize memory allocation and eliminate massive data transfers
 
   // Preload all preview/gallery assets when a listing is clicked and selected, so switching inside the popup modal is instantaneous
   useEffect(() => {
@@ -1135,7 +1132,7 @@ export function ClientDashboard() {
                                           <div className="flex items-center gap-4">
                                             <div className="w-14 h-10 bg-charcoal border border-white/10 rounded-xs overflow-hidden flex-shrink-0 relative">
                                               {item.img ? (
-                                                <img src={item.img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
+                                                <img src={item.img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" referrerPolicy="no-referrer" />
                                               ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-[8px] text-white/30 uppercase tracking-widest font-mono">Photo</div>
                                               )}
@@ -1245,7 +1242,7 @@ export function ClientDashboard() {
                                     <div className="flex gap-3.5 items-start">
                                       <div className="w-16 h-12 bg-charcoal border border-white/5 rounded-xs overflow-hidden flex-shrink-0">
                                         {item.img ? (
-                                          <img src={item.img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          <img src={item.img} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
                                         ) : (
                                           <div className="w-full h-full bg-white/5" />
                                         )}

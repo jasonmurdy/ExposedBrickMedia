@@ -433,6 +433,9 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [partnerSortOrder, setPartnerSortOrder] = useState<'asc' | 'desc'>('asc');
   const [partnerDirectorySearch, setPartnerDirectorySearch] = useState('');
   const [syncQueue, setSyncQueue] = useState<any[]>([]);
+  const [showFotelloModal, setShowFotelloModal] = useState(false);
+  const [fotelloPartners, setFotelloPartners] = useState<any[]>([]);
+  const [loadingFotello, setLoadingFotello] = useState(false);
 
   // Sync pages to 1 on active tab / search change
   useEffect(() => {
@@ -1826,6 +1829,44 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       }
     } catch (err: any) {
       toast.error(`Error resolving match: ${err.message}`, { id: tid });
+    }
+  };
+
+  const fetchFotelloPartners = async () => {
+    setLoadingFotello(true);
+    try {
+      const res = await fetch("/api/admin/fotello-partners");
+      if (res.ok) {
+        const list = await res.json();
+        setFotelloPartners(list);
+      } else {
+        toast.error("Failed to fetch Fotello database partners.");
+      }
+    } catch (err: any) {
+      toast.error("Network error while connecting to Fotello database.");
+      console.error(err);
+    } finally {
+      setLoadingFotello(false);
+    }
+  };
+
+  const handleImportSinglePartner = async (partner: any) => {
+    const tid = toast.loading(`Importing partner: ${partner.displayName}...`);
+    try {
+      const res = await fetch("/api/admin/partners/import-single", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partner)
+      });
+      if (res.ok) {
+        toast.success(`Successfully imported ${partner.displayName}!`, { id: tid });
+        await fetchFotelloPartners();
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to import partner.");
+      }
+    } catch (err: any) {
+      toast.error(`Import failed: ${err.message}`, { id: tid });
     }
   };
 
@@ -4406,24 +4447,14 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               </div>
               <div className="flex flex-wrap gap-3">
                 <button 
-                  onClick={async () => {
-                    const id = toast.loading("Checking and importing partner directory changes...");
-                    try {
-                      const res = await fetch("/api/admin/partners/import-sync", { method: "POST" });
-                      if (res.ok) {
-                        const data = await res.json();
-                        toast.success(`Success: ${data.message}`, { id });
-                      } else {
-                        throw new Error();
-                      }
-                    } catch {
-                      toast.error("Failed to sync partners from directory database.", { id });
-                    }
+                  onClick={() => {
+                    setShowFotelloModal(true);
+                    fetchFotelloPartners();
                   }}
                   className="px-5 py-2 border border-white/10 hover:border-brick-copper text-white hover:text-brick-copper text-[10px] uppercase font-black tracking-widest transition-all flex items-center gap-2"
-                  title="Import/sync any listed Realtors/Partners in your images that are not yet synchronized"
+                  title="View partners in your Fotello Database and select which ones to import"
                 >
-                  📥 Sync/Import Partners
+                  📥 Import from Fotello DB
                 </button>
                 <button 
                   onClick={handleCreatePartner}
@@ -6340,6 +6371,120 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
             </div>
           </div>
         )}
+
+      {/* SELECTIVE FOTELLO PARTNERS IMPORT PORTAL */}
+      <AnimatePresence>
+        {showFotelloModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-charcoal border border-white/10 w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative text-left rounded-sm"
+            >
+              <button 
+                onClick={() => setShowFotelloModal(false)}
+                className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors cursor-pointer p-1"
+                type="button"
+                aria-label="Close portal"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="p-6 md:p-8 border-b border-white/5 space-y-1">
+                <span className="text-[8px] uppercase tracking-[0.3em] text-brick-copper font-mono font-black block">Directory Access Integration</span>
+                <h3 className="font-display text-2xl text-white italic">Fotello Database Catalog</h3>
+                <p className="text-[10px] text-white/40 font-mono">Select individual advisor directories to import into Exposed Brick Media ecosystems.</p>
+              </div>
+
+              <div className="p-6 md:p-8 overflow-y-auto flex-1 custom-scrollbar">
+                {loadingFotello ? (
+                  <div className="py-12 flex flex-col items-center justify-center gap-3 text-white/50">
+                    <span className="w-8 h-8 border-2 border-brick-copper border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[10px] font-mono uppercase tracking-widest">Accessing secure Fotello registries...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {fotelloPartners.length === 0 ? (
+                      <div className="py-8 text-center text-[10px] uppercase tracking-wider text-white/30 font-mono">
+                        No external partners catalogued in external registries.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {fotelloPartners.map((partner) => (
+                          <div 
+                            key={partner.email} 
+                            className={`border p-4 rounded-xs flex gap-3 items-start transition-all duration-300 ${
+                              partner.isImported 
+                                ? "border-emerald-500/20 bg-emerald-500/[0.01]" 
+                                : "border-white/5 bg-white/[0.01] hover:border-white/10"
+                            }`}
+                          >
+                            <img 
+                              src={partner.headshotUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2"} 
+                              alt={partner.displayName} 
+                              className="w-12 h-12 rounded-full object-cover border border-white/10 shrink-0"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-display font-semibold text-sm text-white truncate flex items-center gap-2">
+                                {partner.displayName}
+                                {partner.isImported && (
+                                  <span className="text-[8px] uppercase font-mono px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-sm font-bold">
+                                    ✓ Imported
+                                  </span>
+                                )}
+                              </h4>
+                              <p className="text-[10px] text-white/50 font-mono truncate">{partner.email}</p>
+                              {partner.phone && <p className="text-[9px] text-white/40 font-mono mt-0.5">{partner.phone}</p>}
+                              <p className="text-[10px] text-white/40 line-clamp-2 mt-2 leading-relaxed font-sans">
+                                {partner.bio}
+                              </p>
+                            </div>
+                            
+                            <div className="shrink-0 pt-1">
+                              {partner.isImported ? (
+                                <button
+                                  disabled
+                                  className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-[8px] uppercase font-bold tracking-wider rounded-xs cursor-not-allowed"
+                                >
+                                  Active
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleImportSinglePartner(partner)}
+                                  className="px-3 py-1.5 bg-brick-copper hover:bg-white text-charcoal text-[8px] uppercase font-black tracking-wider rounded-xs transition-all cursor-pointer"
+                                >
+                                  Import
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 md:p-8 mt-auto border-t border-white/5 flex justify-end">
+                <button 
+                  type="button" 
+                  onClick={() => setShowFotelloModal(false)}
+                  className="border border-white/10 text-white px-6 py-2.5 hover:bg-white hover:text-charcoal transition-all rounded-xs text-[9px] uppercase font-black tracking-widest cursor-pointer"
+                >
+                  Close Directory
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

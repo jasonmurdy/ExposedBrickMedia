@@ -197,6 +197,23 @@ service cloud.firestore {
         && (data.get('updatedAt', null) == null || true);
     }
 
+    function isValidSyncQueue(data) {
+      return data.keys().hasAll(['id', 'fotelloPartner', 'existingPartner', 'matchType', 'status', 'createdAt'])
+        && data.id is string && data.id.size() <= 200
+        && data.fotelloPartner is map
+        && data.existingPartner is map
+        && data.matchType is string && data.matchType.size() <= 200
+        && data.status is string && data.status.size() <= 100
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
+    function isValidSyncDecision(data) {
+      return data.keys().hasAll(['fotelloEmail', 'action', 'resolvedAt'])
+        && data.fotelloEmail is string && data.fotelloEmail.size() <= 300
+        && data.action is string && data.action.size() <= 100
+        && data.resolvedAt is string && data.resolvedAt.size() <= 100;
+    }
+
     // 3. Collection Rules
     match /admins/{adminId} {
       allow read: if isAdmin();
@@ -344,6 +361,14 @@ service cloud.firestore {
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'rewardEarned', 'value', 'updatedAt'])
         );
+    }
+
+    match /fotello_sync_queue/{queueId} {
+      allow read, write: if true;
+    }
+
+    match /fotello_sync_decisions/{decId} {
+      allow read, write: if true;
     }
   }
 }
