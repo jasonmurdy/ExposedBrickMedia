@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
-import { Layout, Maximize, FileText, Check } from 'lucide-react';
+import { Layout, Maximize, FileText, Check, Compass, Layers, Box, Zap, Clock, Sparkles } from 'lucide-react';
 import { useSiteContent } from '../../lib/SiteContentContext';
 import { useMemo } from 'react';
 import { Render } from '@measured/puck';
@@ -21,7 +21,7 @@ export default function FloorPlans() {
 
   if (sanitizedLayout && (sanitizedLayout.content?.length > 0 || sanitizedLayout.zones)) {
     return (
-      <div className="w-full flex-col min-h-screen">
+      <div className="w-full flex-col min-h-screen bg-bg-primary text-text-primary">
         <Helmet>
           <title>Floor Plans | Exposed Brick Media</title>
           <meta name="description" content="Professional 2D and 3D schematic floor plans for real estate marketing." />
@@ -42,7 +42,7 @@ export default function FloorPlans() {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full animate-fadeIn"
+      className="w-full animate-fadeIn bg-bg-primary text-text-primary min-h-screen flex flex-col"
     >
       <Helmet>
         <title>Floor Plans | Exposed Brick Media</title>
@@ -59,133 +59,243 @@ export default function FloorPlans() {
       </div>
 
       <div className="flex-1">
-        {/* Hero Section */}
-        <section className="relative h-[60vh] lg:h-[70vh] flex items-center justify-center text-center overflow-hidden border-b border-border-subtle">
-          <img 
-            src="https://images.unsplash.com/photo-1541888946425-d81bb19480c5?auto=format&fit=crop&q=80&w=2000" 
-            alt="Professional Floor Plans" 
-            className="absolute inset-0 w-full h-full object-cover scale-105 motion-safe:animate-[pulse_10s_infinite] opacity-35 grayscale animate-pulse"
-          />
-          <div className="absolute inset-0 bg-black/65" />
-          
-          <div className="relative z-10 space-y-8 px-8 max-w-4xl">
-            <span className="text-brick-copper text-[11px] uppercase tracking-[0.6em] font-black block">Strategic Documentation</span>
-            <h1 className="font-display text-5xl md:text-8xl text-white italic tracking-tighter leading-tight">Professional <br/><span className="text-brick-copper">Floor Plans</span></h1>
-            <p className="text-base md:text-lg text-white/70 max-w-2xl mx-auto font-light leading-relaxed">
-              Give buyers the complete picture. Accurate, high-quality floor plans that bring your listings to life.
-            </p>
-          </div>
-        </section>
-
-        {/* Main Content: The Importance of Floor Plans */}
-        <section className="py-24 lg:py-32 px-8 md:px-16 lg:px-24">
-          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
-            
-            {/* Text Content */}
-            <div className="lg:col-span-7 space-y-10">
-              <div className="space-y-4">
-                <span className="text-brick-copper text-[10px] uppercase tracking-[0.5em] font-bold block">The Spatial Logic</span>
-                <h2 className="text-3xl md:text-5xl font-display italic text-white leading-tight">
-                  Why Every Real Estate Listing Needs a Floor Plan
-                </h2>
-              </div>
-              <p className="text-lg text-text-primary/60 font-light leading-relaxed">
-                Photography captures the emotion of a home, but a floor plan provides the logic. 
-                In today's fast-paced market, buyers want to know if their lifestyle fits the space before they ever step through the front door. 
+        {/* Hero Header Section */}
+        <section className="px-8 md:px-12 lg:px-16 max-w-7xl mx-auto mt-12 md:mt-16 mb-16">
+          <div className="flex flex-col md:flex-row items-end justify-between gap-8 border-b border-white/10 pb-8">
+            <div className="max-w-2xl">
+              <span className="font-mono text-[10px] lg:text-[11px] uppercase tracking-[0.4em] text-brick-copper mb-4 block font-medium">
+                PRECISION ARCHITECTURAL MAPPING
+              </span>
+              <h1 className="font-serif italic text-4xl md:text-7xl text-white tracking-tight leading-[1.1]">
+                Visualizing space with technical elegance.
+              </h1>
+              <p className="text-sm md:text-base text-text-primary/70 max-w-xl leading-relaxed mt-6 font-light">
+                Clean, high-fidelity floor plans that bridge the gap between imagination and reality. From detailed 2D layouts to immersive 3D visualizations.
               </p>
-              
-              <ul className="space-y-8 pt-4">
-                {[
-                  {
-                    title: "Immediate Spatial Understanding",
-                    desc: "Photos can make it hard to understand the flow of a house. Floor plans instantly map out room relationships, showing where the primary bedroom sits relative to the nursery or home office."
-                  },
-                  {
-                    title: "Higher Buyer Engagement",
-                    desc: "Listings with floor plans keep potential buyers on the page longer. They actively engage with the layout, mentally placing their furniture and planning their lives in the space."
-                  },
-                  {
-                    title: "Fewer Wasted Showings",
-                    desc: "By providing accurate dimensions and layouts upfront, you attract highly qualified buyers who already know the home meets their fundamental structural needs."
-                  }
-                ].map((item, idx) => (
-                  <li key={idx} className="flex gap-6 items-start">
-                    <span className="flex-shrink-0 h-10 w-10 border border-white/10 rounded-sm flex items-center justify-center text-brick-copper mt-1">
-                      <Check size={18} />
-                    </span>
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-white tracking-wide">{item.title}</h4>
-                      <p className="text-text-primary/60 text-sm leading-relaxed font-light">{item.desc}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Visual Showcase */}
-            <div className="lg:col-span-5 bg-charcoal border border-white/10 p-6 rounded-sm relative group overflow-hidden">
-              <div className="absolute -inset-4 bg-brick-copper/5 blur-2xl opacity-30 group-hover:opacity-60 transition-opacity" />
-              <div className="relative aspect-[4/3] w-full bg-black/40 overflow-hidden border border-white/5">
-                <img 
-                  src="https://images.unsplash.com/photo-1541888946425-d81bb19480c5?auto=format&fit=crop&q=80&w=1200" 
-                  alt="Detailed Real Estate Floor Plan" 
-                  className="object-cover w-full h-full opacity-60 grayscale group-hover:grayscale-0 transition-all duration-1000 scale-105 group-hover:scale-100"
-                />
-              </div>
-              <div className="relative mt-4 flex items-center justify-between text-[11px] uppercase tracking-wider text-text-primary/40">
-                <span>Schematic Layout Asset</span>
-                <span className="text-brick-copper">Precision Scale</span>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* Process / Features Section */}
-        <section className="py-24 px-8 md:px-16 lg:px-24 bg-text-primary/[0.02]">
-          <div className="max-w-6xl mx-auto space-y-16">
-            <div className="text-center space-y-4 max-w-3xl mx-auto">
-              <span className="text-brick-copper text-[10px] uppercase tracking-[0.5em] font-bold">Standard Features</span>
-              <h3 className="text-3xl font-display italic text-white">Our Floor Plan Features</h3>
-              <p className="text-text-primary/50 text-sm font-light font-sans">Eliminate the guesswork. 93% of buyers consider floor plans essential.</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-              {[
-                {
-                  title: "Laser-Accurate Measurements",
-                  desc: "We use advanced LiDAR and laser measuring tools to capture room dimensions with pinpoint accuracy.",
-                  icon: <Maximize size={20} />
-                },
-                {
-                  title: "Fixed Furniture Details",
-                  desc: "Our plans include essential fixed elements like kitchen islands, bathroom fixtures, and major appliances.",
-                  icon: <Layout size={20} />
-                },
-                {
-                  title: "Clean, Branded Delivery",
-                  desc: "Receive your floor plans in high-resolution PDF and JPG formats, customized with your branding.",
-                  icon: <FileText size={20} />
-                }
-              ].map((feat, i) => (
-                <div key={i} className="p-8 border border-white/5 bg-charcoal/20 space-y-6 group hover:border-white/10 transition-colors">
-                  <div className="w-12 h-12 flex items-center justify-center border border-white/10 text-brick-copper group-hover:bg-brick-copper group-hover:text-charcoal transition-all duration-500">
-                    {feat.icon}
-                  </div>
-                  <h4 className="text-lg font-display italic text-white">{feat.title}</h4>
-                  <p className="text-sm text-text-primary/50 leading-relaxed font-light">{feat.desc}</p>
-                </div>
-              ))}
+            {/* Horizontal Grid Info Boxes */}
+            <div className="flex gap-8 lg:gap-12 font-mono text-[10px] pb-2 w-full md:w-auto justify-start md:justify-end">
+              <div className="flex flex-col">
+                <span className="text-text-primary/40 tracking-[0.2em] mb-1.5">PRECISION</span>
+                <span className="text-white border border-white/10 px-3 py-1.5 bg-white/[0.02]">99.8% ACCURACY</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-text-primary/40 tracking-[0.2em] mb-1.5">TURNAROUND</span>
+                <span className="text-white border border-white/10 px-3 py-1.5 bg-white/[0.02]">24 HOURS</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Hero Feature Image */}
+          <div className="mt-8 relative h-[350px] md:h-[600px] w-full overflow-hidden group border border-white/5 bg-black/20">
+            <img 
+              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 opacity-80 group-hover:opacity-90"
+              alt="Cinematic architectural luxury master bedroom interior layout"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuArp_Nm8EEMo1oNGZ85G1A4fgG0bFaiX--1LP2TJkVrCCaiEjtQTY4gMbeyWmAP4-EJFllHA1QVZ3tAzcGIIDDNPljCAKo0x_jDHet03EjciVvGU9gMUVn63N7iNCeatgRi3sGIyRSBWxnLdj-IgYwZ3uz_RuaDD0ItnNENSPnFsGNF3EAsYJ7tIzH8fPhfiPAgJVhcF1h-_ByCflWOYY-h20ET848NJ_dTe_niK0UMWASDzruIpdLRnTUrDiymZdC4LL1EVtnfY3sH"
+            />
+            {/* Overlay Gradient resembling production suite */}
+            <div className="absolute inset-0 bg-gradient-to-t from-bg-primary/90 via-transparent to-transparent opacity-60 pointer-events-none" />
+            <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8">
+              <div className="flex items-center gap-3 backdrop-blur-md bg-black/40 border border-white/10 p-3 rounded-none">
+                <Compass className="text-brick-copper w-4 h-4" />
+                <span className="font-mono text-[9px] md:text-[10px] tracking-[0.25em] text-white">MASTER SUITE L-422</span>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Dynamic Booking Section */}
-        <section className="py-24 px-8 md:px-16 lg:px-24 border-t border-border-subtle">
+        {/* Product Sections Grid (2D & 3D options) */}
+        <section className="px-8 md:px-12 lg:px-16 max-w-7xl mx-auto mb-24 md:mb-32">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">
+            
+            {/* 2D Schematic Card */}
+            <div className="p-8 md:p-12 border border-white/5 bg-white/[0.01] hover:border-brick-copper/20 transition-all duration-500 flex flex-col justify-between group rounded-none min-h-[550px]">
+              <div>
+                <div className="mb-10 text-brick-copper">
+                  <Compass className="w-10 h-10" strokeWidth={1} />
+                </div>
+                <h2 className="font-serif italic text-3xl md:text-5xl text-white tracking-tight mb-6">
+                  Schematic 2D Layouts
+                </h2>
+                <p className="text-sm text-text-primary/60 leading-relaxed font-light mb-8 max-w-md">
+                  Perfect for standard listings. Crisp black and white or color-coded diagrams including precise measurements, room labels, and total square footage.
+                </p>
+                <ul className="space-y-4 mb-8">
+                  {[
+                    "Laser-Accurate Measurements",
+                    "Custom Branding Options",
+                    "PDF & High-Res JPG Delivery"
+                  ].map((item, idx) => (
+                    <li key={idx} className="flex items-center gap-3 font-mono text-[10px] md:text-[11px] tracking-wider text-text-primary/8 font-medium uppercase">
+                      <span className="inline-block w-1.5 h-1.5 bg-brick-copper rounded-none"></span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Sub-image area inside card */}
+              <div className="mt-6 h-48 overflow-hidden relative border border-white/5 bg-black/40">
+                <img 
+                  className="w-full h-full object-cover grayscale opacity-30 group-hover:opacity-60 transition-opacity duration-1000"
+                  alt="Stylized monochrome 2D blueprint layout"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQhA1X3G37-u5gX0x4_TwYmCZjTcSsRAO09ODZ2YwX1j15mz5qAqX0CYJ0Vor8loeI8zkyTPwjQ_CCQcsu-Nc4UcyqQzRklEAfwHBXuMNkhBWnhwcvDtQlpENn8u3m-k8StYuryRAWPRLlITV5yfuuoZ57Z3B5LSlIK-FYZ-vn7PjFBnx9-EqQfHh1OUeFAm68to2oyKbfU46_1Qe8OeSgUdR4eIzmPFbEUCMMKZroS8XdXn-wzAUgs9QQbsb-Q1gHMmgaSGCnluo5"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 3D Immersive Card */}
+            <div className="p-8 md:p-12 border border-white/5 bg-white/[0.01] hover:border-brick-copper/20 transition-all duration-500 flex flex-col justify-between group rounded-none min-h-[550px]">
+              <div>
+                <div className="mb-10 text-brick-copper">
+                  <Layers className="w-10 h-10" strokeWidth={1} />
+                </div>
+                <h2 className="font-serif italic text-3xl md:text-5xl text-white tracking-tight mb-6">
+                  Immersive 3D Visuals
+                </h2>
+                <p className="text-sm text-text-primary/60 leading-relaxed font-light mb-8 max-w-md">
+                  Elevate your presentation with volumetric renders. Helping buyers visualize the flow and volume of the property with realistic textures and lighting.
+                </p>
+                <ul className="space-y-4 mb-8">
+                  {[
+                    "Full Furniture Staging",
+                    "Lighting & Texture Realism",
+                    "Multiple Perspective Angles"
+                  ].map((item, idx) => (
+                    <li key={idx} className="flex items-center gap-3 font-mono text-[10px] md:text-[11px] tracking-wider text-text-primary/8 font-medium uppercase">
+                      <span className="inline-block w-1.5 h-1.5 bg-brick-copper rounded-none"></span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Sub-image area inside card */}
+              <div className="mt-6 h-48 overflow-hidden relative border border-white/5 bg-black/40">
+                <img 
+                  className="w-full h-full object-cover grayscale opacity-30 group-hover:opacity-60 transition-opacity duration-1000"
+                  alt="Stylized volumetric isometric 3D architectural mockup layout"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8NM12JaEItHxBon6CuazpOjos1lvwh314h11D4ZODfah65zEqiSyj68UgcqdS8ppsyCj1s3WeoD5DDDyhnJSoLDcKvv5yB6zMjqyHtmUf36q2mPn1gmTktPtQkaBAZ_yl8WJTVdgHOAHGCQmgae9xp4TzL8EuEV14oR9o8d78huuiD4XNYkpVcexxnPBjGDVa7U3HO_047autjNbAm0Z8_t8LyIym9f6zzjxV-AN49bny2C9gUo2uffuPcyk3QELTg70mI5wdI2zg"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* Process Section with Bento Design */}
+        <section className="px-8 md:px-12 lg:px-16 max-w-7xl mx-auto mb-24 md:mb-32">
+          <div className="mb-12 md:mb-16">
+            <span className="font-mono text-[10px] lg:text-[11px] uppercase tracking-[0.4em] text-brick-copper mb-4 block font-medium">
+              THE WORKFLOW
+            </span>
+            <h2 className="font-serif italic text-4xl md:text-6xl text-white tracking-tight">
+              Technical precision, delivered fast.
+            </h2>
+          </div>
+
+          {/* Bento Grid layout */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+            
+            {/* Card 01 - Capture */}
+            <div className="bg-white/[0.01] p-8 md:p-10 border border-white/5 flex flex-col justify-between min-h-[220px]">
+              <div>
+                <span className="font-mono text-xs tracking-widest text-brick-copper/60">01</span>
+                <h3 className="font-serif italic text-2xl text-white mt-4 mb-4">Capture</h3>
+                <p className="text-sm text-text-primary/60 leading-relaxed font-light">
+                  We use high-precision LiDAR and photogrammetry to scan every inch of the property during our visit.
+                </p>
+              </div>
+            </div>
+
+            {/* Card 02 - Process (Tall) */}
+            <div className="bg-white/[0.01] p-8 md:p-10 border border-white/5 flex flex-col justify-between md:row-span-2 min-h-[350px]">
+              <div>
+                <span className="font-mono text-xs tracking-widest text-brick-copper/60">02</span>
+                <h3 className="font-serif italic text-2xl text-white mt-4 mb-4">Process</h3>
+                <p className="text-sm text-text-primary/60 leading-relaxed font-light mb-8">
+                  Our architectural draftsmen convert raw data into clean, formatted plans with 99.8% measurement accuracy.
+                </p>
+              </div>
+              
+              <div className="border-t border-white/10 pt-6 mt-6">
+                <div className="flex items-center gap-3 mb-3 text-brick-copper">
+                  <Zap className="w-4 h-4" />
+                  <span className="font-mono text-[11px] tracking-[0.25em] font-medium uppercase">PRIORITY RENDERING</span>
+                </div>
+                <p className="text-[11px] text-text-primary/50 leading-relaxed font-light">
+                  Standard 24-hour turnaround included with all premium media packages.
+                </p>
+              </div>
+            </div>
+
+            {/* Card 03 - Deliver */}
+            <div className="bg-white/[0.01] p-8 md:p-10 border border-white/5 flex flex-col justify-between min-h-[220px]">
+              <div>
+                <span className="font-mono text-xs tracking-widest text-brick-copper/60">03</span>
+                <h3 className="font-serif italic text-2xl text-white mt-4 mb-4">Deliver</h3>
+                <p className="text-sm text-text-primary/60 leading-relaxed font-light">
+                  Receive your print-ready and web-optimized files via our secure client portal.
+                </p>
+              </div>
+            </div>
+
+            {/* Spanning Image Block */}
+            <div className="md:col-span-2 bg-white/[0.01] relative h-64 overflow-hidden border border-white/5 group">
+              <img 
+                className="w-full h-full object-cover opacity-35 group-hover:scale-[1.03] transition-transform duration-700 hover:opacity-50"
+                alt="Architectural laser rangefinder measuring device macro close-up"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXWn7O1QduMg8tBFaxMu8CoGB1qfriUiN7gBJ3YUe1fvKRcx1YYFjzUlXmLZEbltWnEKhTWrOKcoF9nvs7pf3EyrG6CPiVegcosMiXugvbUisdft5m40pesaaA98SyfxcDD63EdnSO0Yo2CnazomXd4QahCDPj80MoqOxgduqj9bM2YggqRJKagS4U6EYcyCDWDa4UV9mhNNfdIMc2NcpXer8pbVvdOjCtQ14WWRUXDgnwbeNa6oS_mESGQFEWn_bFNVSCXJzu4y_N"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-bg-primary/80 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="font-mono text-xs tracking-[0.4em] text-white font-semibold transform translate-y-2 group-hover:translate-y-0 transition-all duration-500">
+                  LASER-GUIDED ACCURACY
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* Action Call / Footer CTA Block */}
+        <section className="bg-white/[0.01] border-y border-white/5 py-16 md:py-24 px-8 md:px-12 lg:px-16 w-full">
+          <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-12">
+            <div className="max-w-xl text-left">
+              <h2 className="font-serif italic text-3xl md:text-5xl text-white tracking-tight mb-4">
+                Ready to blueprint your listing?
+              </h2>
+              <p className="text-sm md:text-base text-text-primary/70 leading-relaxed font-light">
+                Our floor plans are the perfect companion to our premium photography and cinema services. Book as a standalone or as part of a media suite.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto self-start lg:self-center">
+              <Link 
+                to="/services/packages"
+                className="bg-brick-copper text-charcoal px-8 py-4 font-mono text-[11px] tracking-[0.3em] font-bold text-center hover:opacity-90 active:scale-95 transition-all duration-300"
+              >
+                VIEW PRICING
+              </Link>
+              <Link 
+                to="/inquiry"
+                className="border border-white/20 text-white px-8 py-4 font-mono text-[11px] tracking-[0.3em] text-center hover:border-brick-copper hover:text-brick-copper active:scale-95 transition-all duration-300"
+              >
+                BOOK NOW
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Dynamic Interactive Booking Form */}
+        <section className="py-20 md:py-28 px-8 md:px-16 lg:px-24">
           <div className="max-w-3xl mx-auto">
             <BookingForm override={{ title: "Request Floor Plan Documentation" }} />
           </div>
         </section>
+
       </div>
     </motion.div>
   );

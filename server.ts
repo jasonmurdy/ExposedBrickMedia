@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import compression from "compression";
+import cors from "cors";
 import * as sib from "@getbrevo/brevo";
 import { GoogleGenAI } from "@google/genai";
 import admin from "firebase-admin";
@@ -691,161 +692,69 @@ Make sure every component in the returned JSON has a unique "id" string generate
     }
   });
 
-  const INITIAL_PARTNERS = [
-    {
-      email: "candice.laframboise@century21.ca",
-      displayName: "Candice Laframboise",
-      phone: "+16135382885",
-      headshotUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2",
-      logoUrl: "https://images.unsplash.com/photo-1600585154526-990dced4db0d",
-      bio: "Candice Laframboise is an elite real estate professional representing Century 21. Utilizing high-fidelity real estate media and Matterport 3D tours, Candice secures phenomenal results for modern home buyers and sellers.",
-      role: "partner"
-    },
-    {
-      email: "aurora@heartofkingston.com",
-      displayName: "Aurora Dokken",
-      phone: "+16134536323",
-      headshotUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
-      logoUrl: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6",
-      bio: "Aurora Dokken represents Heart of Kingston, specializing in local residential properties and premier boutique listings with advanced media narratives.",
-      role: "partner"
-    },
-    {
-      email: "sheri@sherigodfrey.ca",
-      displayName: "Sheri Godfrey",
-      phone: "+16139295356",
-      headshotUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956",
-      logoUrl: "https://images.unsplash.com/photo-1628155930542-3c7a64e2c833",
-      bio: "Sheri Godfrey is an experienced property agent at Senior Transitions, bringing exceptional care, customized relocation support, and premium property visualization to every listing.",
-      role: "partner"
-    },
-    {
-      email: "charlyrowsell@kw.com",
-      displayName: "Charly Rowsell",
-      phone: "+16137705580",
-      headshotUrl: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Charly Rowsell is a premier real estate marketing wizard with Keller Williams Inspire Realty, using cinematic video walks to command high-value views for residential sales.",
-      role: "partner"
-    },
-    {
-      email: "andreabarkley@live.com",
-      displayName: "Andrea Barkley",
-      phone: "+16139299350",
-      headshotUrl: "https://images.unsplash.com/photo-1594744803329-e58b31de215f",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Andrea Barkley represents Keller Williams Inspire Realty with a dedicated approach to client service and stunning, professional real estate media systems.",
-      role: "partner"
-    },
-    {
-      email: "bulsen@cityscapeone.com",
-      displayName: "Kadir Bulsen",
-      phone: "",
-      headshotUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a",
-      logoUrl: "https://images.unsplash.com/photo-1618219908412-a29a1bb7b86e",
-      bio: "Kadir Bulsen is a leading architectural and commercial real estate specialist with Cityscape Real Estate, leveraging 3D tours and high-resolution ground still catalogs.",
-      role: "partner"
-    },
-    {
-      email: "laura.turner@kw.com",
-      displayName: "Laura Turner",
-      phone: "+16134495396",
-      headshotUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Laura Turner is a top producer with Keller Williams Inspire Realty. An expert in luxury property marketing, Laura empowers listings using magnificent cinematic cinematography.",
-      role: "partner"
-    },
-    {
-      email: "craig@craigforde.com",
-      displayName: "Craig Forde",
-      phone: "",
-      headshotUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7",
-      logoUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
-      bio: "Craig Forde is an independent real estate advisor specialized in unique mid-century residential architecture on modern real estate channels.",
-      role: "partner"
-    },
-    {
-      email: "morgan.g@kw.com",
-      displayName: "Morgan Green",
-      phone: "",
-      headshotUrl: "https://images.unsplash.com/photo-1607746882042-944635dfe10e",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Morgan Green is an elite listing consultant with Keller Williams, focusing on residential presentation excellence across diverse localized market segments.",
-      role: "partner"
-    },
-    {
-      email: "jacob_hartman@hotmail.com",
-      displayName: "Jacob Hartman",
-      phone: "",
-      headshotUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Jacob Hartman represents Keller Williams Inspire Realty, blending personalized real estate service and high-impact media programs.",
-      role: "partner"
-    },
-    {
-      email: "jacob.hartman@kw.com",
-      displayName: "Jacob Hartman",
-      phone: "",
-      headshotUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Jacob Hartman is an active sales representative with Keller Williams, optimizing multi-platform real estate presence for residential portfolios.",
-      role: "partner"
-    },
-    {
-      email: "tracy.brooks@kw.com",
-      displayName: "Tracy Brooks",
-      phone: "",
-      headshotUrl: "https://images.unsplash.com/photo-1548142813-c348350df52b",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Tracy Brooks brings professional representation and advanced real-estate presentation schemes under the Keller Williams Inspire Realty banner.",
-      role: "partner"
-    },
-    {
-      email: "murdyteam@gmail.com",
-      displayName: "Rod Murdy",
-      phone: "+19053340336",
-      headshotUrl: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea",
-      logoUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
-      bio: "Rod Murdy leads options and opportunities for clients as part of The Murdy Team with eXp Realty of Canada, maximizing deal value with high-contrast flambient captures.",
-      role: "partner"
-    },
-    {
-      email: "michaelmachale@kw.com",
-      displayName: "Michael Machale",
-      phone: "+16133298125",
-      headshotUrl: "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Michael Machale handles high-density residential acquisitions under Keller Williams, specializing in modern condo and loft portfolios.",
-      role: "partner"
-    },
-    {
-      email: "maureenmccartney@kw.com",
-      displayName: "Maureen McCartney",
-      phone: "+16135722945",
-      headshotUrl: "https://images.unsplash.com/photo-1551836022-d5d88e9218df",
-      logoUrl: "https://images.unsplash.com/photo-1543286386-7a39e65fecab",
-      bio: "Maureen McCartney is a highly regarded advisor from Keller Williams Inspire Realty, focusing on family relocation guidance and immaculate listing layouts.",
-      role: "partner"
-    },
-    {
-      email: "jquinn@sutton.com",
-      displayName: "Jamie Quinn",
-      phone: "+16135307663",
-      headshotUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80",
-      logoUrl: "https://images.unsplash.com/photo-1618219942942-be919a7796d4",
-      bio: "Jamie Quinn represents Sutton Group, leveraging deep local market expertise, customized customer satisfaction loops, and gorgeous aerial visual media.",
-      role: "partner"
-    },
-    {
-      email: "carole.palmer@century21.ca",
-      displayName: "Carole Palmer",
-      phone: "+16132141063",
-      headshotUrl: "https://images.unsplash.com/photo-1562124638-724e13052daf",
-      logoUrl: "https://images.unsplash.com/photo-1600585154526-990dced4db0d",
-      bio: "Carole Palmer serves clients under Century 21 with professional care, exceptional diligence, and stunning HDR photo systems for high-contrast representations.",
-      role: "partner"
+  app.post("/api/admin/setup-firestore-seed", async (req, res) => {
+    try {
+      const seedPresets = [
+        {
+          name: "Services / Interior Photography Landing Page",
+          category: "Media Showcase",
+          description: "Premium landing page for Interior Photography utilizing custom asymmetric split layouts via Columns, explicit Image configurations, and interactive portfolios.",
+          previewImage: "slate",
+          puckData: {
+            content: [
+              {
+                type: "Section",
+                props: { padding: "py-32", background: "bg-transparent", layout: "full", spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" } },
+                children: [
+                  {
+                    type: "Columns",
+                    props: { leftColumnWidth: 45, gap: 48, spacing: { "pt": "0", "pb": "0", "mt": "0", "mb": "0" } },
+                    children: [
+                      {
+                        type: "FlexBox",
+                        props: { direction: "flex-col", align: "items-start", justify: "justify-center", gap: 16 },
+                        children: [
+                          { type: "Heading", props: { text: "THE ART OF THE INTERIOR", level: 1, sizeDesktop: "md:text-5xl", sizeMobile: "text-3xl", accent: true } },
+                          { type: "RichText", props: { content: "<p>Capturing architectural spaces through intentional balance, light, and symmetry. We deploy specialized multi-flash flambient methodologies to ensure spatial realities match raw aesthetic luxury.</p>", size: "base" } }
+                        ]
+                      },
+                      { type: "Image", props: { url: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c", alt: "Luxury Interior Setup", aspectRatio: "aspect-[4/5]", objectFit: "object-cover", rounded: "rounded-none" } }
+                    ]
+                  }
+                ]
+              }
+            ],
+            root: { props: { className: "" } }
+          }
+        }
+      ];
+
+      for (const partner of INITIAL_PARTNERS) {
+        const docId = partner.email.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        await adminDb.collection("users").doc(docId).set({
+          ...partner,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+
+      for (const preset of seedPresets) {
+        const docId = preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        await adminDb.collection("puck_templates").doc(docId).set({
+          ...preset,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+
+      res.json({ success: true, message: "Seeded templates and partners" });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
     }
-  ];
+  });
+
+  const INITIAL_PARTNERS: any[] = [];
 
   async function autoCreatePartner(email: string, displayName: string, phone: string = "") {
     const normalizedEmail = email.toLowerCase().trim();
@@ -1199,42 +1108,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
   // Fetch list of partners from Fotello database and cross reference with site's imported partners
   app.get("/api/admin/fotello-partners", async (req, res) => {
     try {
-      // 1. Fetch registered site partners
-      const listPath = path.resolve(process.cwd(), "fotello-synchronized-partners.json");
-      let currentLocalList: any[] = [];
-      try {
-        if (fs.existsSync(listPath)) {
-          currentLocalList = JSON.parse(fs.readFileSync(listPath, "utf8"));
-        }
-      } catch (err: any) {
-        // ignore
-      }
-
-      let registeredOnSite: any[] = [];
-      try {
-        const usersSnapshot = await adminDb.collection("users").get();
-        registeredOnSite = usersSnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter((u: any) => u.role === 'partner' || u.role === 'preferred');
-      } catch (err) {
-        registeredOnSite = currentLocalList.filter((item: any) => item.role === 'partner' || item.role === 'preferred');
-      }
-
-      // Convert site partners target email & normalization
-      const registeredEmails = new Set(registeredOnSite.map(u => (u.email || "").toLowerCase().trim()));
-
-      // 2. Map INITIAL_PARTNERS list with isImported flag
-      const list = INITIAL_PARTNERS.map(partner => {
-        const normEmail = partner.email.toLowerCase().trim();
-        const existingProf = registeredOnSite.find(u => (u.email || "").toLowerCase().trim() === normEmail);
-        return {
-          ...partner,
-          isImported: registeredEmails.has(normEmail),
-          importedUid: existingProf ? (existingProf.id || existingProf.uid) : null
-        };
-      });
-
-      return res.json(list);
+      return res.json([]);
     } catch (err: any) {
       console.error("[Get Fotello Partners Error]:", err);
       return res.status(500).json({ error: "Failed to fetch Fotello database partners", details: err.message });
@@ -2655,6 +2529,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
           console.error("[Fotello Webhook Error]:", dbErr);
         }
       });
+      return;
     }
 
     // partner roster sync
@@ -2751,6 +2626,7 @@ Make sure every component in the returned JSON has a unique "id" string generate
           console.error("[Fotello Webhook Partner Sync Error]:", dbErr);
         }
       });
+      return;
     }
 
     return res.json({ success: true, message: "Event received and acknowledged." });
@@ -3385,7 +3261,9 @@ Make sure every component in the returned JSON has a unique "id" string generate
   });
 
   // Vite integration
-  if (process.env.NODE_ENV !== "production") {
+  // Cloud Run often sets NODE_ENV=production by default, so we check process.argv instead to reliably detect 'tsx server.ts' vs 'node dist/server.cjs'
+  const isDevMode = !process.argv[1]?.endsWith("server.cjs");
+  if (isDevMode) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

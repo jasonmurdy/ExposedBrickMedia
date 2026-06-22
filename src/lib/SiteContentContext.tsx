@@ -166,7 +166,12 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLight, setIsLight] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'light';
+      try {
+        return localStorage.getItem('theme') === 'light';
+      } catch (e) {
+        console.warn("Storage access denied, falling back to dark theme.");
+        return false;
+      }
     }
     return false;
   });
@@ -182,7 +187,11 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    try {
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    } catch (e) {
+      console.warn("Cannot save theme to localStorage.");
+    }
     if (isLight) {
       document.documentElement.classList.add('light');
     } else {

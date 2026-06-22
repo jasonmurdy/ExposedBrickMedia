@@ -3,12 +3,7 @@
   <head>
     <script>
       window.addEventListener('error', function(e) {
-        if (
-          !e.message || 
-          e.message === 'Script error.' || 
-          e.message.indexOf('Script error') !== -1 ||
-          e.message.indexOf('ResizeObserver') !== -1
-        ) {
+        if (e.message && (e.message.indexOf('Script error') !== -1 || e.message.indexOf('ResizeObserver') !== -1)) {
           e.stopImmediatePropagation();
         }
       }, true);

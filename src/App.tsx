@@ -21,11 +21,7 @@ import InteriorPhotographyPage from './pages/services/InteriorPhotography';
 import AerialPhotographyPage from './pages/services/AerialPhotography';
 import VirtualToursPage from './pages/services/VirtualTours';
 import PackagesPage from './pages/services/Packages';
-// Lazy load the AdminDashboard to reduce initial bundle size
-const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const PuckEditor = lazy(() => import('./components/PuckEditor').then(m => ({ default: m.PuckEditor })));
 import { Shield, Loader2 } from 'lucide-react';
-
 import { SiteContentProvider, useSiteContent } from './lib/SiteContentContext';
 import { BrowserRouter, Routes, Route, useParams, useLocation, Link } from 'react-router-dom';
 import Markdown from 'react-markdown';
@@ -35,6 +31,10 @@ import { createConfig } from "./lib/puck.config";
 import { Helmet } from 'react-helmet-async';
 import { trackPageView } from './lib/analytics';
 import { sanitizeLayout } from './lib/sanitizeLayout';
+
+// Lazy load the AdminDashboard to reduce initial bundle size
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const PuckEditor = lazy(() => import('./components/PuckEditor').then(m => ({ default: m.PuckEditor })));
 
 function usePageTracking() {
   const location = useLocation();
