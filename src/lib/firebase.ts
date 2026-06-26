@@ -60,7 +60,7 @@ export interface FirestoreErrorInfo {
 export function handleFirestoreError(error: any, operationType: FirestoreErrorInfo['operationType'], path: string | null = null): never {
   const user = auth.currentUser;
   const errorInfo: FirestoreErrorInfo = {
-    error: error.message || String(error),
+    error: error?.message || String(error),
     operationType,
     path,
     authInfo: {
@@ -68,8 +68,27 @@ export function handleFirestoreError(error: any, operationType: FirestoreErrorIn
       email: user?.email || null,
       emailVerified: user?.emailVerified || false,
       isAnonymous: user?.isAnonymous || false,
-      providerInfo: user?.providerData || [],
+      providerInfo: user?.providerData?.map(p => ({
+        providerId: p.providerId,
+        uid: p.uid,
+        displayName: p.displayName,
+        email: p.email,
+        phoneNumber: p.phoneNumber,
+        photoURL: p.photoURL,
+      })) || [],
     }
   };
-  throw new Error(JSON.stringify(errorInfo));
+
+  const safeStringify = (obj: any) => {
+    const cache = new WeakSet();
+    return JSON.stringify(obj, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (cache.has(value)) return '[Circular]';
+        cache.add(value);
+      }
+      return value;
+    });
+  };
+
+  throw new Error(safeStringify(errorInfo));
 }

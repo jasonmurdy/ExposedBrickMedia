@@ -9,16 +9,17 @@ function sanitizeItem(item: any, path: string = "node", seenIds?: Set<string>): 
 
   const sanitized: any = { ...item };
   
-  // Ensure we have a valid, deterministic, and UNIQUE ID (required by Puck)
-  let cid = sanitized.id;
+  // Ensure we have a valid, deterministic, and UNIQUE ID as a trimmed string (required by Puck)
+  let cid = sanitized.id !== undefined && sanitized.id !== null ? String(sanitized.id).trim() : "";
   if (!cid || (seenIds && seenIds.has(cid))) {
     let suffix = 1;
     // Generate a clean, unique ID if missing or already seen
-    let newId = cid ? `${cid}-dup${suffix}` : `${sanitized.type || 'Block'}-${path}`;
+    const baseId = cid ? cid : `${sanitized.type || 'Block'}-${path}`;
+    let newId = baseId;
     if (seenIds) {
       while (seenIds.has(newId)) {
+        newId = `${baseId}-dup${suffix}`;
         suffix++;
-        newId = cid ? `${cid}-dup${suffix}` : `${sanitized.type || 'Block'}-${path}-${suffix}`;
       }
     }
     cid = newId;
@@ -86,6 +87,7 @@ function sanitizeItem(item: any, path: string = "node", seenIds?: Set<string>): 
 
   return sanitized;
 }
+
 function sanitizeProps(props: any, path: string = "props", seenIds?: Set<string>): any {
   if (!props || typeof props !== 'object') return {};
   
@@ -110,16 +112,28 @@ function sanitizeProps(props: any, path: string = "props", seenIds?: Set<string>
 
 function sanitizeArray(arr: any[], path: string = "array", seenIds?: Set<string>): any[] {
   return arr
-    .filter((item: any) => item !== null && typeof item === 'object')
+    .filter((item: any) => item !== null && item !== undefined)
     .map((item: any, idx: number) => {
-      // If it has a type string, it's a Puck item
-      if (typeof item.type === 'string') {
-        return sanitizeItem(item, `${path}-${idx}`, seenIds);
+      if (item && typeof item === 'object') {
+        // If it has a type string, it's a Puck item
+        if (typeof item.type === 'string') {
+          return sanitizeItem(item, `${path}-${idx}`, seenIds);
+        }
+        // Otherwise, recursively sanitize properties of the non-block object (e.g. customized packages, items, logos)
+        return sanitizeProps(item, `${path}-${idx}`, seenIds);
       }
-      // Otherwise, keep it as is or try to sanitize its structure
+      // Return primitive values directly as-is
       return item;
     })
-    .filter(Boolean);
+    .filter((item: any) => item !== null && item !== undefined);
+}
+
+function sanitizeBlockArray(arr: any[], path: string, seenIds: Set<string>): any[] {
+  return arr
+    .filter((item: any) => item !== null && item !== undefined && typeof item === 'object' && typeof item.type === 'string')
+    .map((item: any, idx: number) => {
+      return sanitizeItem(item, `${path}-${idx}`, seenIds);
+    });
 }
 
 export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
@@ -166,7 +180,7 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
 
   // 2. Sanitize content array
   if (Array.isArray(parsed.content)) {
-    parsed.content = sanitizeArray(parsed.content, "content", seenIds);
+    parsed.content = sanitizeBlockArray(parsed.content, "content", seenIds);
   } else {
     parsed.content = [];
   }
@@ -176,7 +190,7 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
     const sanitizedZones: any = {};
     for (const [zoneName, zoneItems] of Object.entries(parsed.zones)) {
       if (Array.isArray(zoneItems)) {
-        sanitizedZones[zoneName] = sanitizeArray(zoneItems, `zone-${zoneName}`, seenIds);
+        sanitizedZones[zoneName] = sanitizeBlockArray(zoneItems, `zone-${zoneName}`, seenIds);
       } else {
         sanitizedZones[zoneName] = [];
       }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, query, orderBy, doc, getDoc, setDoc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, getDoc, setDoc, serverTimestamp, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ADMIN_EMAILS } from '../constants';
 
@@ -341,42 +341,6 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const seedRequiredPages = async () => {
       const requiredPages = [
         {
-          id: 'floor-plans',
-          title: 'Floor Plans',
-          slug: 'floor-plans',
-          description: 'Professional 2D and 3D schematic floor plans for real estate marketing.',
-          content: '# Floor Plans\n\nHigh-resolution, precise 2D and 3D floor plan schematic layouts designed for real estate listings and architectural presentations.',
-          showInNav: true,
-          order: 2
-        },
-        {
-          id: 'interior',
-          title: 'Interior Photography',
-          slug: 'interior',
-          description: 'Editorial-grade interior photography for luxury real estate.',
-          content: '# Interior Photography\n\nEditorial-grade interior capture utilizing ambient light mastery and exposure blending for flawless, balanced interior scenes.',
-          showInNav: true,
-          order: 3
-        },
-        {
-          id: 'aerial',
-          title: 'Aerial Photography',
-          slug: 'aerial',
-          description: 'Cinematic aerial drone photography and videography for real estate.',
-          content: '# Aerial Photography\n\nHigh-resolution aerial vistas and cinematic drone flyovers capturing waterfront estate context and surrounding terrains.',
-          showInNav: true,
-          order: 4
-        },
-        {
-          id: 'virtual-tours',
-          title: '3D Virtual Tours',
-          slug: 'virtual-tours',
-          description: 'High-fidelity 3D Matterport tours and digital twins for architectural spaces.',
-          content: '# 3D Virtual Tours\n\nImmersive 3D Matterport captures allowing interactive navigation and responsive dollhouse perspective tours on any device.',
-          showInNav: true,
-          order: 5
-        },
-        {
           id: 'packages',
           title: 'Packages',
           slug: 'packages',
@@ -384,6 +348,15 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
           content: '# Service Packages\n\nCurated service tiers and interactive bespoke add-ons selector to customize your real estate visual storytelling suite.',
           showInNav: true,
           order: 6
+        },
+        {
+          id: 'interior',
+          title: 'Interior Photography',
+          slug: 'interior',
+          description: 'Editorial-grade interior photography for luxury real estate.',
+          content: '# Interior Photography\n\nCapturing the soul of architectural spaces through light, shadow, and cinematic precision.',
+          showInNav: true,
+          order: 2
         }
       ];
 
@@ -394,7 +367,52 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
           const docRef = doc(db, 'pages', rp.id);
           
           let initialLayout: any = { content: [], root: { props: { title: rp.title } } };
-          if (rp.slug === 'packages') {
+          if (rp.slug === 'interior') {
+            initialLayout = {
+              content: [
+                {
+                  type: "Section",
+                  props: {
+                    padding: "py-32",
+                    background: "bg-charcoal text-white",
+                    layout: "full",
+                    spacing: { pt: "0", pb: "0", mt: "0", mb: "0" }
+                  },
+                  children: [
+                    {
+                      type: "FlexBox",
+                      props: {
+                        direction: "flex-col",
+                        align: "items-start",
+                        justify: "justify-center",
+                        gap: 16
+                      },
+                      children: [
+                        {
+                          type: "Heading",
+                          props: {
+                            text: "THE ART OF THE INTERIOR",
+                            level: 1,
+                            sizeDesktop: "md:text-8xl",
+                            sizeMobile: "text-4xl",
+                            accent: true
+                          }
+                        },
+                        {
+                          type: "RichText",
+                          props: {
+                            content: "<p>Capturing the soul of architectural spaces through light, shadow, and cinematic precision. We don't just photograph rooms; we tell the story of a lifestyle.</p>",
+                            size: "lg"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              root: { props: { title: rp.title } }
+            };
+          } else if (rp.slug === 'packages') {
             initialLayout = {
               content: [
                 {
@@ -499,6 +517,48 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     seedRequiredPages();
   }, [isAdmin, pagesLoaded, pages]);
+
+  // Automatic database cleanup of specific pages and templates to start from scratch
+  useEffect(() => {
+    if (!isAdmin || !pagesLoaded) return;
+
+    const performCleanup = async () => {
+      const isCleaned = localStorage.getItem("db_scratch_cleanup_v6");
+      if (isCleaned) return;
+
+      console.log("[DB Cleanup] Starting automatic administrative database cleanup...");
+      try {
+        // 1. Delete pages so they re-seed as blank pages
+        const pagesToDelete = ['floor-plans', 'interior', 'aerial', 'virtual-tours'];
+        for (const pid of pagesToDelete) {
+          const docRef = doc(db, 'pages', pid);
+          await deleteDoc(docRef);
+          console.log(`[DB Cleanup] Deleted page document: ${pid}`);
+        }
+
+        // 2. Fetch and delete any templates that may render incorrectly or are outdated
+        const templatesColl = collection(db, "puck_templates");
+        const querySnapshot = await getDocs(query(templatesColl));
+        
+        console.log(`[DB Cleanup] Found ${querySnapshot.size} templates in puck_templates.`);
+        for (const docSnap of querySnapshot.docs) {
+          const tid = docSnap.id;
+          const tData = docSnap.data();
+          
+          await deleteDoc(doc(db, "puck_templates", tid));
+          console.log(`[DB Cleanup] Deleted template: ${tid} (${tData.name})`);
+        }
+
+        // Mark as completed so we do not run it repeatedly on every render
+        localStorage.setItem("db_scratch_cleanup_v6", "true");
+        console.log("[DB Cleanup] Database cleanup completed successfully!");
+      } catch (err) {
+        console.error("[DB Cleanup] Error during database cleanup:", err);
+      }
+    };
+
+    performCleanup();
+  }, [isAdmin, pagesLoaded]);
 
   return (
     <SiteContentContext.Provider value={{ settings, pages, services, portfolioItems, partners, teams, brandResources, popups, loading, isAdmin, user, isEditMode, setIsEditMode, isLight, setIsLight }}>
