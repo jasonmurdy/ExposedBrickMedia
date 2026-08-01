@@ -10,10 +10,10 @@ import { sanitizeLayout } from '../../lib/sanitizeLayout';
 import { BookingForm } from '../../components/BookingAndFooter';
 
 export default function InteriorPhotographyPage() {
-  const { pages, portfolioItems, partners, teams, brandResources } = useSiteContent();
+  const { pages, portfolioItems, partners, teams, brandResources, popups } = useSiteContent();
   const page = pages.find(p => p.slug === 'interior');
 
-  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources), [pages, portfolioItems, partners, teams, brandResources]);
+  const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources, popups), [pages, portfolioItems, partners, teams, brandResources, popups]);
 
   const sanitizedLayout = useMemo(() => {
     return sanitizeLayout(page?.layout, page?.title || 'Interior Photography');
@@ -108,7 +108,7 @@ export default function InteriorPhotographyPage() {
               {/* Card 1: Advanced Flambient Techniques */}
               <div className="lg:col-span-2 bg-white/[0.02] border border-white/5 p-8 md:p-12 flex flex-col justify-between min-h-[320px] hover:border-brick-copper/20 transition-all duration-500 group">
                 <div>
-                  <Sun className="text-brick-copper w-10 h-10 mb-8 stroke-[1.2]" />
+                  <Sun className="text-brick-copper w-10 h-10 mb-8" strokeWidth={1.2} />
                   <h3 className="text-2xl md:text-3xl font-display text-white italic tracking-tight mb-4">
                     Advanced Flambient Techniques
                   </h3>
@@ -126,7 +126,7 @@ export default function InteriorPhotographyPage() {
               {/* Card 2: Vertical Alignment */}
               <div className="bg-white/[0.02] border border-white/5 p-8 md:p-10 flex flex-col justify-between min-h-[320px] hover:border-brick-copper/20 transition-all duration-500 group">
                 <div>
-                  <Compass className="text-brick-copper w-10 h-10 mb-8 stroke-[1.2]" />
+                  <Compass className="text-brick-copper w-10 h-10 mb-8" strokeWidth={1.2} />
                   <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-brick-copper/80 block mb-3 font-bold">
                     VERTICAL ALIGNMENT
                   </span>
@@ -143,7 +143,7 @@ export default function InteriorPhotographyPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Card 3: HIGH DYNAMIC RANGE */}
               <div className="bg-white/[0.02] border border-white/5 p-8 md:p-10 hover:border-brick-copper/20 transition-all duration-500">
-                <Aperture className="text-brick-copper w-8 h-8 mb-6 stroke-[1.2]" />
+                <Aperture className="text-brick-copper w-8 h-8 mb-6" strokeWidth={1.2} />
                 <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-brick-copper/80 block mb-3 font-bold">
                   HIGH DYNAMIC RANGE
                 </span>
@@ -154,7 +154,7 @@ export default function InteriorPhotographyPage() {
 
               {/* Card 4: DIGITAL RETOUCHING */}
               <div className="bg-white/[0.02] border border-white/5 p-8 md:p-10 hover:border-brick-copper/20 transition-all duration-500">
-                <Sparkles className="text-brick-copper w-8 h-8 mb-6 stroke-[1.2]" />
+                <Sparkles className="text-brick-copper w-8 h-8 mb-6" strokeWidth={1.2} />
                 <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-brick-copper/80 block mb-3 font-bold">
                   DIGITAL RETOUCHING
                 </span>
@@ -165,7 +165,7 @@ export default function InteriorPhotographyPage() {
 
               {/* Card 5: CINEMATIC STYLING */}
               <div className="bg-white/[0.02] border border-white/5 p-8 md:p-10 hover:border-brick-copper/20 transition-all duration-500">
-                <Camera className="text-brick-copper w-8 h-8 mb-6 stroke-[1.2]" />
+                <Camera className="text-brick-copper w-8 h-8 mb-6" strokeWidth={1.2} />
                 <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-brick-copper/80 block mb-3 font-bold">
                   CINEMATIC STYLING
                 </span>

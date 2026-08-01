@@ -10,7 +10,7 @@ import { useSiteContent } from "../lib/SiteContentContext";
 import { db } from "../lib/firebase";
 import { doc, setDoc, deleteDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus, Undo2, Redo2, Upload, Terminal, AlertTriangle, Trash2 } from "lucide-react";
+import { Save, X, Loader2, RotateCcw, LayoutGrid, FileText, Check, Folder, Info, Plus, Undo2, Redo2, Upload, Terminal, AlertTriangle, Trash2, Sparkles, Image as ImageIcon } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { handleFirestoreError, OperationType } from "../lib/firestoreError";
 import { sanitizeLayout } from "../lib/sanitizeLayout";
@@ -192,7 +192,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   // Upgrade template feature: Admin Upload / Paste JSON state
-  const [pickerTab, setPickerTab] = useState<"browse" | "import">("browse");
+  const [pickerTab, setPickerTab] = useState<"browse" | "import" | "ai">("browse");
   const [pastedJson, setPastedJson] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [parsedPuckData, setParsedPuckData] = useState<any>(null);
@@ -202,6 +202,15 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
   const [isSavingImportTemplate, setIsSavingImportTemplate] = useState(false);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [isDeletingTemplate, setIsDeletingTemplate] = useState<boolean>(false);
+
+  // AI Design Converter states
+  const [aiImage, setAiImage] = useState<string | null>(null);
+  const [aiImageName, setAiImageName] = useState<string>("");
+  const [aiPrompt, setAiPrompt] = useState<string>("");
+  const [isConverting, setIsConverting] = useState<boolean>(false);
+  const [conversionStatus, setConversionStatus] = useState<string>("");
+  const [convertedData, setConvertedData] = useState<any>(null);
+  const [conversionError, setConversionError] = useState<string | null>(null);
 
   const config = useMemo(() => createConfig(pages, portfolioItems, partners, teams, brandResources, popups), [pages, portfolioItems, partners, teams, brandResources, popups]);
 
@@ -490,6 +499,116 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
     setParsedPuckData(null);
   };
 
+  // AI Design Conversion helper methods
+  const handleAiImageUpload = (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload a valid image file (PNG, JPEG, WebP).");
+      return;
+    }
+    
+    setAiImageName(file.name);
+    setConversionError(null);
+    setConvertedData(null);
+    
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAiImage(reader.result as string);
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read the image file.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAiDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleAiDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleAiImageUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleConvertDesign = async () => {
+    if (!aiImage) {
+      toast.error("Please upload or drag a design image first.");
+      return;
+    }
+
+    setIsConverting(true);
+    setConversionError(null);
+    setConvertedData(null);
+    
+    const statuses = [
+      "Uploading design mockup to vision pipeline...",
+      "Gemini Multimodal analyzing layout wireframes...",
+      "Extracting column spans and nested section bounds...",
+      "Mapping visual segments to available Puck blocks...",
+      "Generating structured JSON tree representation...",
+      "Validating and clean-formatting output schemas..."
+    ];
+
+    let statusIdx = 0;
+    setConversionStatus(statuses[0]);
+    
+    const statusInterval = setInterval(() => {
+      if (statusIdx < statuses.length - 1) {
+        statusIdx++;
+        setConversionStatus(statuses[statusIdx]);
+      }
+    }, 2500);
+
+    try {
+      const response = await fetch("/api/ai/convert-image-layout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image: aiImage,
+          mimeType: aiImage.startsWith("data:image/png") ? "image/png" : "image/jpeg",
+          prompt: aiPrompt,
+        }),
+      });
+
+      clearInterval(statusInterval);
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to convert layout");
+      }
+
+      const rawData = await response.json();
+      
+      const sanitized = sanitizeLayout(cleanObject(rawData), page?.title || settings.brandName || "Converted Page");
+      
+      setConvertedData(sanitized);
+      toast.success("Design converted to page layout successfully!");
+    } catch (err: any) {
+      clearInterval(statusInterval);
+      console.error("Design conversion failed:", err);
+      setConversionError(err.message || String(err));
+      toast.error(`Conversion failed: ${err.message || String(err)}`);
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  const handleDeployConverted = () => {
+    if (!convertedData) return;
+    setEditorData(convertedData);
+    setPuckVersion(v => v + 1);
+    setIsPickerOpen(false);
+    setAiImage(null);
+    setAiImageName("");
+    setAiPrompt("");
+    setConvertedData(null);
+    toast.success("Design layout successfully deployed to editor workspace!");
+  };
+
   // Handler to load template to Puck Editor
   const handleLoadTemplate = (templateData: any) => {
     setEditorData(sanitizeLayout(cleanObject(templateData), page?.title || settings.brandName || "Page"));
@@ -613,6 +732,20 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
                   >
                     Converter & Importer
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickerTab("ai");
+                    }}
+                    className={`px-3 py-1.5 text-[9px] uppercase font-mono font-bold tracking-widest transition-all cursor-pointer flex items-center gap-1 ${
+                      pickerTab === "ai" 
+                        ? "bg-brick-copper text-charcoal font-black" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Sparkles size={10} className={pickerTab === "ai" ? "text-charcoal" : "text-[#cfa073]"} />
+                    AI Design Converter
+                  </button>
                 </div>
                 <button 
                   onClick={() => setIsPickerOpen(false)}
@@ -623,7 +756,7 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               </div>
             </div>
 
-            {pickerTab === "browse" ? (
+            {pickerTab === "browse" && (
               <>
                 {/* Filter Categories */}
                 <div className="px-6 py-3 bg-white/5 border-b border-white/5 flex gap-2 overflow-x-auto">
@@ -752,7 +885,9 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
               )}
             </div>
               </>
-            ) : (
+            )}
+
+            {pickerTab === "import" && (
               <div className="flex-grow flex flex-col overflow-hidden max-h-[60vh]">
                 {/* Importer Panel Split View */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 flex-grow overflow-y-auto">
@@ -914,6 +1049,223 @@ Example:
                           </>
                         )}
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {pickerTab === "ai" && (
+              <div className="flex-grow flex flex-col overflow-hidden max-h-[60vh]">
+                <div className="grid grid-cols-1 lg:grid-cols-12 flex-grow overflow-y-auto">
+                  {/* Left Side: Drag & Drop Mockup Image & Instructions */}
+                  <div className="lg:col-span-6 p-6 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col gap-5 overflow-y-auto">
+                    <div>
+                      <h4 className="text-xs uppercase font-mono font-bold tracking-widest text-brick-copper flex items-center gap-2">
+                        <ImageIcon size={14} />
+                        Upload Design Mockup / Screenshot
+                      </h4>
+                      <p className="text-[10px] text-white/50 mt-1 leading-relaxed">
+                        Select or drag and drop a PNG/JPEG screenshot of your Google Stitch mockup or website design.
+                      </p>
+                    </div>
+
+                    {/* Drag & Drop Box */}
+                    <div
+                      onDragOver={handleAiDragOver}
+                      onDrop={handleAiDrop}
+                      className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center transition-all min-h-[180px] relative overflow-hidden bg-black/20 ${
+                        aiImage 
+                          ? "border-emerald-500/40 bg-emerald-950/10" 
+                          : "border-white/10 hover:border-brick-copper/30 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      {aiImage ? (
+                        <div className="absolute inset-0 group">
+                          <img
+                            src={aiImage}
+                            alt="Design Preview"
+                            className="w-full h-full object-contain opacity-75 group-hover:opacity-40 transition-opacity"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                            <span className="text-[10px] uppercase tracking-widest bg-charcoal/90 text-white font-mono px-3 py-1 border border-white/10 rounded-sm">
+                              Change Mockup
+                            </span>
+                            <span className="text-[8px] text-white/60 truncate max-w-[80%] font-mono">
+                              {aiImageName}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="p-3 rounded-full bg-white/5 text-[#cfa073]">
+                            <Upload size={20} />
+                          </div>
+                          <div>
+                            <span className="text-xs font-mono font-bold hover:text-[#cfa073] cursor-pointer block">
+                              Click to select file
+                            </span>
+                            <span className="text-[10px] text-white/40 block mt-1">
+                              or drag & drop design file here (PNG/JPEG)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/png, image/jpeg, image/jpg, image/webp"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleAiImageUpload(e.target.files[0]);
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        disabled={isConverting}
+                      />
+                    </div>
+
+                    {/* Prompt Guidance Input */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[9px] uppercase tracking-wider text-white/65 font-mono font-bold">
+                        AI Directive / Custom Instructions (Optional)
+                      </label>
+                      <textarea
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        placeholder="e.g., Use dark charcoal backgrounds and boxed content layouts. Ensure services and portfolio sections are placed side-by-side inside columns."
+                        className="w-full h-20 bg-black/40 border border-white/10 hover:border-white/20 focus:border-brick-copper text-xs outline-none p-3 resize-none font-mono placeholder-white/25 transition-all text-white leading-relaxed"
+                        disabled={isConverting}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleConvertDesign}
+                      disabled={!aiImage || isConverting}
+                      className={`w-full py-3 text-[10px] tracking-widest font-bold font-mono uppercase transition-all flex items-center justify-center gap-2 border rounded-sm ${
+                        aiImage && !isConverting
+                          ? "border-brick-copper bg-brick-copper/10 text-brick-copper hover:bg-brick-copper hover:text-charcoal font-black"
+                          : "border-white/5 bg-transparent text-white/20 cursor-not-allowed pointer-events-none"
+                      }`}
+                    >
+                      {isConverting ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Analyzing Mockup Layout...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={12} />
+                          Convert Design Mockup to Page
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Right Side: Conversion Dashboard / Status Feedback */}
+                  <div className="lg:col-span-6 p-6 bg-black/20 flex flex-col justify-between overflow-y-auto min-h-[300px]">
+                    <div className="flex-grow flex flex-col justify-center">
+                      {!aiImage && !isConverting && !convertedData && !conversionError && (
+                        <div className="text-center space-y-3 py-12 text-white/40 max-w-sm mx-auto">
+                          <div className="flex justify-center text-[#cfa073]/45">
+                            <Sparkles size={36} className="animate-pulse" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-xs font-mono uppercase tracking-widest text-[#cfa073]">AI Vision Engine</p>
+                            <p className="text-[10px] text-white/40 mt-1 leading-relaxed">
+                              Upload a Google Stitch design screenshot on the left to start. The AI vision model will instantly recognize design patterns and output a fully-structured Puck visual editor page layout.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {isConverting && (
+                        <div className="text-center space-y-4 py-12">
+                          <div className="flex justify-center">
+                            <div className="relative flex items-center justify-center">
+                              <div className="absolute w-12 h-12 rounded-full border border-[#cfa073]/20 animate-ping" />
+                              <Loader2 className="animate-spin text-brick-copper shrink-0 relative z-10" size={36} />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-mono font-bold text-white uppercase tracking-widest animate-pulse">
+                              Processing Design Mockup
+                            </p>
+                            <p className="text-[10px] text-white/50 font-mono tracking-wide">
+                              {conversionStatus}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {conversionError && (
+                        <div className="bg-red-950/25 border border-red-500/20 text-red-400 p-5 rounded-sm text-xs flex gap-3 items-start font-mono max-w-md mx-auto">
+                          <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                          <div className="space-y-2">
+                            <strong className="uppercase block text-[9px] tracking-wider text-red-300">Conversion Failure:</strong>
+                            <p className="text-[10px] text-red-400/80 leading-relaxed break-words">{conversionError}</p>
+                            <button
+                              onClick={handleConvertDesign}
+                              className="text-[9px] uppercase tracking-widest text-white underline hover:text-brick-copper font-bold"
+                            >
+                              Retry Conversion
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {convertedData && !isConverting && (
+                        <div className="space-y-5 py-2">
+                          <div className="bg-emerald-950/20 border border-emerald-500/20 text-emerald-400 p-5 rounded-sm text-xs flex gap-3 items-start font-mono">
+                            <Check size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1.5 flex-grow">
+                              <strong className="uppercase block text-[9px] tracking-widest text-emerald-300">Conversion Succeeded!</strong>
+                              <p className="text-[10px] text-emerald-400/80 leading-relaxed">
+                                Gemini successfully generated a valid, nested Puck layout.
+                              </p>
+                              <div className="bg-black/40 border border-white/5 rounded-sm p-3 mt-3 text-[9px] space-y-1 max-h-48 overflow-y-auto">
+                                <span className="text-white/40 block border-b border-white/5 pb-1 uppercase tracking-widest font-bold">Layout Blueprint Summary:</span>
+                                <div className="space-y-1 font-mono text-emerald-400/95 mt-1">
+                                  <div>• Page Title: <span className="text-white">{convertedData.root?.props?.title || "Converted Design"}</span></div>
+                                  <div>• Layout Mode: <span className="text-white">{convertedData.root?.props?.layoutMode || "one-panel"}</span></div>
+                                  <div>• Top-level Components: <span className="text-white">{(convertedData.content?.length || 0)}</span></div>
+                                  {convertedData.content?.map((item: any, idx: number) => (
+                                    <div key={item.id || idx} className="pl-3 text-white/60">
+                                      - {item.type} <span className="text-[8px] text-white/35">({item.id})</span>
+                                    </div>
+                                  ))}
+                                  {convertedData.zones && Object.keys(convertedData.zones).length > 0 && (
+                                    <>
+                                      <div className="pt-1 text-white/40">• Nested Component Slots:</div>
+                                      {Object.entries(convertedData.zones).map(([zoneName, items]: [string, any]) => (
+                                        <div key={zoneName} className="pl-3 text-emerald-300/85">
+                                          {zoneName}: <span className="text-white/60">{items.map((it: any) => it.type).join(", ") || "empty"}</span>
+                                        </div>
+                                      ))}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-3 border-t border-white/5">
+                            <button
+                              type="button"
+                              onClick={handleDeployConverted}
+                              className="w-full py-3 bg-white text-charcoal hover:bg-brick-copper hover:text-charcoal font-bold text-[10px] tracking-widest font-mono uppercase transition-all flex items-center justify-center gap-2 cursor-pointer rounded-sm"
+                            >
+                              <Check size={12} />
+                              Deploy Layout to Workspace
+                            </button>
+                            
+                            <p className="text-[9px] text-white/40 text-center italic font-mono">
+                              * Deploying will load this design structure into your active Puck canvas, allowing you to edit any text, replace images, and save templates directly.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

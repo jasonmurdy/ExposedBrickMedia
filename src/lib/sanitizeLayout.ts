@@ -2,138 +2,188 @@
  * Sanitizes a Puck page layout to maintain structural integrity and prevent
  * "Cannot read properties of null (reading 'props')" type execution crashes
  * inside Puck's Render or similar components due to corrupted or improperly pruned data.
+ * Resolves duplicate React keys and warnings in DropZone and LayerTree by ensuring
+ * clean ID assignment.
  */
 
-function sanitizeItem(item: any, path: string = "node", seenIds?: Set<string>): any {
+function sanitizePrimaryItem(item: any, path: string, seenIds: Set<string>, idRemap: Map<string, string>): any {
   if (!item || typeof item !== 'object') return null;
 
-  const sanitized: any = { ...item };
+  const sanitized = { ...item };
   
-  // Ensure we have a valid, deterministic, and UNIQUE ID as a trimmed string (required by Puck)
+  // Ensure we have a valid, unique ID
   let cid = sanitized.id !== undefined && sanitized.id !== null ? String(sanitized.id).trim() : "";
-  if (!cid || (seenIds && seenIds.has(cid))) {
+  if (!cid && sanitized.props && typeof sanitized.props === 'object' && sanitized.props.id) {
+    cid = String(sanitized.props.id).trim();
+  }
+  const originalCid = cid;
+
+  if (!cid || seenIds.has(cid)) {
     let suffix = 1;
-    // Generate a clean, unique ID if missing or already seen
     const baseId = cid ? cid : `${sanitized.type || 'Block'}-${path}`;
     let newId = baseId;
-    if (seenIds) {
-      while (seenIds.has(newId)) {
-        newId = `${baseId}-dup${suffix}`;
-        suffix++;
-      }
+    while (seenIds.has(newId)) {
+      newId = `${baseId}-dup${suffix}`;
+      suffix++;
     }
     cid = newId;
   }
-  
+
   sanitized.id = cid;
-  if (seenIds) {
-    seenIds.add(cid);
+  seenIds.add(cid);
+
+  if (originalCid && originalCid !== cid) {
+    idRemap.set(originalCid, cid);
   }
 
   // Ensure props is an object
   if (!sanitized.props || typeof sanitized.props !== 'object') {
     sanitized.props = {};
+  } else {
+    sanitized.props = { ...sanitized.props };
   }
 
-  // Move peer slot arrays (children, content, left, right, main, side) into props
+  // Ensure top-level ID matches inside props if applicable
+  if (sanitized.props.id !== undefined) {
+    sanitized.props.id = cid;
+  }
+
+  // Clear peer slot properties inside props so they are not double-processed or duplicated
   const slotNames = ["children", "content", "left", "right", "main", "side"];
-  for (const slotName of slotNames) {
-    if (Array.isArray(sanitized[slotName])) {
-      sanitized.props[slotName] = sanitized[slotName];
-      delete sanitized[slotName];
+  for (const name of slotNames) {
+    if (Array.isArray(sanitized.props[name])) {
+      delete sanitized.props[name];
     }
   }
 
-  // --- AUTOMATIC SLOT MIGRATION & ADAPTATION ---
-  // Remap standard children/content array according to the component type's slot configuration
-  const compType = sanitized.type;
-  if (compType) {
+  return sanitized;
+}
+
+function adaptSlots(item: any) {
+  if (!item || typeof item !== 'object') return;
+
+  const compType = item.type;
+  if (compType && item.props && typeof item.props === 'object') {
     // 1. FlexBox, GridBox, MediaBackground expect their slots to be named 'content'
     if (["FlexBox", "GridBox", "MediaBackground"].includes(compType)) {
-      if (Array.isArray(sanitized.props.children) && (!sanitized.props.content || sanitized.props.content.length === 0)) {
-        sanitized.props.content = sanitized.props.children;
-        delete sanitized.props.children;
+      if (Array.isArray(item.props.children) && (!item.props.content || item.props.content.length === 0)) {
+        item.props.content = item.props.children;
+        delete item.props.children;
       }
     }
     // 2. Columns component expects 'left' and 'right' slots rather than a single 'children' array
     if (compType === "Columns") {
-      if (Array.isArray(sanitized.props.children)) {
-        const colsChildren = sanitized.props.children;
-        if (!sanitized.props.left || sanitized.props.left.length === 0) {
-          sanitized.props.left = colsChildren.slice(0, 1);
+      if (Array.isArray(item.props.children)) {
+        const colsChildren = item.props.children;
+        if (!item.props.left || item.props.left.length === 0) {
+          item.props.left = colsChildren.slice(0, 1);
         }
-        if (!sanitized.props.right || sanitized.props.right.length === 0) {
-          sanitized.props.right = colsChildren.slice(1);
+        if (!item.props.right || item.props.right.length === 0) {
+          item.props.right = colsChildren.slice(1);
         }
-        delete sanitized.props.children;
+        delete item.props.children;
       }
     }
   }
 
-  // If the legacy 'zones' object exists, move its contents directly into 'props'
-  if (sanitized.zones && typeof sanitized.zones === 'object' && !Array.isArray(sanitized.zones)) {
-    for (const [zoneName, zoneItems] of Object.entries(sanitized.zones)) {
-      if (Array.isArray(zoneItems)) {
-        // Inject the old zone items into the props object so Puck treats them as Slots
-        sanitized.props[zoneName] = zoneItems;
-      }
-    }
-    // Delete the legacy zones object entirely so Puck doesn't revert to old behaviors
-    delete sanitized.zones;
-  }
-
-  // Recursively sanitize props, passing path context
-  sanitized.props = sanitizeProps(sanitized.props, path, seenIds);
-
-  return sanitized;
-}
-
-function sanitizeProps(props: any, path: string = "props", seenIds?: Set<string>): any {
-  if (!props || typeof props !== 'object') return {};
-  
-  const sanitized: any = {};
-  for (const [key, value] of Object.entries(props)) {
-    if (Array.isArray(value)) {
-      // Check if this array seems to be composed of Puck component items or regular values
-      sanitized[key] = sanitizeArray(value, `${path}-${key}`, seenIds);
-    } else if (value && typeof value === 'object') {
-      // Check if this sub-object is a Puck item
-      if (typeof (value as any).type === 'string') {
-        sanitized[key] = sanitizeItem(value, `${path}-${key}`, seenIds);
-      } else {
-        sanitized[key] = sanitizeProps(value, `${path}-${key}`, seenIds);
-      }
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  return sanitized;
-}
-
-function sanitizeArray(arr: any[], path: string = "array", seenIds?: Set<string>): any[] {
-  return arr
-    .filter((item: any) => item !== null && item !== undefined)
-    .map((item: any, idx: number) => {
-      if (item && typeof item === 'object') {
-        // If it has a type string, it's a Puck item
-        if (typeof item.type === 'string') {
-          return sanitizeItem(item, `${path}-${idx}`, seenIds);
+  // Recursively adapt nested items inside props
+  if (item.props && typeof item.props === 'object') {
+    for (const value of Object.values(item.props)) {
+      if (Array.isArray(value)) {
+        for (const arrItem of value) {
+          adaptSlots(arrItem);
         }
-        // Otherwise, recursively sanitize properties of the non-block object (e.g. customized packages, items, logos)
-        return sanitizeProps(item, `${path}-${idx}`, seenIds);
+      } else if (value && typeof value === 'object') {
+        adaptSlots(value);
       }
-      // Return primitive values directly as-is
-      return item;
-    })
-    .filter((item: any) => item !== null && item !== undefined);
+    }
+  }
 }
 
-function sanitizeBlockArray(arr: any[], path: string, seenIds: Set<string>): any[] {
-  return arr
-    .filter((item: any) => item !== null && item !== undefined && typeof item === 'object' && typeof item.type === 'string')
-    .map((item: any, idx: number) => {
-      return sanitizeItem(item, `${path}-${idx}`, seenIds);
+function extractSlotsToZones(item: any, parentId: string, zones: any) {
+  if (!item || typeof item !== 'object') return;
+
+  if (item.props && typeof item.props === 'object') {
+    for (const [key, value] of Object.entries(item.props)) {
+      if (Array.isArray(value)) {
+        const isSlotArray = value.length > 0 && typeof value[0] === 'object' && value[0] !== null && typeof value[0].type === 'string';
+        if (isSlotArray) {
+          const zoneKey = `${parentId}:${key}`;
+          if (!zones[zoneKey]) {
+            zones[zoneKey] = value;
+          }
+          delete item.props[key];
+        } else {
+          for (const arrItem of value) {
+            if (arrItem && typeof arrItem === 'object') {
+              extractSlotsToZones(arrItem, parentId, zones);
+            }
+          }
+        }
+      } else if (value && typeof value === 'object') {
+        if (typeof (value as any).type === 'string') {
+          const childId = (value as any).id || `nested-${Math.random().toString(36).substr(2, 9)}`;
+          extractSlotsToZones(value, childId, zones);
+        } else {
+          extractSlotsToZones(value, parentId, zones);
+        }
+      }
+    }
+  }
+}
+
+function extractAllLayoutSlots(parsed: any) {
+  if (!parsed.zones) parsed.zones = {};
+
+  // 1. Extract from root
+  if (parsed.root) {
+    const rootId = parsed.root.id || "root";
+    extractSlotsToZones(parsed.root, rootId, parsed.zones);
+  }
+
+  // 2. Extract from content
+  if (Array.isArray(parsed.content)) {
+    parsed.content.forEach((item: any) => {
+      if (item && item.id) {
+        extractSlotsToZones(item, item.id, parsed.zones);
+      }
     });
+  }
+
+  // 3. Extract from existing zones recursively
+  let keys = Object.keys(parsed.zones);
+  const processed = new Set<string>();
+  while (keys.some(k => !processed.has(k))) {
+    for (const key of keys) {
+      if (processed.has(key)) continue;
+      processed.add(key);
+      const items = parsed.zones[key];
+      if (Array.isArray(items)) {
+        items.forEach((item: any) => {
+          if (item && item.id) {
+            extractSlotsToZones(item, item.id, parsed.zones);
+          }
+        });
+      }
+    }
+    keys = Object.keys(parsed.zones);
+  }
+}
+
+function syncSlotsToProps(item: any, zones: any) {
+  if (!item || typeof item !== 'object' || !item.id) return;
+
+  if (!item.props || typeof item.props !== 'object') {
+    item.props = {};
+  }
+
+  const itemId = item.id;
+  for (const zoneKey of Object.keys(zones)) {
+    if (zoneKey.startsWith(`${itemId}:`)) {
+      const slotName = zoneKey.substring(itemId.length + 1);
+      item.props[slotName] = zones[zoneKey];
+    }
+  }
 }
 
 export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
@@ -143,7 +193,6 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
   try {
     parsed = JSON.parse(JSON.stringify(layout));
   } catch (e) {
-    // Elegant fallback parsing for circular references
     const cache = new WeakSet();
     const prune = (val: any): any => {
       if (val === null || typeof val !== 'object') return val;
@@ -166,36 +215,93 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
 
   if (!parsed || typeof parsed !== 'object') return null;
 
-  const seenIds = new Set<string>();
+  // Adapt legacy properties like children arrays recursively
+  if (parsed.root) adaptSlots(parsed.root);
+  if (Array.isArray(parsed.content)) parsed.content.forEach(adaptSlots);
+  if (parsed.zones && typeof parsed.zones === 'object' && !Array.isArray(parsed.zones)) {
+    for (const zoneItems of Object.values(parsed.zones)) {
+      if (Array.isArray(zoneItems)) {
+        zoneItems.forEach(adaptSlots);
+      }
+    }
+  }
 
-  // 1. Sanitize root
+  // Move nested slot lists into the top level parsed.zones object to flat-process them
+  extractAllLayoutSlots(parsed);
+
+  const seenIds = new Set<string>();
+  const idRemap = new Map<string, string>();
+
+  // 1. Sanitize root block (must be 'root')
   if (!parsed.root || typeof parsed.root !== 'object') {
-    parsed.root = { props: { title: fallbackTitle } };
+    parsed.root = { id: "root", type: "root", props: { title: fallbackTitle } };
   } else {
-    parsed.root = sanitizeItem(parsed.root, "root", seenIds);
+    parsed.root.id = "root";
+    parsed.root = sanitizePrimaryItem(parsed.root, "root", seenIds, idRemap);
     if (!parsed.root.props.title && fallbackTitle) {
       parsed.root.props.title = fallbackTitle;
     }
   }
 
-  // 2. Sanitize content array
+  // 2. Sanitize top-level content list
   if (Array.isArray(parsed.content)) {
-    parsed.content = sanitizeBlockArray(parsed.content, "content", seenIds);
+    parsed.content = parsed.content
+      .map((item: any, idx: number) => sanitizePrimaryItem(item, `content-${idx}`, seenIds, idRemap))
+      .filter(Boolean);
   } else {
     parsed.content = [];
   }
 
-  // 3. Sanitize zones (ensure items are array, remove nulls/undefined & ensure proper structure)
+  // 3. Sanitize flat zones list
   if (parsed.zones && typeof parsed.zones === 'object' && !Array.isArray(parsed.zones)) {
     const sanitizedZones: any = {};
     for (const [zoneName, zoneItems] of Object.entries(parsed.zones)) {
       if (Array.isArray(zoneItems)) {
-        sanitizedZones[zoneName] = sanitizeBlockArray(zoneItems, `zone-${zoneName}`, seenIds);
+        sanitizedZones[zoneName] = zoneItems
+          .map((item: any, idx: number) => sanitizePrimaryItem(item, `zone-${zoneName}-${idx}`, seenIds, idRemap))
+          .filter(Boolean);
       } else {
         sanitizedZones[zoneName] = [];
       }
     }
     parsed.zones = sanitizedZones;
+  } else {
+    parsed.zones = {};
+  }
+
+  // 4. Align zone keys with any remapped block IDs to keep layouts correctly linked
+  if (idRemap.size > 0) {
+    const finalZones: any = {};
+    for (const [zoneKey, zoneItems] of Object.entries(parsed.zones)) {
+      let updatedKey = zoneKey;
+      const colonIdx = zoneKey.indexOf(":");
+      if (colonIdx !== -1) {
+        const blockId = zoneKey.substring(0, colonIdx);
+        const zoneName = zoneKey.substring(colonIdx + 1);
+        if (idRemap.has(blockId)) {
+          updatedKey = `${idRemap.get(blockId)}:${zoneName}`;
+        }
+      } else {
+        if (idRemap.has(zoneKey)) {
+          updatedKey = idRemap.get(zoneKey)!;
+        }
+      }
+      finalZones[updatedKey] = zoneItems;
+    }
+    parsed.zones = finalZones;
+  }
+
+  // 5. Sync flat zones content back to the corresponding inline props of each block
+  syncSlotsToProps(parsed.root, parsed.zones);
+  parsed.content.forEach((item: any) => {
+    syncSlotsToProps(item, parsed.zones);
+  });
+  for (const zoneItems of Object.values(parsed.zones)) {
+    if (Array.isArray(zoneItems)) {
+      zoneItems.forEach((item: any) => {
+        syncSlotsToProps(item, parsed.zones);
+      });
+    }
   }
 
   return parsed;
@@ -237,4 +343,3 @@ export function sanitizeLayoutData(data: any, seenIds?: Set<string>): any {
     root: data.root || { props: { title: "Default Layout", layoutMode: "one-panel" } }
   };
 }
-

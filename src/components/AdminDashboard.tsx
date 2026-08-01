@@ -674,6 +674,16 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
     return result;
   }, [users, partnerSearch, partnerRoleFilter, partnerTeamFilter, partnerSortField, partnerSortOrder]);
 
+  // Optimized partner directory search to avoid memory drift and recalculations
+  const filteredPartnerDirectory = useMemo(() => {
+    const query = partnerDirectorySearch.toLowerCase().trim();
+    if (!query) return users;
+    return users.filter(u => 
+      (u.displayName || '').toLowerCase().includes(query) || 
+      (u.email || '').toLowerCase().includes(query)
+    );
+  }, [users, partnerDirectorySearch]);
+
   // Fotello configurable states
   const [fotelloConfig, setFotelloConfig] = useState<{ apiKey: string; liveConnect: boolean }>({
     apiKey: 'api-074832e3d4901ef4d1ec4e8dc98072bcae703dca2b1155dc',
@@ -5897,16 +5907,16 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
           </section>
         )}
 
-        {isEditing && (activeTab === 'teams' || activeTab === 'partners') && (
+        {isEditing && activeTab === 'teams' && (
            <div className="fixed inset-0 z-[110] bg-charcoal/95 flex items-center justify-center p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-charcoal border border-brick-copper/30 w-full max-w-2xl h-full md:h-auto max-h-[90vh] overflow-hidden flex flex-col shadow-3xl">
               <header className="p-6 border-b border-white/5 flex justify-between items-center bg-charcoal/80">
                 <div>
                   <h4 className="text-xl font-display italic text-white">
-                    {activeTab === 'teams' ? (editData.name || 'Unnamed Collective') : (editData.displayName || 'Unnamed Partner')}
+                    {editData.name || 'Unnamed Collective'}
                   </h4>
                   <p className="text-[9px] text-brick-copper uppercase tracking-widest font-bold tracking-[0.2em]">
-                    {activeTab === 'teams' ? 'Collective Architecture' : 'Partner Narrative'}
+                    Collective Architecture
                   </p>
                 </div>
                 <button onClick={() => setIsEditing(null)} className="text-white/40 hover:text-white transition-colors p-2"><X size={20} /></button>
@@ -5915,53 +5925,45 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               <div className="flex-1 overflow-y-auto p-8 no-scrollbar space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    <ImageSelector 
-                      label={activeTab === 'teams' ? "Collective Identity / Logo" : "Portal headshot"}
-                      path={activeTab === 'teams' ? "teams" : "users"}
-                      value={activeTab === 'teams' ? (editData.logoUrl || '') : (editData.headshotUrl || '')}
-                      onChange={(url) => setEditData({...editData, [activeTab === 'teams' ? 'logoUrl' : 'headshotUrl']: url})}
+                      label="Collective Identity / Logo"
+                      path="teams"
+                      value={editData.logoUrl || ''}
+                      onChange={(url) => setEditData({...editData, logoUrl: url})}
                    />
                    <div>
                       <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">
-                        {activeTab === 'teams' ? 'Standard Guidelines (URL)' : 'Email Identity'}
+                        Standard Guidelines (URL)
                       </label>
-                      {activeTab === 'teams' ? (
-                        <input 
-                          className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
-                          placeholder="Link to PDF or Brand Portal"
-                          value={editData.brandGuideUrl || ''} 
-                          onChange={e => setEditData({...editData, brandGuideUrl: e.target.value})} 
-                        />
-                      ) : (
-                        <input 
-                          className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white/50" 
-                          value={editData.email || ''} 
-                          readOnly
-                        />
-                      )}
+                      <input 
+                        className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
+                        placeholder="Link to PDF or Brand Portal"
+                        value={editData.brandGuideUrl || ''} 
+                        onChange={e => setEditData({...editData, brandGuideUrl: e.target.value})} 
+                      />
                    </div>
                 </div>
 
                 <div className="space-y-6">
                    <div>
                       <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">
-                        {activeTab === 'teams' ? 'Collective Name' : 'Display Name'}
+                        Collective Name
                       </label>
                       <input 
                         className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white" 
-                        value={activeTab === 'teams' ? (editData.name || '') : (editData.displayName || '')} 
-                        onChange={e => setEditData({...editData, [activeTab === 'teams' ? 'name' : 'displayName']: e.target.value})} 
+                        value={editData.name || ''} 
+                        onChange={e => setEditData({...editData, name: e.target.value})} 
                       />
                    </div>
 
                    <div>
                       <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1">
-                        {activeTab === 'teams' ? 'Architectural Statement (Description)' : 'Partner Biography'}
+                        Architectural Statement (Description)
                       </label>
                       <textarea 
                         rows={4}
                         className="bg-white/5 border border-white/5 w-full outline-none py-3 px-4 text-sm text-white resize-none" 
-                        value={activeTab === 'teams' ? (editData.description || '') : (editData.bio || '')} 
-                        onChange={e => setEditData({...editData, [activeTab === 'teams' ? 'description' : 'bio']: e.target.value})} 
+                        value={editData.description || ''} 
+                        onChange={e => setEditData({...editData, description: e.target.value})} 
                       />
                    </div>
                 </div>
@@ -5972,7 +5974,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                   onClick={() => handleUpdateTeam(isEditing)} 
                   className="flex-1 py-4 bg-brick-copper text-charcoal text-[10px] uppercase font-bold tracking-widest hover:bg-white transition-all shadow-xl font-sans"
                 >
-                  Persist {activeTab === 'teams' ? 'Collective' : 'Partner'}
+                  Persist Collective
                 </button>
                 <button 
                   onClick={() => setIsEditing(null)} 
@@ -6126,11 +6128,33 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
               <button 
                 onClick={() => {
                    const title = prompt("Asset Title:");
+                    if (!title) return;
+                    const categoryValue = prompt("Category (Templates, Guidelines, Logos):", "Templates") || "Templates";
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.onchange = async (evt: any) => {
+                      const file = evt.target.files?.[0];
+                      if (!file) return;
+                      toast.loading("Uploading local file...", { id: "brand_upload" });
+                      try {
+                        const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+                        const storage = getStorage();
+                        const fileRef = ref(storage, `brand_resources/${Date.now()}_${file.name}`);
+                        await uploadBytes(fileRef, file);
+                        const downloadUrl = await getDownloadURL(fileRef);
+                        await handleCreateBrandResource({ title, category: categoryValue, url: downloadUrl });
+                        toast.success("Brand asset uploaded successfully!", { id: "brand_upload" });
+                      } catch (err: any) {
+                        toast.error(`Upload failed: ${err.message}`, { id: "brand_upload" });
+                      }
+                    };
+                    fileInput.click();
+                    return;
                    if (!title) return;
-                   const url = prompt("Asset URL (Cloud storage or external link):");
+                   const url = "";
                    if (!url) return;
                    const category = prompt("Category (e.g. Logos, Guidelines, Templates):", "Templates");
-                   handleCreateBrandResource({ title, url, category });
+                   // Handled via local file upload above
                 }}
                 className="px-6 py-2 bg-brick-copper text-charcoal text-[10px] uppercase font-black tracking-widest hover:bg-white transition-all flex items-center gap-2"
               >

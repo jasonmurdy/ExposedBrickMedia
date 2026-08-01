@@ -46,7 +46,8 @@ import {
   Minus,
   Layers,
   Circle,
-  Ban
+  Ban,
+  X
 } from "lucide-react";
 import { Config } from "@measured/puck";
 import { HeroVisual, BrandHeader } from "../components/Hero";
@@ -3058,6 +3059,45 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           message: ""
         });
 
+        const [activeInquiryPkg, setActiveInquiryPkg] = React.useState<any>(null);
+        const [packageSubmitted, setPackageSubmitted] = React.useState<boolean>(false);
+        const [packageLoading, setPackageLoading] = React.useState<boolean>(false);
+        const [pkgContactData, setPkgContactData] = React.useState({
+          name: "",
+          email: "",
+          address: "",
+          message: ""
+        });
+
+        const handlePackageSubmit = async (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!pkgContactData.name || !pkgContactData.email || !pkgContactData.address || !activeInquiryPkg) {
+            return;
+          }
+          setPackageLoading(true);
+          try {
+            const response = await fetch("/api/crm/inquire", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                propertyAddress: pkgContactData.address,
+                realtorName: pkgContactData.name,
+                email: pkgContactData.email,
+                serviceType: `Package Booking - ${activeInquiryPkg.name} (${activeInquiryPkg.price || "Bespoke"}). Note: ${pkgContactData.message || "No additional note."}`
+              })
+            });
+            if (response.ok) {
+              setPackageSubmitted(true);
+            } else {
+              alert("There was an issue submitting your package booking request. Please try again.");
+            }
+          } catch (err) {
+            console.error("Package booking submission failed:", err);
+          } finally {
+            setPackageLoading(false);
+          }
+        };
+
         const toggleBYO = (id: string) => {
           setSelectedBYO(prev => 
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -3216,16 +3256,20 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
                             href="#inquire" 
                             className={`block w-full py-3.5 text-center text-[10px] tracking-[0.25em] uppercase font-black transition-all duration-300 font-mono shadow-sm cursor-pointer ${
                               pkg.isPopular 
-                                ? "bg-brick-copper hover:bg-white text-charcoal animate-pulse" 
+                                ? "bg-brick-copper hover:bg-white text-charcoal" 
                                 : "border border-white/10 hover:border-white text-white hover:bg-white/5"
                             }`}
                             onClick={(e) => {
+                              e.preventDefault();
                               const inquireEl = document.getElementById("inquire");
                               if (inquireEl) {
-                                e.preventDefault();
                                 inquireEl.scrollIntoView({ behavior: "smooth" });
                                 const nameInput = document.querySelector('input[placeholder="Your Name / Agency"]') as HTMLInputElement;
                                 if (nameInput) nameInput.focus();
+                              } else {
+                                setActiveInquiryPkg(pkg);
+                                setPackageSubmitted(false);
+                                setPkgContactData({ name: "", email: "", address: "", message: "" });
                               }
                             }}
                           >
@@ -3456,6 +3500,122 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
                 )}
               </div>
             </section>
+
+            {activeInquiryPkg && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div 
+                  className="absolute inset-0 bg-charcoal/85 backdrop-blur-md"
+                  onClick={() => setActiveInquiryPkg(null)}
+                />
+                <div className="relative bg-[#0e0e0e] border border-brick-copper/30 max-w-lg w-full p-8 rounded shadow-2xl overflow-y-auto max-h-[90vh] animate-fadeIn text-left">
+                  <button 
+                    onClick={() => setActiveInquiryPkg(null)}
+                    className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+                    aria-label="Close"
+                  >
+                    <X size={20} />
+                  </button>
+
+                  {packageSubmitted ? (
+                    <div className="text-center py-8">
+                      <Check size={48} className="text-brick-copper mx-auto mb-4 animate-bounce" />
+                      <h4 className="font-display text-2xl text-white italic mb-2 font-medium">Booking Received</h4>
+                      <p className="text-xs text-white/50 max-w-xs mx-auto mb-6 leading-relaxed">
+                        Your request for the <strong className="text-white">{activeInquiryPkg.name}</strong> package has been transmitted to our CRM pipeline. A storytelling consultant will contact you shortly.
+                      </p>
+                      <button 
+                        onClick={() => setActiveInquiryPkg(null)}
+                        className="py-3 px-8 bg-brick-copper hover:bg-white text-charcoal font-bold text-[10px] uppercase tracking-widest transition-all duration-300 font-mono shadow-sm"
+                      >
+                        Close Window
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handlePackageSubmit} className="space-y-6">
+                      <div>
+                        <span className="text-[10px] tracking-widest text-brick-copper/80 uppercase font-mono font-bold block mb-1">
+                          BOOKING INQUIRY
+                        </span>
+                        <h3 className="font-display text-3xl italic text-white font-medium">
+                          {activeInquiryPkg.name} Package
+                        </h3>
+                        <div className="text-lg font-mono text-white/60 mt-1 font-bold">
+                          {activeInquiryPkg.price} {activeInquiryPkg.billingUnit || ""}
+                        </div>
+                      </div>
+
+                      <div className="w-full h-px bg-white/5 my-4" />
+
+                      <div className="space-y-4">
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Property Address</label>
+                          <input 
+                            required
+                            type="text" 
+                            placeholder="Address of the project" 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white"
+                            value={pkgContactData.address}
+                            onChange={e => setPkgContactData({ ...pkgContactData, address: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Your Full Name</label>
+                          <input 
+                            required
+                            type="text" 
+                            placeholder="Your Name / Realtor agency" 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white"
+                            value={pkgContactData.name}
+                            onChange={e => setPkgContactData({ ...pkgContactData, name: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Email Coordinates</label>
+                          <input 
+                            required
+                            type="email" 
+                            placeholder="your@email.com" 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white"
+                            value={pkgContactData.email}
+                            onChange={e => setPkgContactData({ ...pkgContactData, email: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="border-b border-white/10 pb-2">
+                          <label className="block text-[9px] uppercase tracking-widest text-white/50 mb-1">Message Detail (Optional)</label>
+                          <textarea 
+                            rows={2}
+                            placeholder="Any specific instructions, requested shoot dates, or timeframe constraints..." 
+                            className="bg-transparent w-full outline-none text-xs py-1 placeholder:text-white/10 border-none p-0 focus:ring-0 text-white resize-none"
+                            value={pkgContactData.message}
+                            onChange={e => setPkgContactData({ ...pkgContactData, message: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 flex gap-4">
+                        <button 
+                          type="button"
+                          onClick={() => setActiveInquiryPkg(null)}
+                          className="flex-1 py-3 border border-white/10 hover:border-white/20 text-white/80 hover:text-white text-[10px] uppercase tracking-widest font-mono duration-300 font-bold"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="submit"
+                          disabled={packageLoading}
+                          className="flex-1 py-3 bg-brick-copper hover:bg-white text-charcoal font-semibold text-[10px] uppercase tracking-widest transition-all duration-300 font-mono shadow-md disabled:opacity-50"
+                        >
+                          {packageLoading ? "Transmission..." : "Submit Request"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            )}
           </ComponentWrapper>
         );
       }

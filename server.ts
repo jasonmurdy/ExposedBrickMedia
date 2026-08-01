@@ -17,38 +17,102 @@ import axios from "axios";
 
 dotenv.config();
 
-// Load firebase applet config from disk dynamically to avoid TS/module resolver assertion limitations
-const firebaseConfig = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "firebase-applet-config.json"), "utf8"));
+// Lazy-loaded Firebase Admin configuration and initialization
+let cachedFirebaseConfig: any = null;
 
-// Initialize Firebase Admin
-let app;
-if (admin.apps.length === 0) {
+function getFirebaseConfig() {
+  if (cachedFirebaseConfig) return cachedFirebaseConfig;
   try {
-    app = admin.initializeApp({
-      projectId: firebaseConfig.projectId,
-      credential: admin.credential.applicationDefault()
-    });
-    console.log("[Firebase Admin] Initialized with Application Default Credentials");
+    const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+    if (!fs.existsSync(configPath)) {
+      return {};
+    }
+    cachedFirebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return cachedFirebaseConfig || {};
   } catch (err) {
-    console.warn("[Firebase Admin Warning] Could not initialize with Application Default Credentials. Initializing with public config fallback...");
-    app = admin.initializeApp({
-      projectId: firebaseConfig.projectId,
-    });
+    return {};
   }
-} else {
-  app = admin.apps[0];
 }
 
-const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
-const adminDb = databaseId && databaseId !== "(default)"
-  ? getFirestore(app, databaseId)
-  : getFirestore(app);
+// Transparent Proxy for firebaseConfig to keep existing file-wide accesses working without startup crashes
+const firebaseConfig = new Proxy({} as any, {
+  get(target, prop) {
+    const config = getFirebaseConfig();
+    return config[prop];
+  }
+});
 
-try {
-  adminDb.settings({ ignoreUndefinedProperties: true });
-} catch (settingsErr) {
-  console.warn("[Firebase Admin Settings] Failed to set ignoreUndefinedProperties:", settingsErr);
+let cachedAdminDb: any = null;
+
+function getAdminDb() {
+  if (cachedAdminDb) return cachedAdminDb;
+
+  try {
+    const config = getFirebaseConfig();
+    if (!config || !config.projectId) {
+      console.warn("[Firebase Admin Warning] Invalid or missing firebase-applet-config.json. Lazy initialization deferred.");
+      return null;
+    }
+
+    let app;
+    if (admin.apps.length === 0) {
+      try {
+        app = admin.initializeApp({
+          projectId: firebaseConfig.projectId,
+          credential: admin.credential.applicationDefault()
+        });
+        console.log("[Firebase Admin] Initialized with Application Default Credentials");
+      } catch (err) {
+        console.warn("[Firebase Admin Warning] Could not initialize with Application Default Credentials. Initializing with public config fallback...");
+        app = admin.initializeApp({
+          projectId: firebaseConfig.projectId,
+        });
+      }
+    } else {
+      app = admin.apps[0];
+    }
+
+    const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
+    const db = databaseId && databaseId !== "(default)"
+      ? getFirestore(app, databaseId)
+      : getFirestore(app);
+
+    try {
+      db.settings({ ignoreUndefinedProperties: true });
+    } catch (settingsErr) {
+      console.warn("[Firebase Admin Settings] Failed to set ignoreUndefinedProperties:", settingsErr);
+    }
+
+    cachedAdminDb = db;
+    return cachedAdminDb;
+  } catch (err: any) {
+    console.error("[Firebase Admin Lazy Initialization Error]:", err.message);
+    return null;
+  }
 }
+
+// Transparent Proxy to prevent startup crashes when config is absent or invalid
+const adminDb = new Proxy({} as any, {
+  get(target, prop) {
+    const db = getAdminDb();
+    if (!db) {
+      console.warn(`[Firebase Admin Warning] Attempted to access adminDb.${String(prop)} but firebase-admin is not initialized yet.`);
+      const dummy: any = new Proxy(() => {}, {
+        get(t, p) {
+          if (p === "then") return undefined; // Promise check avoidance
+          return dummy;
+        },
+        apply() { return dummy; }
+      });
+      return dummy;
+    }
+    const val = Reflect.get(db, prop);
+    if (typeof val === 'function') {
+      return val.bind(db);
+    }
+    return val;
+  }
+});
 
 // ES Module path helper (only used for ES environment reference if needed)
 let localFilename = "";
@@ -76,7 +140,8 @@ async function startServer() {
     }
   }) : null;
 
-  app.use(express.json());
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   app.post("/api/ai/generate-layout", async (req, res) => {
     const { prompt } = req.body;
@@ -231,6 +296,172 @@ Make sure every component in the returned JSON has a unique "id" string generate
       let errorMessage = "Failed to generate layout";
       if (error.status === 400 || error.message?.includes("API key")) {
          errorMessage = "API key not valid. Please configure a valid GEMINI_API_KEY in your Secrets panel.";
+      }
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  app.post("/api/ai/convert-image-layout", async (req, res) => {
+    const { image, mimeType, prompt } = req.body;
+    
+    if (!genAI) {
+      return res.status(503).json({ error: "Gemini API key is not configured. Please add your valid GEMINI_API_KEY in the Secrets panel." });
+    }
+
+    if (!image) {
+      return res.status(400).json({ error: "Missing image data" });
+    }
+
+    try {
+      const systemInstruction = `You are an expert design-to-code converter specializing in Puck layouts for a luxury real estate media agency website named "Exposed Brick Media".
+Your task is to analyze the provided image (design mockup or screenshot) and convert it into a strict, fully structured JSON page layout for the Puck visual drag-and-drop editor.
+You MUST map the design components in the image to the available Puck components defined below.
+
+The JSON MUST have this precise shape:
+{
+  "content": [],
+  "root": {
+    "props": {
+      "title": "Design Conversion Page",
+      "description": "Converted design layout page",
+      "layoutMode": "one-panel",
+      "main": [],
+      "side": []
+    }
+  },
+  "zones": {}
+}
+
+Rules for nesting and columns:
+1. "content" array: contains the top-level blocks sequentially (e.g., Hero, Section, Spacer, Footer, etc.).
+2. Nested slot elements (like items inside a Section or Columns) MUST be placed in the "zones" object.
+   - For example, if a Section block has id "section-1" and contains child blocks, those child blocks MUST be placed in zones["section-1:children"] as an array.
+   - If a Columns block has id "cols-2", its left column blocks go to zones["cols-2:left"] and its right column blocks go to zones["cols-2:right"].
+3. Ensure every element has a unique, randomly-generated "id" (e.g. "section-3829", "cols-1928", "heading-4830").
+4. Ensure all blocks match the available Puck components and their respective properties precisely.
+
+Available Puck components & properties:
+
+1. Section
+   - "id": unique string
+   - "background": "bg-transparent" | "bg-bg-primary" | "bg-bg-secondary" | "bg-charcoal text-white"
+   - "layout": "boxed" | "full"
+   - "padding": "py-8" | "py-16" | "py-32"
+   - "children": slot (represents nested children)
+
+2. Columns
+   - "id": unique string
+   - "leftColumnWidth": number (10 to 90, e.g. 50)
+   - "gap": number (pixels, e.g. 32)
+   - "left": slot
+   - "right": slot
+
+3. CinematicHero
+   - "id": unique string
+   - "title": string (bold uppercase)
+   - "subtitle": string (tagline)
+   - "mediaUrl": string URL for video or background image
+   - "mediaType": "video" | "image"
+   - "ctaText": string (optional)
+   - "ctaUrl": string (optional)
+
+4. TextContent
+   - "id": unique string
+   - "showLogo": boolean
+   - "title1": string
+   - "title2": string
+   - "accent": string
+   - "tagline": string
+
+5. Heading
+   - "id": unique string
+   - "text": string
+   - "level": 1 | 2 | 3 | 4
+   - "align": "left" | "center" | "right"
+   - "accent": boolean
+
+6. RichText
+   - "id": unique string
+   - "content": string (HTML or markdown text)
+   - "size": "sm" | "base" | "lg"
+
+7. Services
+   - "id": unique string
+   - "title": string
+   - "subtitle": string
+
+8. Portfolio
+   - "id": unique string
+   - "variant": "grid" | "gallery"
+   - "panel": "main" | "side"
+   - "limit": number
+   - "showFilter": boolean
+
+9. Contact
+   - "id": unique string
+   - "title": string
+   - "description": string
+
+10. Testimonials
+    - "id": unique string
+    - "maxItems": number
+
+11. Spacer
+    - "id": unique string
+    - "size": number (height in pixels, e.g., 20, 40, 80)
+
+12. Footer
+    - "id": unique string
+    - "quote": string
+
+Do NOT include any markdown code blocks, comments, or extra text in your output. Return only the valid JSON.`;
+
+      // Extract raw base64 data
+      let base64Data = image;
+      if (base64Data.includes(";base64,")) {
+        base64Data = base64Data.split(";base64,")[1];
+      }
+
+      const imagePart = {
+        inlineData: {
+          mimeType: mimeType || "image/png",
+          data: base64Data,
+        },
+      };
+
+      const userPrompt = prompt 
+        ? `Analyze this design and convert it to a Puck layout. User specific request: "${prompt}"`
+        : "Analyze this design and convert it to a Puck layout. Recreate the structure, content, text alignment, spacing, column splits, background styles, and component sequence as closely as possible.";
+
+      const response = await genAI.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [
+          imagePart,
+          { text: userPrompt }
+        ],
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+        }
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("No layout generated from design analysis");
+
+      let cleanedText = text.trim();
+      if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+      }
+
+      const parsed = JSON.parse(cleanedText);
+      res.json(parsed);
+    } catch (error: any) {
+      console.error("AI Design Conversion Error:", error);
+      let errorMessage = "Failed to convert design image to layout";
+      if (error.status === 400 || error.message?.includes("API key")) {
+         errorMessage = "API key not valid. Please configure a valid GEMINI_API_KEY in your Secrets panel.";
+      } else if (error instanceof SyntaxError) {
+         errorMessage = "Failed to parse the generated layout JSON structure.";
       }
       res.status(500).json({ error: errorMessage });
     }

@@ -209,9 +209,26 @@ function HomeView() {
         <meta property="og:type" content="website" />
       </Helmet>
       <HeroVisual />
-      <div className="bg-bg-primary/50">
-        <Portfolio key="portfolio" />
-      </div>
+      
+      {sections.map((section) => {
+        if (section === 'portfolio') {
+          return (
+            <div key="portfolio" className="bg-bg-primary/50">
+              <Portfolio />
+            </div>
+          );
+        }
+        if (section === 'services') {
+          return (
+            <div key="services" className="bg-bg-primary/50 border-t border-border-subtle p-8 md:p-12 lg:p-16">
+              <div className="max-w-4xl mx-auto">
+                <Services />
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })}
     </section>
   );
 }
