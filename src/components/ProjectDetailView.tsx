@@ -371,7 +371,7 @@ export const ProjectDetailView = () => {
       <div className="flex-1 flex flex-col lg:flex-row w-full min-h-0 overflow-y-auto lg:overflow-hidden select-none pb-[60px] lg:pb-0">
         
         {/* COLUMN 1: Fixed Side Panel for Team / Advisors / Partners Row */}
-        <aside className="order-3 lg:order-1 w-full lg:w-[22%] bg-black/10 border-b lg:border-b-0 lg:border-r border-white/5 p-8 flex flex-col gap-10 items-center justify-start overflow-y-auto custom-scrollbar lg:h-full shrink-0">
+        <aside className="order-2 lg:order-1 w-full lg:w-[22%] bg-black/10 border-b lg:border-b-0 lg:border-r border-white/5 p-4 sm:p-8 flex flex-col gap-10 items-center justify-start overflow-y-auto custom-scrollbar lg:h-full shrink-0">
           <div className="w-full text-center lg:text-left">
             <span className="text-[8px] uppercase tracking-[0.3em] text-brick-copper font-black font-mono block mb-1">Architectural Contact</span>
             <h4 className="text-xs uppercase tracking-wider font-bold text-white">Listing Advisory</h4>
@@ -584,16 +584,16 @@ export const ProjectDetailView = () => {
 
 
         {/* COLUMN 2: Fluid Narrative & Specification Center Workspace */}
-        <main className="order-2 lg:order-2 flex-1 bg-bg-primary p-8 lg:p-14 flex flex-col justify-between gap-12 overflow-y-auto custom-scrollbar lg:h-full border-b lg:border-b-0 lg:border-r border-white/5">
+        <main className="order-3 lg:order-2 flex-1 bg-bg-primary p-4 sm:p-8 lg:p-14 flex flex-col justify-between gap-12 overflow-y-auto custom-scrollbar lg:h-full border-b lg:border-b-0 lg:border-r border-white/5">
           <div className="flex flex-col gap-8 max-w-2xl w-full">
             <div>
               <span className="text-xs font-bold tracking-widest text-brick-copper uppercase block mb-3">
                 {project.category}
               </span>
-              <h1 className="text-4xl lg:text-5xl font-serif text-neutral-100 tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-neutral-100 tracking-tight leading-tight">
                 {project.title?.split(',')[0]}
                 {project.title?.includes(',') && (
-                  <span className="italic block lg:inline text-neutral-400 font-sans font-light text-2xl lg:text-4xl ml-0 lg:ml-3">
+                  <span className="italic block lg:inline text-neutral-400 font-sans font-light text-xl sm:text-2xl lg:text-4xl ml-0 lg:ml-3">
                     , {project.title.substring(project.title.indexOf(',') + 1)}
                   </span>
                 )}
@@ -916,7 +916,7 @@ export const ProjectDetailView = () => {
 
 
         {/* COLUMN 3: Expansive Visual Media Viewport Engine and Anchored Thumbnail Carousel Strip */}
-        <section className="order-1 lg:order-3 w-full lg:w-[43%] min-h-[400px] lg:min-h-0 bg-[#141414] relative flex flex-col justify-between overflow-hidden lg:h-full">
+        <section className="order-1 lg:order-3 w-full lg:w-[43%] h-auto sm:min-h-[400px] lg:min-h-0 bg-[#141414] relative flex flex-col justify-between overflow-hidden lg:h-full">
           {/* Mobile Sticky Details Bar: Sticky above the photos on mobile viewports */}
           <div className="lg:hidden sticky top-0 z-30 w-full bg-neutral-950/95 backdrop-blur-md border-b border-white/5 px-4 py-3.5 flex flex-col gap-2 shrink-0">
             <div className="flex items-start justify-between min-w-0">
@@ -985,8 +985,33 @@ export const ProjectDetailView = () => {
             </div>
           </div>
 
-          {/* Main Visual Node Display background */}
-          <div className="absolute inset-0 w-full h-full z-0">
+          {/* Mobile Swipe Carousel: Switch to horizontal swipe on small screens (<640px) */}
+          <div className="sm:hidden w-full aspect-[4/3] relative overflow-hidden flex-shrink-0 z-10">
+            <div className="flex overflow-x-auto snap-x snap-mandatory flex-nowrap scrollbar-none w-full h-full">
+              {allImages.map((img, idx) => (
+                <div 
+                  key={idx} 
+                  className="w-full h-full flex-shrink-0 snap-center relative"
+                >
+                  <img 
+                    src={img} 
+                    className="w-full h-full object-cover brightness-[0.9] contrast-[1.03]" 
+                    alt={`${project.title} - View ${idx + 1}`}
+                    referrerPolicy="no-referrer"
+                  />
+                  {/* Floating index indicator on each image */}
+                  <div className="absolute top-4 right-4 z-20 bg-bg-primary/60 backdrop-blur-md px-2 py-1 border border-white/5 rounded-xs text-[10px] font-mono text-brick-copper font-bold">
+                    {idx + 1} / {allImages.length}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Gradient Overlay at the bottom */}
+            <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/85 to-transparent pointer-events-none" />
+          </div>
+
+          {/* Main Visual Node Display background (Desktop & Tablet) */}
+          <div className="hidden sm:block absolute inset-0 w-full h-full z-0">
             <AnimatePresence mode="wait">
               <motion.img 
                 key={activeImage}
@@ -1004,9 +1029,9 @@ export const ProjectDetailView = () => {
           </div>
 
 
-          {/* Desktop & Mobile Visual Showcase Floating Overlay Menu */}
+          {/* Desktop & Tablet Floating Overlay Menu */}
           {(project.fotelloUrl || project.matterportUrl || project.specsUrl || project.externalLink || project.url || project.videoUrl) && (
-            <div className="flex flex-wrap max-w-[65%] md:max-w-none absolute top-4 left-4 lg:top-6 lg:left-6 z-20 items-center gap-1.5 bg-neutral-950/75 backdrop-blur-md p-1.5 border border-white/10 rounded-sm shadow-2xl">
+            <div className="hidden sm:flex flex-wrap max-w-[65%] md:max-w-none absolute top-4 left-4 lg:top-6 lg:left-6 z-20 items-center gap-1.5 bg-neutral-950/75 backdrop-blur-md p-1.5 border border-white/10 rounded-sm shadow-2xl">
               <span className="hidden sm:inline text-[8px] uppercase tracking-widest text-neutral-400 font-mono font-bold px-1 select-none">Websites:</span>
               {project.videoUrl && (
                 <button
@@ -1067,7 +1092,7 @@ export const ProjectDetailView = () => {
 
 
           {/* Chronology Badge Counter layout display */}
-          <div className="absolute top-[85px] right-4 lg:top-6 lg:right-6 z-20">
+          <div className="hidden sm:block absolute top-[85px] right-4 lg:top-6 lg:right-6 z-20">
              <div className="bg-bg-primary/60 backdrop-blur-md p-3 border border-white/5 flex flex-col gap-0.5 items-end rounded-xs">
                 <span className="text-[8px] uppercase tracking-widest text-white/40 font-mono">Visual Index</span>
                 <span className="text-base font-display text-brick-copper italic font-medium">
@@ -1082,7 +1107,7 @@ export const ProjectDetailView = () => {
 
 
           {/* Horizontal Slider Controls Strip locked onto bottom window perimeter alignment */}
-          <div className="w-full p-6 z-10 flex items-center justify-end gap-4 bg-gradient-to-t from-black/80 to-transparent">
+          <div className="hidden sm:flex w-full p-6 z-10 items-center justify-end gap-4 bg-gradient-to-t from-black/80 to-transparent">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 max-w-full">
               {allImages.map((img, idx) => (
                 <button 

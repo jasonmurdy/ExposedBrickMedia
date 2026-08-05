@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Camera, Sun, Layers, Aperture, Sparkles, MoveUpRight, ArrowRight, Compass } from 'lucide-react';
 import { useSiteContent } from '../../lib/SiteContentContext';
 import { useMemo } from 'react';
-import { Render } from '@measured/puck';
+import { Render } from '@puckeditor/core';
 import { createConfig } from '../../lib/puck.config';
 import { sanitizeLayout } from '../../lib/sanitizeLayout';
 import { BookingForm } from '../../components/BookingAndFooter';

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Globe, Wind, Compass, ShieldCheck, CheckCircle2, Camera, Video, Map, Image as ImageIcon, Play, Check } from 'lucide-react';
 import { useSiteContent } from '../../lib/SiteContentContext';
 import { useMemo, useState } from 'react';
-import { Render } from '@measured/puck';
+import { Render } from '@puckeditor/core';
 import { createConfig } from '../../lib/puck.config';
 import { sanitizeLayout } from '../../lib/sanitizeLayout';
 import { BookingForm } from '../../components/BookingAndFooter';

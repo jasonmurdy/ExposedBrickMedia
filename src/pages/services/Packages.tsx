@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { useSiteContent } from '../../lib/SiteContentContext';
 import { useMemo, useState } from 'react';
-import { Render } from '@measured/puck';
+import { Render } from '@puckeditor/core';
 import { createConfig } from '../../lib/puck.config';
 import { sanitizeLayout } from '../../lib/sanitizeLayout';
 import { Check, Ban, Camera, Plane, Layers, Sparkles, X } from 'lucide-react';

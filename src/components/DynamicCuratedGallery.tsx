@@ -162,33 +162,63 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
 
       {/* Grid rendering options */}
       {layout === "grid" && (
-        <div className={`grid ${getGridColsClass(columns)} ${minimalGap ? "gap-1.5 sm:gap-2" : "gap-6 lg:gap-8"}`}>
-          {images.map((img, index) => (
-            <motion.div
-              key={`${img.url}-${index}`}
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className={`group relative overflow-hidden bg-[#101010] border border-white/5 cursor-pointer ${getAspectClass(aspectRatio)}`}
-              onClick={() => lightbox && setLightboxIndex(index)}
-            >
-              <img
-                src={img.url}
-                className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
-                alt={img.portfolioTitle}
-                referrerPolicy="no-referrer"
-              />
-              {!hideOverlays && (
-                <>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    {lightbox && (
-                      <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
-                        <Maximize2 size={16} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+        <>
+          <div className={`hidden sm:grid ${getGridColsClass(columns)} ${minimalGap ? "gap-1.5 sm:gap-2" : "gap-6 lg:gap-8"}`}>
+            {images.map((img, index) => (
+              <motion.div
+                key={`${img.url}-${index}`}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.05 }}
+                className={`group relative overflow-hidden bg-[#101010] border border-white/5 cursor-pointer ${getAspectClass(aspectRatio)}`}
+                onClick={() => lightbox && setLightboxIndex(index)}
+              >
+                <img
+                  src={img.url}
+                  className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
+                  alt={img.portfolioTitle}
+                  referrerPolicy="no-referrer"
+                />
+                {!hideOverlays && (
+                  <>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      {lightbox && (
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
+                          <Maximize2 size={16} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                      <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
+                        {img.category || "Property Asset"}
+                      </span>
+                      <span className="font-display text-sm italic text-white line-clamp-1 block">
+                        {img.portfolioTitle}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Mobile Swipe Carousel fallback */}
+          <div className="flex sm:hidden overflow-x-auto snap-x snap-mandatory flex-nowrap scrollbar-none gap-4 pb-4 w-full">
+            {images.map((img, index) => (
+              <div
+                key={`${img.url}-mobile-${index}`}
+                className="flex-shrink-0 w-[85vw] snap-center aspect-video relative overflow-hidden bg-[#101010] border border-white/5"
+                onClick={() => lightbox && setLightboxIndex(index)}
+              >
+                <img
+                  src={img.url}
+                  className={`w-full h-full object-cover select-none ${getGrayscaleClass(grayscaleEffect)}`}
+                  alt={img.portfolioTitle}
+                  referrerPolicy="no-referrer"
+                />
+                {!hideOverlays && (
+                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
                     <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
                       {img.category || "Property Asset"}
                     </span>
@@ -196,42 +226,72 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                       {img.portfolioTitle}
                     </span>
                   </div>
-                </>
-              )}
-            </motion.div>
-          ))}
-        </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Masonry Layout (utilizing column layout) */}
       {layout === "masonry" && (
-        <div className={`columns-1 sm:columns-2 lg:columns-${columns} ${minimalGap ? "gap-1.5 space-y-1.5" : "gap-6 space-y-6"}`}>
-          {images.map((img, index) => (
-            <motion.div
-              key={`${img.url}-${index}`}
-              initial={{ opacity: 0, scale: 0.98 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className={`break-inside-avoid w-full block bg-[#101010] border border-white/5 group relative overflow-hidden cursor-pointer ${minimalGap ? "mb-1.5" : "mb-6"}`}
-              onClick={() => lightbox && setLightboxIndex(index)}
-            >
-              <img
-                src={img.url}
-                className={`w-full h-auto block select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
-                alt={img.portfolioTitle}
-                referrerPolicy="no-referrer"
-              />
-              {!hideOverlays && (
-                <>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    {lightbox && (
-                      <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
-                        <Maximize2 size={16} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+        <>
+          <div className={`hidden sm:block columns-2 lg:columns-${columns} ${minimalGap ? "gap-1.5 space-y-1.5" : "gap-6 space-y-6"}`}>
+            {images.map((img, index) => (
+              <motion.div
+                key={`${img.url}-${index}`}
+                initial={{ opacity: 0, scale: 0.98 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.05 }}
+                className={`break-inside-avoid w-full block bg-[#101010] border border-white/5 group relative overflow-hidden cursor-pointer ${minimalGap ? "mb-1.5" : "mb-6"}`}
+                onClick={() => lightbox && setLightboxIndex(index)}
+              >
+                <img
+                  src={img.url}
+                  className={`w-full h-auto block select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
+                  alt={img.portfolioTitle}
+                  referrerPolicy="no-referrer"
+                />
+                {!hideOverlays && (
+                  <>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      {lightbox && (
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
+                          <Maximize2 size={16} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                      <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
+                        {img.category || "Property Asset"}
+                      </span>
+                      <span className="font-display text-sm italic text-white line-clamp-1 block">
+                        {img.portfolioTitle}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Mobile Swipe Carousel fallback */}
+          <div className="flex sm:hidden overflow-x-auto snap-x snap-mandatory flex-nowrap scrollbar-none gap-4 pb-4 w-full">
+            {images.map((img, index) => (
+              <div
+                key={`${img.url}-mobile-${index}`}
+                className="flex-shrink-0 w-[85vw] snap-center aspect-video relative overflow-hidden bg-[#101010] border border-white/5"
+                onClick={() => lightbox && setLightboxIndex(index)}
+              >
+                <img
+                  src={img.url}
+                  className={`w-full h-full object-cover select-none ${getGrayscaleClass(grayscaleEffect)}`}
+                  alt={img.portfolioTitle}
+                  referrerPolicy="no-referrer"
+                />
+                {!hideOverlays && (
+                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
                     <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
                       {img.category || "Property Asset"}
                     </span>
@@ -239,54 +299,84 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                       {img.portfolioTitle}
                     </span>
                   </div>
-                </>
-              )}
-            </motion.div>
-          ))}
-        </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Bento Showcase Grid */}
       {layout === "bento" && (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${minimalGap ? "gap-1.5" : "gap-6"} auto-rows-[220px] sm:auto-rows-[250px] md:auto-rows-[280px]`}>
-          {images.map((img, index) => (
-            <motion.div
-              key={`${img.url}-${index}`}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className={`${getBentoSpan(index)} group relative overflow-hidden bg-[#101010] border border-white/5 cursor-pointer`}
-              onClick={() => lightbox && setLightboxIndex(index)}
-            >
-              <img
-                src={img.url}
-                className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
-                alt={img.portfolioTitle}
-                referrerPolicy="no-referrer"
-              />
-              {!hideOverlays && (
-                <>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    {lightbox && (
-                      <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
-                        <Maximize2 size={16} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+        <>
+          <div className={`hidden sm:grid grid-cols-2 md:grid-cols-3 ${minimalGap ? "gap-1.5" : "gap-6"} auto-rows-[250px] md:auto-rows-[280px]`}>
+            {images.map((img, index) => (
+              <motion.div
+                key={`${img.url}-${index}`}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.05 }}
+                className={`${getBentoSpan(index)} group relative overflow-hidden bg-[#101010] border border-white/5 cursor-pointer`}
+                onClick={() => lightbox && setLightboxIndex(index)}
+              >
+                <img
+                  src={img.url}
+                  className={`w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03] ${getGrayscaleClass(grayscaleEffect)}`}
+                  alt={img.portfolioTitle}
+                  referrerPolicy="no-referrer"
+                />
+                {!hideOverlays && (
+                  <>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      {lightbox && (
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white scale-95 group-hover:scale-100 transition-transform duration-300">
+                          <Maximize2 size={16} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                      <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
+                        {img.category || "Property Asset"}
+                      </span>
+                      <span className="font-display text-sm md:text-base italic text-white line-clamp-1 block">
+                        {img.portfolioTitle}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Mobile Swipe Carousel fallback */}
+          <div className="flex sm:hidden overflow-x-auto snap-x snap-mandatory flex-nowrap scrollbar-none gap-4 pb-4 w-full">
+            {images.map((img, index) => (
+              <div
+                key={`${img.url}-mobile-${index}`}
+                className="flex-shrink-0 w-[85vw] snap-center aspect-video relative overflow-hidden bg-[#101010] border border-white/5"
+                onClick={() => lightbox && setLightboxIndex(index)}
+              >
+                <img
+                  src={img.url}
+                  className={`w-full h-full object-cover select-none ${getGrayscaleClass(grayscaleEffect)}`}
+                  alt={img.portfolioTitle}
+                  referrerPolicy="no-referrer"
+                />
+                {!hideOverlays && (
+                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
                     <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
                       {img.category || "Property Asset"}
                     </span>
-                    <span className="font-display text-sm md:text-base italic text-white line-clamp-1 block">
+                    <span className="font-display text-sm italic text-white line-clamp-1 block">
                       {img.portfolioTitle}
                     </span>
                   </div>
-                </>
-              )}
-            </motion.div>
-          ))}
-        </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Carousel Scrollstrip */}

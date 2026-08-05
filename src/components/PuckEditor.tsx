@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Puck, usePuck, createUsePuck } from "@measured/puck";
-import "@measured/puck/dist/index.css";
+import { Puck, usePuck, createUsePuck } from "@puckeditor/core";
+import "@puckeditor/core/puck.css";
 import { createConfig, BASELINE_LAYOUT } from "../lib/puck.config";
 import { useSiteContent } from "../lib/SiteContentContext";
 import { db } from "../lib/firebase";

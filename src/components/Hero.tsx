@@ -4,7 +4,7 @@
  */
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, Search, CloudSun, CloudMoon, X, Check, Edit3, MoveUpRight, ArrowLeft } from 'lucide-react';
+import { Menu, Search, CloudSun, CloudMoon, X, Check, Edit3, MoveUpRight, ArrowLeft, Instagram, Facebook, Linkedin, Twitter, Phone, Mail, MapPin, ExternalLink } from 'lucide-react';
 import { useSiteContent } from '../lib/SiteContentContext';
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -278,34 +278,41 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
   const [isOpen, setIsOpen] = useState(false);
   const { pages, settings } = useSiteContent();
   const location = useLocation();
-  const alignment = settings.heroAlignment || 'left';
 
   const navItems = settings.navigationItems || [];
-  const logoUrl = theme === 'light' ? settings.logoLight : settings.logoDark;
+  const contact = settings.contactInfo;
 
   const closeMenu = () => setIsOpen(false);
 
   return (
     <div className="lg:hidden">
-      <div className="fixed top-0 left-0 right-0 z-[60] bg-bg-primary/80 backdrop-blur-md border-b border-border-subtle p-6 flex justify-between items-center transition-colors">
-        <Link to="/" onClick={closeMenu} className="group italic lg:block hidden">
-          <span className="font-display text-xl text-text-primary whitespace-nowrap">
-            The Exposed <span className="text-brick-copper">Brick</span>
+      <div className="fixed top-0 left-0 right-0 z-[60] bg-bg-primary/80 backdrop-blur-md border-b border-border-subtle p-5 sm:p-6 flex justify-between items-center transition-colors">
+        <Link to="/" onClick={closeMenu} className="group italic block">
+          <span className="font-display text-lg sm:text-xl text-text-primary whitespace-nowrap transition-colors group-hover:text-brick-copper">
+            The Exposed <span className="text-brick-copper font-serif font-semibold">Brick</span>
           </span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Link to="/portal" className="text-[10px] uppercase tracking-widest font-bold text-text-primary/70 mr-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <Link 
+            to="/portal" 
+            onClick={closeMenu} 
+            className="text-[9px] uppercase tracking-widest font-bold text-text-primary/70 hover:text-brick-copper px-2.5 py-1 border border-border-subtle hover:border-brick-copper transition-colors"
+          >
             Sign In
           </Link>
           <button 
             onClick={onThemeToggle} 
-            className="text-text-primary/60 p-2 rounded-full hover:bg-brick-copper/10 transition-all"
+            className="text-text-primary/60 p-2 rounded-full hover:bg-brick-copper/10 transition-all cursor-pointer"
             aria-label="Toggle Theme"
           >
-            {theme === 'light' ? <CloudMoon size={22} strokeWidth={2} /> : <CloudSun size={22} strokeWidth={2} />}
+            {theme === 'light' ? <CloudMoon size={18} strokeWidth={2} /> : <CloudSun size={18} strokeWidth={2} />}
           </button>
-          <button onClick={() => setIsOpen(!isOpen)} className="text-text-primary/60 p-2">
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
+          <button 
+            onClick={() => setIsOpen(!isOpen)} 
+            className="text-text-primary/60 p-2 cursor-pointer transition-transform duration-200 active:scale-90"
+            aria-label="Menu"
+          >
+            {isOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
@@ -313,44 +320,108 @@ export const MobileNavbar = ({ theme, onThemeToggle }: { theme: 'light' | 'dark'
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-0 z-[55] bg-bg-primary pt-24 px-8 overflow-y-auto"
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="fixed inset-0 z-[55] bg-bg-primary pt-24 px-6 sm:px-8 pb-10 overflow-y-auto flex flex-col justify-between"
           >
-            <div className="flex flex-col gap-8 py-12">
-              {/* Navigation Items (Master List) */}
-              {navItems
-                .filter(item => !item.hidden)
-                .sort((a,b) => a.order - b.order)
-                .map(item => {
-                  const isInternal = !item.url.startsWith('http');
-                  if (isInternal) {
+            <div className="flex flex-col gap-6 sm:gap-8 py-6 sm:py-10">
+              <span className="text-[8px] uppercase tracking-[0.4em] text-neutral-500 font-bold font-mono">Navigation Menu</span>
+              <div className="flex flex-col gap-5 sm:gap-6">
+                {navItems
+                  .filter(item => !item.hidden)
+                  .sort((a,b) => a.order - b.order)
+                  .map((item, idx) => {
+                    const isInternal = !item.url.startsWith('http');
+                    const isActive = location.pathname === item.url;
+                    
                     return (
-                      <Link 
-                        key={item.id} 
-                        to={item.url} 
-                        onClick={closeMenu}
-                        className={`text-2xl font-display italic ${location.pathname === item.url ? 'text-brick-copper' : 'text-text-primary/60'}`}
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.04, duration: 0.2 }}
                       >
-                        {item.label}
-                      </Link>
+                        {isInternal ? (
+                          <Link 
+                            to={item.url} 
+                            onClick={closeMenu}
+                            className={`text-xl sm:text-2xl font-display italic transition-all duration-300 flex items-center justify-between group ${
+                              isActive ? 'text-brick-copper pl-2 border-l border-brick-copper' : 'text-text-primary/60 hover:text-text-primary pl-0'
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            <MoveUpRight size={14} className="opacity-0 group-hover:opacity-60 transition-opacity" />
+                          </Link>
+                        ) : (
+                          <a 
+                            href={item.url} 
+                            className="text-xl sm:text-2xl font-display italic text-text-primary/60 hover:text-text-primary transition-all flex items-center justify-between group pl-0"
+                            onClick={closeMenu}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <span>{item.label}</span>
+                            <MoveUpRight size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                        )}
+                      </motion.div>
                     );
-                  }
-                  return (
-                    <a 
-                      key={item.id} 
-                      href={item.url} 
-                      className="text-2xl font-display italic text-text-primary/60"
-                      onClick={closeMenu}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {item.label}
-                    </a>
-                  );
-                })}
+                  })}
+              </div>
             </div>
+
+            {/* Bottom Panel with Contact and Social Links */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-auto pt-8 border-t border-border-subtle space-y-6"
+            >
+              {/* Contact Information */}
+              {contact && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {contact.phone && (
+                    <a href={`tel:${contact.phone}`} className="flex items-center gap-3 text-text-primary/60 hover:text-brick-copper transition-colors group">
+                      <div className="w-8 h-8 rounded-full border border-border-subtle flex items-center justify-center group-hover:border-brick-copper transition-colors">
+                        <Phone size={12} className="text-brick-copper" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[7px] uppercase tracking-widest text-neutral-500 font-bold font-mono">Phone</span>
+                        <span className="text-[10px] font-mono tracking-wider">{contact.phone}</span>
+                      </div>
+                    </a>
+                  )}
+                  {contact.email && (
+                    <a href={`mailto:${contact.email}`} className="flex items-center gap-3 text-text-primary/60 hover:text-brick-copper transition-colors group">
+                      <div className="w-8 h-8 rounded-full border border-border-subtle flex items-center justify-center group-hover:border-brick-copper transition-colors">
+                        <Mail size={12} className="text-brick-copper" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[7px] uppercase tracking-widest text-neutral-500 font-bold font-mono">Email</span>
+                        <span className="text-[10px] font-mono tracking-wider lowercase truncate max-w-[180px]">{contact.email}</span>
+                      </div>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Socials & Slogan */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <a href="https://instagram.com/exposedbrickmedia" target="_blank" rel="noopener" className="w-8 h-8 rounded-full border border-border-subtle hover:border-brick-copper hover:text-brick-copper flex items-center justify-center transition-colors">
+                    <Instagram size={13} />
+                  </a>
+                  <a href="https://facebook.com/exposedbrickmedia" target="_blank" rel="noopener" className="w-8 h-8 rounded-full border border-border-subtle hover:border-brick-copper hover:text-brick-copper flex items-center justify-center transition-colors">
+                    <Facebook size={13} />
+                  </a>
+                </div>
+                <span className="text-[8px] uppercase tracking-[0.25em] text-neutral-500 font-mono">
+                  © {new Date().getFullYear()} Exposed Brick Media
+                </span>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

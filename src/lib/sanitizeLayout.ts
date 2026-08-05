@@ -6,6 +6,18 @@
  * clean ID assignment.
  */
 
+import { transformProps, Data } from "@puckeditor/core";
+
+export const migrateSavedLayout = (data: any): any => {
+  if (!data || !data.content) return data;
+  return transformProps(data as Data, {
+    ProjectDetailView: ({ legacyGalleryStyle, ...props }: any) => ({
+      mobileGalleryMode: legacyGalleryStyle === "grid" ? "stack" : "carousel",
+      ...props,
+    }),
+  });
+};
+
 function sanitizePrimaryItem(item: any, path: string, seenIds: Set<string>, idRemap: Map<string, string>): any {
   if (!item || typeof item !== 'object') return null;
 
@@ -215,6 +227,9 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
 
   if (!parsed || typeof parsed !== 'object') return null;
 
+  // Run dynamic prop migrations
+  parsed = migrateSavedLayout(parsed);
+
   // Adapt legacy properties like children arrays recursively
   if (parsed.root) adaptSlots(parsed.root);
   if (Array.isArray(parsed.content)) parsed.content.forEach(adaptSlots);
@@ -310,7 +325,7 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
 /**
  * Robust JSON layout sanitization function as specified in the diagnostics PDF.
  * Ensures recursive validation of component arrays (including `children`)
- * with guaranteed unique IDs for seamless visual hydration in @measured/puck.
+ * with guaranteed unique IDs for seamless visual hydration in @puckeditor/core.
  */
 export function sanitizeLayoutData(data: any, seenIds?: Set<string>): any {
   if (!data || typeof data !== 'object') return {};

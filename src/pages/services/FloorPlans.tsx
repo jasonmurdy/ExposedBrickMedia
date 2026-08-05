@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Layout, Maximize, FileText, Check, Compass, Layers, Box, Zap, Clock, Sparkles } from 'lucide-react';
 import { useSiteContent } from '../../lib/SiteContentContext';
 import { useMemo } from 'react';
-import { Render } from '@measured/puck';
+import { Render } from '@puckeditor/core';
 import { createConfig } from '../../lib/puck.config';
 import { BookingForm } from '../../components/BookingAndFooter';
 import { sanitizeLayout } from '../../lib/sanitizeLayout';

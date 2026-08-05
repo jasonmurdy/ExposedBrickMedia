@@ -49,7 +49,7 @@ import {
   Ban,
   X
 } from "lucide-react";
-import { Config } from "@measured/puck";
+import { Config } from "@puckeditor/core";
 import { HeroVisual, BrandHeader } from "../components/Hero";
 import { Portfolio, Services } from "../components/PortfolioSections";
 import { BookingForm, FooterContent } from "../components/BookingAndFooter";
