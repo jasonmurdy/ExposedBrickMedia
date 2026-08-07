@@ -10,7 +10,6 @@ import { GoogleGenAI } from "@google/genai";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
-import sharp from "sharp";
 import { google } from "googleapis";
 import { PassThrough } from "stream";
 import axios from "axios";
@@ -2561,14 +2560,24 @@ Do NOT include any markdown code blocks, comments, or extra text in your output.
               // --- PIPELINE A: FIREBASE STORAGE (WebP compressed for fast loading) ---
               let cdnUrl = "";
               try {
-                const optimizedBuffer = await sharp(inputBuffer)
-                  .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
-                  .toFormat('webp', { quality: 80 })
-                  .toBuffer();
+                let optimizedBuffer = inputBuffer;
+                let contentType = "image/webp";
+                try {
+                  const sharpModule: any = await import("sharp");
+                  const sharpObj: any = sharpModule.default || sharpModule;
+                  optimizedBuffer = await sharpObj(inputBuffer)
+                    .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+                    .toFormat('webp', { quality: 80 })
+                    .toBuffer();
+                } catch (sharpErr) {
+                  console.warn("[Sharp Fallback] Sharp failed to load or process image, uploading raw uncompressed buffer:", sharpErr);
+                  contentType = "image/jpeg"; // default fallback
+                }
 
-                const firebaseFile = bucket.file(`portfolio/${listingId}/${imgId}.webp`);
+                const fileExtension = contentType === "image/webp" ? "webp" : "jpg";
+                const firebaseFile = bucket.file(`portfolio/${listingId}/${imgId}.${fileExtension}`);
                 await firebaseFile.save(optimizedBuffer, {
-                  metadata: { contentType: 'image/webp' }
+                  metadata: { contentType: contentType }
                 });
 
                 const [signedUrl] = await firebaseFile.getSignedUrl({
@@ -2583,7 +2592,7 @@ Do NOT include any markdown code blocks, comments, or extra text in your output.
                   title: (typeof img === "object" && img.title) ? img.title : `Media Asset ${i + 1}`,
                   originalUrl: imageUrl
                 });
-                console.log(`[Pipeline A] Handled JPEG optimization to format WebP successfully: ${cdnUrl}`);
+                console.log(`[Pipeline A] Handled image storage and CDN generation successfully: ${cdnUrl}`);
               } catch (storageErr: any) {
                 console.log(`[Pipeline A] Asset ${imgId} optimized and served via fallback CDN successfully.`);
                 // Fallback to source url directly

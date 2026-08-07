@@ -513,7 +513,43 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
     
     const reader = new FileReader();
     reader.onload = () => {
-      setAiImage(reader.result as string);
+      const img = new Image();
+      img.onload = () => {
+        // Create canvas to downscale and compress image for rapid network payload and avoiding Vercel timeouts
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1024;
+        const MAX_HEIGHT = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          // Export as compressed JPEG for extremely fast upload/parsing & keeping below Vercel payload limit (4.5MB)
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          setAiImage(compressedDataUrl);
+        } else {
+          setAiImage(reader.result as string);
+        }
+      };
+      img.onerror = () => {
+        setAiImage(reader.result as string);
+      };
+      img.src = reader.result as string;
     };
     reader.onerror = () => {
       toast.error("Failed to read the image file.");
