@@ -18,7 +18,7 @@
     "@fontsource-variable/geist": "^5.2.8",
     "@getbrevo/brevo": "^5.0.4",
     "@google/genai": "^1.29.0",
-    "@puckeditor/core": "^0.22.2",
+    "@puckeditor/core": "^0.23.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.14",
     "@types/cors": "^2.8.19",

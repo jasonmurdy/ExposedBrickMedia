@@ -73,6 +73,7 @@ export const ProjectDetailView = () => {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [selectedVirtualTour, setSelectedVirtualTour] = useState<string | null>(null);
   const [selectedPartnerProfile, setSelectedPartnerProfile] = useState<any | null>(null);
+  const [showMobileContactOverlay, setShowMobileContactOverlay] = useState(false);
 
   // Helper to transform any YouTube or Vimeo link into its correct embeddable version
   const getEmbedUrl = (url: string): string | null => {
@@ -336,33 +337,38 @@ export const ProjectDetailView = () => {
 
 
       {/* Top Integrated Breadcrumb Navigation Header Frame */}
-      <header className="w-full h-[80px] border-b border-white/5 px-8 flex items-center justify-between text-xs tracking-widest text-neutral-400 uppercase bg-bg-primary shrink-0 z-50">
-        <div className="flex items-center gap-8">
-          <Link to="/" className="text-white font-medium tracking-normal normal-case text-lg font-serif italic">
+      <header className="w-full h-[80px] border-b border-white/5 px-4 sm:px-8 flex items-center justify-between text-xs tracking-widest text-neutral-400 uppercase bg-bg-primary shrink-0 z-50">
+        <div className="flex items-center gap-4 sm:gap-8 min-w-0">
+          <Link to="/" className="text-white font-medium tracking-normal normal-case text-base sm:text-lg font-serif italic whitespace-nowrap">
             The Exposed <span className="text-brick-copper not-italic">Brick</span>
           </Link>
-          <div className="hidden md:flex items-center gap-2 text-[10px] text-text-primary/65">
-            <Link to="/" className="hover:text-brick-copper transition-colors flex items-center gap-1 group font-bold">
+          <div className="flex items-center gap-2 text-[10px] text-text-primary/65 min-w-0">
+            <Link to="/" className="hover:text-brick-copper transition-colors flex items-center gap-1 group font-bold whitespace-nowrap">
               <ArrowLeft size={11} className="group-hover:-translate-x-0.5 transition-transform text-brick-copper" /> BACK
             </Link>
-            <span>/</span>
-            <span className="text-brick-copper font-bold">{project.category}</span>
-            <span>/</span>
-            <span className="truncate max-w-[180px] normal-case text-text-primary/50">{project.title}</span>
+            <span className="hidden xs:inline text-white/20">/</span>
+            <span className="text-brick-copper font-bold hidden xs:inline max-w-[80px] sm:max-w-[120px] truncate">{project?.category}</span>
+            <span className="hidden md:inline text-white/20">/</span>
+            <span className="truncate max-w-[120px] sm:max-w-[180px] normal-case text-text-primary/50 hidden md:inline">{project?.title}</span>
           </div>
         </div>
-        <nav className="flex items-center gap-6 text-[11px] font-bold">
-          <Link to="/portal" className="hover:text-brick-copper transition-colors">SIGN IN</Link>
+        <nav className="flex items-center gap-3 sm:gap-6 text-[10px] sm:text-[11px] font-bold shrink-0">
+          <Link to="/portal" className="hover:text-brick-copper transition-colors hidden sm:inline">SIGN IN</Link>
           <button 
             onClick={() => setIsLight(!isLight)}
-            className="text-text-primary/80 hover:text-brick-copper transition-all"
+            className="text-text-primary/80 hover:text-brick-copper transition-all p-1"
             aria-label="Toggle Theme"
           >
-            {isLight ? <CloudMoon size={16} /> : <CloudSun size={16} />}
+            {isLight ? <CloudMoon size={15} /> : <CloudSun size={15} />}
           </button>
-          <Link to="/about" className="hover:text-brick-copper transition-colors">ABOUT</Link>
-          <button onClick={() => setShowInquiryModal(true)} className="hover:text-brick-copper transition-colors">BOOK NOW</button>
-          <Link to="/prep" className="hover:text-brick-copper transition-colors hidden sm:inline">HOME PREP GUIDE</Link>
+          <Link to="/about" className="hover:text-brick-copper transition-colors hidden md:inline">ABOUT</Link>
+          <button onClick={() => setShowInquiryModal(true)} className="hover:text-brick-copper transition-colors hidden sm:inline">BOOK NOW</button>
+          <button 
+            onClick={() => setShowMobileContactOverlay(true)} 
+            className="lg:hidden text-brick-copper border border-brick-copper/20 hover:border-brick-copper hover:bg-brick-copper/10 px-2 py-1 text-[9px] font-bold tracking-wider rounded uppercase transition-all duration-300 active:scale-95"
+          >
+            Contact
+          </button>
         </nav>
       </header>
 
@@ -370,8 +376,8 @@ export const ProjectDetailView = () => {
       {/* Asymmetric Master Core Grid Environment Split Layout */}
       <div className="flex-1 flex flex-col lg:flex-row w-full min-h-0 overflow-y-auto lg:overflow-hidden select-none pb-[60px] lg:pb-0">
         
-        {/* COLUMN 1: Fixed Side Panel for Team / Advisors / Partners Row */}
-        <aside className="order-2 lg:order-1 w-full lg:w-[22%] bg-black/10 border-b lg:border-b-0 lg:border-r border-white/5 p-4 sm:p-8 flex flex-col gap-10 items-center justify-start overflow-y-auto custom-scrollbar lg:h-full shrink-0">
+        {/* COLUMN 1: Fixed Side Panel for Team / Advisors / Partners Row (Desktop Only) */}
+        <aside className="hidden lg:flex order-2 lg:order-1 w-full lg:w-[22%] bg-black/10 border-b lg:border-b-0 lg:border-r border-white/5 p-4 sm:p-8 flex flex-col gap-10 items-center justify-start overflow-y-auto custom-scrollbar lg:h-full shrink-0">
           <div className="w-full text-center lg:text-left">
             <span className="text-[8px] uppercase tracking-[0.3em] text-brick-copper font-black font-mono block mb-1">Architectural Contact</span>
             <h4 className="text-xs uppercase tracking-wider font-bold text-white">Listing Advisory</h4>
@@ -620,34 +626,34 @@ export const ProjectDetailView = () => {
 
 
             {/* Quick Specs Symmetrical Grid Layout */}
-            <div className="py-6 border-b border-t border-white/5 my-4 w-full space-y-4">
+            <div className="py-4 sm:py-6 border-b border-t border-white/5 my-3 sm:my-4 w-full space-y-2 sm:space-y-4">
               {/* Top Row: 3 Symmetrical Columns */}
-              <div className="grid grid-cols-3 gap-3">
-                <div id="spec-property-type" className="bg-white/[0.02] border border-white/5 p-5 rounded-lg flex flex-col items-center text-center justify-center gap-3 group hover:border-brick-copper/20 transition-all duration-300">
-                  <Home size={28} className="text-brick-copper transition-transform group-hover:scale-110 duration-300" />
-                  <div className="space-y-1 w-full min-w-0">
-                    <span className="text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Property Type</span>
-                    <p className="text-xs sm:text-sm font-semibold tracking-wide text-neutral-200 uppercase truncate">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div id="spec-property-type" className="bg-white/[0.02] border border-white/5 p-2.5 sm:p-5 rounded-lg flex flex-col items-center text-center justify-center gap-1.5 sm:gap-3 group hover:border-brick-copper/20 transition-all duration-300">
+                  <Home className="w-5 h-5 sm:w-7 sm:h-7 text-brick-copper transition-transform group-hover:scale-110 duration-300" />
+                  <div className="space-y-0.5 sm:space-y-1 w-full min-w-0">
+                    <span className="text-[7.5px] sm:text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Property Type</span>
+                    <p className="text-[9.5px] sm:text-sm font-semibold tracking-wide text-neutral-200 uppercase truncate">
                       {project.propertyType || "Residential"}
                     </p>
                   </div>
                 </div>
 
-                <div id="spec-bedrooms" className="bg-white/[0.02] border border-white/5 p-5 rounded-lg flex flex-col items-center text-center justify-center gap-3 group hover:border-brick-copper/20 transition-all duration-300">
-                  <Bed size={28} className="text-brick-copper transition-transform group-hover:scale-110 duration-300" />
+                <div id="spec-bedrooms" className="bg-white/[0.02] border border-white/5 p-2.5 sm:p-5 rounded-lg flex flex-col items-center text-center justify-center gap-1.5 sm:gap-3 group hover:border-brick-copper/20 transition-all duration-300">
+                  <Bed className="w-5 h-5 sm:w-7 sm:h-7 text-brick-copper transition-transform group-hover:scale-110 duration-300" />
                   <div className="space-y-0.5 w-full min-w-0">
-                    <span className="text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Bedrooms</span>
-                    <p className="text-base sm:text-xl font-bold text-white font-serif italic">
+                    <span className="text-[7.5px] sm:text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Bedrooms</span>
+                    <p className="text-sm sm:text-xl font-bold text-white font-serif italic">
                       {project.beds || "—"}
                     </p>
                   </div>
                 </div>
 
-                <div id="spec-bathrooms" className="bg-white/[0.02] border border-white/5 p-5 rounded-lg flex flex-col items-center text-center justify-center gap-3 group hover:border-brick-copper/20 transition-all duration-300">
-                  <Bath size={28} className="text-brick-copper transition-transform group-hover:scale-110 duration-300" />
+                <div id="spec-bathrooms" className="bg-white/[0.02] border border-white/5 p-2.5 sm:p-5 rounded-lg flex flex-col items-center text-center justify-center gap-1.5 sm:gap-3 group hover:border-brick-copper/20 transition-all duration-300">
+                  <Bath className="w-5 h-5 sm:w-7 sm:h-7 text-brick-copper transition-transform group-hover:scale-110 duration-300" />
                   <div className="space-y-0.5 w-full min-w-0">
-                    <span className="text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Bathrooms</span>
-                    <p className="text-base sm:text-xl font-bold text-white font-serif italic">
+                    <span className="text-[7.5px] sm:text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Bathrooms</span>
+                    <p className="text-sm sm:text-xl font-bold text-white font-serif italic">
                       {project.baths || "—"}
                     </p>
                   </div>
@@ -655,22 +661,22 @@ export const ProjectDetailView = () => {
               </div>
 
               {/* Bottom Row: 2 Symmetrical Columns */}
-              <div className="grid grid-cols-2 gap-3">
-                <div id="spec-sqft" className="bg-white/[0.02] border border-white/5 p-5 rounded-lg flex flex-col items-center text-center justify-center gap-3 group hover:border-brick-copper/20 transition-all duration-300">
-                  <Square size={26} className="text-brick-copper transition-transform group-hover:scale-110 duration-300" />
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div id="spec-sqft" className="bg-white/[0.02] border border-white/5 p-2.5 sm:p-5 rounded-lg flex flex-col items-center text-center justify-center gap-1.5 sm:gap-3 group hover:border-brick-copper/20 transition-all duration-300">
+                  <Square className="w-5 h-5 sm:w-6 sm:h-6 text-brick-copper transition-transform group-hover:scale-110 duration-300" />
                   <div className="space-y-0.5 w-full min-w-0">
-                    <span className="text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Square Footage</span>
-                    <p className="text-xs sm:text-sm font-bold text-neutral-200 font-mono tracking-wide">
+                    <span className="text-[7.5px] sm:text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">Square Footage</span>
+                    <p className="text-[10px] sm:text-sm font-bold text-neutral-200 font-mono tracking-wide">
                       {project.sqft ? `${project.sqft} SQ FT` : "—"}
                     </p>
                   </div>
                 </div>
 
-                <div id="spec-mls" className="bg-white/[0.02] border border-white/5 p-5 rounded-lg flex flex-col items-center text-center justify-center gap-3 group hover:border-brick-copper/20 transition-all duration-300">
-                  <Info size={26} className="text-brick-copper transition-transform group-hover:scale-110 duration-300" />
+                <div id="spec-mls" className="bg-white/[0.02] border border-white/5 p-2.5 sm:p-5 rounded-lg flex flex-col items-center text-center justify-center gap-1.5 sm:gap-3 group hover:border-brick-copper/20 transition-all duration-300">
+                  <Info className="w-5 h-5 sm:w-6 sm:h-6 text-brick-copper transition-transform group-hover:scale-110 duration-300" />
                   <div className="space-y-0.5 w-full min-w-0">
-                    <span className="text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">MLS Listing ID</span>
-                    <p className="text-[10px] sm:text-xs font-semibold text-neutral-400 font-mono tracking-wider truncate">
+                    <span className="text-[7.5px] sm:text-[9px] uppercase tracking-widest text-neutral-500 font-bold font-mono block">MLS Listing ID</span>
+                    <p className="text-[9px] sm:text-xs font-semibold text-neutral-400 font-mono tracking-wider truncate">
                       {project.mlsNumber || "—"}
                     </p>
                   </div>
@@ -1558,6 +1564,275 @@ export const ProjectDetailView = () => {
                 })()}
               </div>
 
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+      {/* MOBILE FLOATING CONTACT BUBBLE */}
+      {project && (associatedPartners.length > 0 || settings?.contactInfo) && (
+        <div className="fixed bottom-[74px] right-4 z-40 lg:hidden">
+          <button
+            onClick={() => setShowMobileContactOverlay(true)}
+            className="w-12 h-12 rounded-full bg-brick-copper text-charcoal shadow-2xl flex items-center justify-center border border-brick-copper/30 hover:scale-105 active:scale-95 transition-all cursor-pointer relative"
+            aria-label="Advisor Contact Information"
+          >
+            {associatedPartners[0]?.headshotUrl ? (
+              <div className="relative w-full h-full p-0.5 rounded-full overflow-hidden">
+                <img
+                  src={associatedPartners[0].headshotUrl}
+                  alt={associatedPartners[0].displayName}
+                  className="w-full h-full rounded-full object-cover filter grayscale contrast-[1.1]"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-brick-copper border border-charcoal rounded-full flex items-center justify-center">
+                  <Phone size={8} className="text-charcoal" />
+                </div>
+              </div>
+            ) : (
+              <Phone size={18} />
+            )}
+          </button>
+        </div>
+      )}
+
+
+      {/* MOBILE CONTACT OVERLAY BOTTOM SHEET */}
+      <AnimatePresence>
+        {showMobileContactOverlay && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-end justify-center lg:hidden"
+            onClick={() => setShowMobileContactOverlay(false)}
+          >
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="bg-charcoal border-t border-white/10 w-full max-h-[85vh] rounded-t-2xl p-6 overflow-y-auto space-y-6 relative text-left select-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Swipe Handle Bar */}
+              <div className="w-12 h-1 bg-white/25 rounded-full mx-auto -mt-2 mb-4" />
+              
+              <button 
+                onClick={() => setShowMobileContactOverlay(false)}
+                className="absolute top-4 right-4 text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5 transition-all cursor-pointer"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="space-y-1">
+                <span className="text-[8px] uppercase tracking-[0.3em] text-brick-copper font-mono font-black block">Architectural Contact</span>
+                <h3 className="font-display text-2xl text-white italic">Listing Advisory</h3>
+              </div>
+
+              {associatedPartners.length > 0 ? (
+                <div className="space-y-6">
+                  {associatedPartners.map((partner) => (
+                    <div 
+                      key={partner.id} 
+                      className="p-4 bg-white/[0.01] border border-white/5 rounded-lg flex flex-col gap-4"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-16 h-16 rounded-full border border-brick-copper p-0.5 bg-black/40 overflow-hidden shrink-0">
+                          {partner.headshotUrl ? (
+                            <img
+                              src={partner.headshotUrl}
+                              alt={partner.displayName}
+                              className="w-full h-full rounded-full object-cover filter grayscale contrast-125"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center">
+                              <span className="text-xl font-bold text-white/40">{partner.displayName?.charAt(0)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[8px] tracking-widest text-brick-copper font-semibold uppercase block mb-0.5">
+                            {partner.role === 'preferred' ? 'PREFERRED ADVISOR' : 'ADVISORY PARTNER'}
+                          </span>
+                          <h4 className="text-sm font-bold text-neutral-100 uppercase truncate">
+                            {partner.displayName}
+                          </h4>
+                          {partner.teamName && (
+                            <p className="text-[9px] text-white/40 uppercase font-mono truncate">{partner.teamName}</p>
+                          )}
+                          {(() => {
+                            const totalCommissions = portfolioItems?.filter(p => p.partnerUid === partner.id || p.partnerUids?.includes(partner.id))?.length || 0;
+                            if (totalCommissions > 0) {
+                              return (
+                                <span className="text-[7.5px] uppercase tracking-wider font-mono text-neutral-500 font-bold">
+                                  ● {totalCommissions} {totalCommissions === 1 ? 'COMMISSION' : 'COMMISSIONS'}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      </div>
+
+                      {partner.bio && (
+                        <p className="text-xs text-neutral-400 font-light leading-relaxed max-h-[80px] overflow-y-auto custom-scrollbar">
+                          {partner.bio}
+                        </p>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {partner.phone && (
+                          <a
+                            href={`tel:${partner.phone}`}
+                            className="flex items-center justify-center gap-1.5 py-2 rounded-md border border-white/10 text-[10px] tracking-wider text-neutral-300 hover:text-white transition-all uppercase font-semibold"
+                          >
+                            <Phone size={11} className="text-brick-copper" /> Call
+                          </a>
+                        )}
+                        {partner.email && (
+                          <a
+                            href={`mailto:${partner.email}`}
+                            className="flex items-center justify-center gap-1.5 py-2 rounded-md border border-white/10 text-[10px] tracking-wider text-neutral-300 hover:text-white transition-all uppercase font-semibold text-ellipsis overflow-hidden whitespace-nowrap"
+                          >
+                            <Mail size={11} className="text-brick-copper" /> Mail
+                          </a>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMobileContactOverlay(false);
+                          setInquiryTargetPartner(partner);
+                          setShowInquiryModal(true);
+                        }}
+                        className="w-full py-2.5 bg-brick-copper/10 hover:bg-brick-copper hover:text-charcoal border border-brick-copper/20 text-[9px] font-mono font-bold uppercase tracking-widest text-brick-copper transition-all duration-300 rounded-md text-center"
+                      >
+                        Inquire Directly
+                      </button>
+
+                      {/* Partner Socials */}
+                      {(partner.instagram || partner.facebook || partner.linkedin || partner.twitter) && (
+                        <div className="flex items-center justify-center gap-2 pt-3 border-t border-white/5 w-full">
+                          {partner.instagram && (
+                            <a
+                              href={formatSocialUrl(partner.instagram, 'instagram')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper hover:border-brick-copper/35 transition-colors"
+                              aria-label="Instagram"
+                            >
+                              <Instagram size={12} />
+                            </a>
+                          )}
+                          {partner.facebook && (
+                            <a
+                              href={formatSocialUrl(partner.facebook, 'facebook')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper hover:border-brick-copper/35 transition-colors"
+                              aria-label="Facebook"
+                            >
+                              <Facebook size={12} />
+                            </a>
+                          )}
+                          {partner.linkedin && (
+                            <a
+                              href={formatSocialUrl(partner.linkedin, 'linkedin')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper hover:border-brick-copper/35 transition-colors"
+                              aria-label="LinkedIn"
+                            >
+                              <Linkedin size={12} />
+                            </a>
+                          )}
+                          {partner.twitter && (
+                            <a
+                              href={formatSocialUrl(partner.twitter, 'twitter')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper hover:border-brick-copper/35 transition-colors"
+                              aria-label="Twitter"
+                            >
+                              <Twitter size={12} />
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-white/[0.01] border border-white/5 rounded-lg flex flex-col items-center text-center gap-4">
+                  <div className="w-16 h-16 rounded-full border border-brick-copper/40 bg-charcoal/40 flex items-center justify-center">
+                    <span className="text-[8px] uppercase font-bold text-white/30 tracking-widest font-mono text-center leading-tight">Exposed Brick</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] tracking-widest text-brick-copper font-semibold uppercase block">AGENCY CONTACT</span>
+                    <h4 className="text-sm font-bold text-neutral-100 uppercase">Exposed Brick Advisory</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 w-full">
+                    <a
+                      href={`tel:${settings?.contactInfo?.phone || '+1 (555) 000-0000'}`}
+                      className="flex items-center justify-center gap-1.5 py-2 rounded-md border border-white/10 text-[10px] tracking-wider text-neutral-300 hover:text-white transition-all uppercase font-semibold"
+                    >
+                      <Phone size={11} className="text-brick-copper" /> Call
+                    </a>
+                    <a
+                      href={`mailto:${settings?.contactInfo?.email || 'office@exposedbrick.com'}`}
+                      className="flex items-center justify-center gap-1.5 py-2 rounded-md border border-white/10 text-[10px] tracking-wider text-neutral-300 hover:text-white transition-all uppercase font-semibold text-ellipsis overflow-hidden whitespace-nowrap"
+                    >
+                      <Mail size={11} className="text-brick-copper" /> Mail
+                    </a>
+                  </div>
+
+                  {/* Agency Socials */}
+                  <div className="flex items-center justify-center gap-2 pt-3 border-t border-white/5 w-full">
+                    <a
+                      href="https://www.instagram.com/exposedbrickmedia"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper transition-colors"
+                      title="Agency Instagram"
+                    >
+                      <Instagram size={12} />
+                    </a>
+                    <a
+                      href="https://www.facebook.com/exposedbrickmedia"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper transition-colors"
+                      title="Agency Facebook"
+                    >
+                      <Facebook size={12} />
+                    </a>
+                    <a
+                      href="https://youtube.com/@exposedbrickmedia"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper transition-colors"
+                      title="Agency YouTube"
+                    >
+                      <Youtube size={12} />
+                    </a>
+                    <a
+                      href="https://exposedbrickmedia.ca"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full bg-white/[0.02] border border-white/5 text-neutral-400 flex items-center justify-center hover:text-brick-copper transition-colors"
+                      title="Agency Web"
+                    >
+                      <Globe size={12} />
+                    </a>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

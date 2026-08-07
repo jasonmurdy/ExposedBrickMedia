@@ -377,6 +377,11 @@ export type PuckConfig = {
     };
     LogoCloud: {
       logos: { url: string; alt: string; link?: string }[];
+      layout?: 'marquee' | 'grid' | 'carousel';
+      styleMode?: 'minimal' | 'color' | 'copper';
+      speed?: 'slow' | 'normal' | 'fast';
+      logoSize?: 'sm' | 'md' | 'lg';
+      title?: string;
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
@@ -2700,6 +2705,39 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
             link: { type: "text" },
           },
         },
+        layout: {
+          type: "select",
+          options: [
+            { label: "Infinite Ticker Marquee", value: "marquee" },
+            { label: "Symmetrical Grid", value: "grid" },
+            { label: "Interactive Carousel", value: "carousel" },
+          ],
+        },
+        styleMode: {
+          type: "select",
+          options: [
+            { label: "Minimalist High-Contrast", value: "minimal" },
+            { label: "Original Brand Colors", value: "color" },
+            { label: "Architectural Copper", value: "copper" },
+          ],
+        },
+        speed: {
+          type: "select",
+          options: [
+            { label: "Slow", value: "slow" },
+            { label: "Normal", value: "normal" },
+            { label: "Fast", value: "fast" },
+          ],
+        },
+        logoSize: {
+          type: "select",
+          options: [
+            { label: "Small (Compact)", value: "sm" },
+            { label: "Medium (Standard)", value: "md" },
+            { label: "Large (Expanded)", value: "lg" },
+          ],
+        },
+        title: { type: "text" },
         width: WidthField as any,
         spacing: SpacingControl as any,
         entranceAnimation: EntranceAnimationField as any,
@@ -2707,15 +2745,27 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       defaultProps: {
         width: "full",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
+        layout: "marquee",
+        styleMode: "minimal",
+        speed: "normal",
+        logoSize: "md",
+        title: "Trusted Industry Collaborators",
         logos: [
           { url: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Compass_logo.svg", alt: "Compass" },
           { url: "https://upload.wikimedia.org/wikipedia/commons/e/ee/Sotheby%27s_International_Realty_logo.svg", alt: "Sotheby's" },
           { url: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Coldwell_Banker_logo.svg", alt: "Coldwell Banker" },
         ]
       },
-      render: ({ logos, width, spacing, entranceAnimation }) => (
+      render: ({ logos, layout, styleMode, speed, logoSize, title, width, spacing, entranceAnimation }) => (
         <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
-          <LogoCloud logos={logos} />
+          <LogoCloud 
+            logos={logos} 
+            layout={layout} 
+            styleMode={styleMode} 
+            speed={speed} 
+            logoSize={logoSize} 
+            title={title} 
+          />
         </ComponentWrapper>
       ),
     },

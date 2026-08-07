@@ -3,117 +3,258 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
-export const LogoCloud = ({ logos = [] }: { logos: { url: string, alt: string, link?: string }[] }) => {
+export interface LogoCloudProps {
+  logos?: { url: string; alt: string; link?: string }[];
+  layout?: 'marquee' | 'grid' | 'carousel';
+  styleMode?: 'minimal' | 'color' | 'copper';
+  speed?: 'slow' | 'normal' | 'fast';
+  title?: string;
+  logoSize?: 'sm' | 'md' | 'lg';
+}
+
+export const LogoCloud = ({ 
+  logos = [], 
+  layout = 'marquee', 
+  styleMode = 'minimal', 
+  speed = 'normal', 
+  title = 'Trusted Industry Collaborators',
+  logoSize = 'md' 
+}: LogoCloudProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [viewCount, setViewCount] = useState(5);
   const items = logos || [];
   const isEmpty = items.length === 0;
 
+  // Responsive view count adjustment based on logo size and viewport width
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 640) setViewCount(2);
-      else if (window.innerWidth < 1024) setViewCount(3);
-      else setViewCount(5);
+      const width = window.innerWidth;
+      if (width < 640) {
+        setViewCount(logoSize === 'sm' ? 3 : logoSize === 'lg' ? 1 : 2);
+      } else if (width < 1024) {
+        setViewCount(logoSize === 'sm' ? 4 : logoSize === 'lg' ? 2 : 3);
+      } else {
+        setViewCount(logoSize === 'sm' ? 6 : logoSize === 'lg' ? 3 : 5);
+      }
     };
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [logoSize]);
+
+  // Adjust current index bounds on resize
+  const maxIndex = Math.max(0, items.length - viewCount);
+  useEffect(() => {
+    if (currentIndex > maxIndex) {
+      setCurrentIndex(maxIndex);
+    }
+  }, [viewCount, maxIndex, currentIndex]);
 
   const handlePrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
+    setCurrentIndex((prev) => (prev === 0 ? maxIndex : prev - 1));
   };
 
   const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % items.length);
+    setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
   };
 
-  // Auto-rotate if more than viewCount
+  // Auto-rotate logic for Carousel layout
   useEffect(() => {
-    if (isEmpty || items.length <= viewCount) return;
-    const interval = setInterval(handleNext, 6000);
+    if (layout !== 'carousel' || isEmpty || items.length <= viewCount) return;
+    const interval = setInterval(handleNext, 5000);
     return () => clearInterval(interval);
-  }, [items.length, isEmpty, viewCount]);
+  }, [items.length, isEmpty, viewCount, layout]);
 
-  return (
-    <div className="w-full py-12 border-y border-white/5 bg-charcoal/30 backdrop-blur-sm relative group overflow-hidden">
-      <div className="max-w-7xl mx-auto px-12 lg:px-24">
-        <p className="text-center text-[8px] uppercase tracking-[0.5em] text-white/30 mb-8 font-bold">Trusted Industry Collaborators</p>
-        
-        {isEmpty ? (
-          <div className="flex justify-center items-center h-24 opacity-20 italic text-[10px] uppercase tracking-widest text-white border border-dashed border-white/10">
-            Brand identifiers manifest here.
-          </div>
-        ) : (
-          <div className="relative">
-            <div className="flex items-center justify-center -mx-4 overflow-hidden">
-              <div className="flex transition-all duration-700 ease-in-out gap-4 md:gap-12">
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {Array.from({ length: Math.min(items.length, viewCount) }).map((_, i) => {
-                    const idx = (currentIndex + i) % items.length;
-                    const item = items[idx];
-                    if (!item?.url) return null;
+  const getLogoClass = () => {
+    let sizeClass = "h-8 md:h-12";
+    if (logoSize === 'sm') sizeClass = "h-6 md:h-9";
+    if (logoSize === 'lg') sizeClass = "h-12 md:h-16";
 
-                    const logoContent = (
-                      <motion.div
-                        key={`${item.url}-${idx}`}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ duration: 0.4 }}
-                        className="w-24 sm:w-32 md:w-44 h-12 md:h-16 flex items-center justify-center flex-shrink-0 group/logo relative grayscale hover:grayscale-0 transition-all duration-500"
-                      >
-                        <div className="w-full h-full p-2 md:p-4 flex items-center justify-center">
-                          <img 
-                            src={item.url} 
-                            alt={item.alt || `Logo ${idx}`} 
-                            className="max-h-full max-w-full object-contain opacity-40 group-hover/logo:opacity-100 transition-all duration-500" 
-                          />
-                        </div>
-                        {item.link && (
-                          <div className="absolute top-0 right-0 p-1 opacity-0 group-hover/logo:opacity-100 transition-opacity">
-                            <ExternalLink size={10} className="text-brick-copper" />
-                          </div>
-                        )}
-                      </motion.div>
-                    );
+    let filterClass = "opacity-40 grayscale hover:opacity-100 hover:grayscale-0";
+    if (styleMode === 'minimal') {
+      filterClass = "opacity-35 grayscale hover:opacity-100 hover:filter-none contrast-125 dark:brightness-200";
+    } else if (styleMode === 'copper') {
+      filterClass = "opacity-45 sepia-[0.5] hue-rotate-[320deg] saturate-[2.5] contrast-[1.15] hover:opacity-100 hover:filter-none";
+    } else if (styleMode === 'color') {
+      filterClass = "opacity-50 hover:opacity-100 transition-opacity";
+    }
 
-                    return item.link ? (
-                      <a 
-                        key={`link-${item.url}-${idx}`} 
-                        href={item.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex-shrink-0"
-                      >
-                        {logoContent}
-                      </a>
-                    ) : logoContent;
-                  })}
-                </AnimatePresence>
-              </div>
-            </div>
+    return `${sizeClass} ${filterClass} transition-all duration-500 object-contain max-w-full`;
+  };
 
-            {items.length > viewCount && (
-              <>
-                <button 
-                  onClick={handlePrevious}
-                  className="absolute left-0 lg:left-[-40px] top-1/2 -translate-y-1/2 z-20 p-2 text-white/20 hover:text-brick-copper transition-colors bg-charcoal/80 lg:bg-transparent rounded-full shadow-lg lg:shadow-none"
-                  aria-label="Previous logo"
-                >
-                  <ChevronLeft size={24} />
-                </button>
-                <button 
-                  onClick={handleNext}
-                  className="absolute right-0 lg:right-[-40px] top-1/2 -translate-y-1/2 z-20 p-2 text-white/20 hover:text-brick-copper transition-colors bg-charcoal/80 lg:bg-transparent rounded-full shadow-lg lg:shadow-none"
-                  aria-label="Next logo"
-                >
-                  <ChevronRight size={24} />
-                </button>
-              </>
-            )}
+  const renderLogo = (item: { url: string; alt: string; link?: string }, idx: number) => {
+    if (!item?.url) return null;
+
+    const logoInner = (
+      <div className="relative group/logo flex items-center justify-center px-4 py-3 sm:px-6 sm:py-4 rounded-xl border border-white/[0.03] hover:border-white/[0.08] bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-500 shadow-sm hover:shadow-md h-16 md:h-22 w-full">
+        <img 
+          src={item.url} 
+          alt={item.alt || `Logo ${idx}`} 
+          className={getLogoClass()} 
+          referrerPolicy="no-referrer"
+        />
+        {item.link && (
+          <div className="absolute top-2 right-2 opacity-0 group-hover/logo:opacity-100 transition-opacity">
+            <ExternalLink size={9} className="text-brick-copper" />
           </div>
         )}
+      </div>
+    );
+
+    if (item.link) {
+      return (
+        <a 
+          href={item.link} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="block w-full focus:outline-none focus:ring-1 focus:ring-brick-copper/30 rounded-xl"
+        >
+          {logoInner}
+        </a>
+      );
+    }
+
+    return logoInner;
+  };
+
+  // Render layouts
+  const renderLayoutContent = () => {
+    if (isEmpty) {
+      return (
+        <div className="flex justify-center items-center h-24 opacity-20 italic text-[10px] uppercase tracking-widest text-white border border-dashed border-white/10 rounded-xl max-w-5xl mx-auto">
+          Brand identifiers manifest here.
+        </div>
+      );
+    }
+
+    // INFINITE TICKER MARQUEE LAYOUT
+    if (layout === 'marquee') {
+      // Repeat list to create infinite seamless feel
+      const repetitions = Math.max(3, Math.ceil(12 / items.length));
+      const duplicatedItems = Array(repetitions).fill(items).flat();
+      
+      const speedInSeconds = speed === 'slow' ? 45 : speed === 'fast' ? 18 : 28;
+
+      return (
+        <div className="w-full overflow-hidden relative py-3">
+          {/* Subtle horizontal blur fades */}
+          <div className="absolute left-0 top-0 bottom-0 w-16 md:w-32 bg-gradient-to-r from-charcoal via-charcoal/40 to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-16 md:w-32 bg-gradient-to-l from-charcoal via-charcoal/40 to-transparent z-10 pointer-events-none" />
+          
+          <motion.div 
+            className="flex whitespace-nowrap items-center min-w-full w-max gap-4 sm:gap-6 md:gap-8"
+            animate={{ x: [0, `-${100 / repetitions}%`] }}
+            transition={{
+              ease: "linear",
+              duration: speedInSeconds,
+              repeat: Infinity,
+            }}
+          >
+            {duplicatedItems.map((item, idx) => (
+              <div 
+                key={`${item.url}-${idx}`}
+                className="inline-flex flex-shrink-0 items-center justify-center w-32 sm:w-40 md:w-52"
+              >
+                {renderLogo(item, idx)}
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      );
+    }
+
+    // SYMMETRICAL GRID LAYOUT
+    if (layout === 'grid') {
+      return (
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5 justify-center">
+            {items.map((item, idx) => (
+              <motion.div
+                key={`${item.url}-${idx}`}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: idx * 0.05 }}
+                className="flex justify-center items-center w-full"
+              >
+                {renderLogo(item, idx)}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // INTERACTIVE CAROUSEL LAYOUT
+    return (
+      <div className="max-w-7xl mx-auto px-8 sm:px-14 relative group/carousel">
+        <div className="relative overflow-hidden w-full py-2">
+          <motion.div 
+            className="flex"
+            animate={{ x: `-${currentIndex * (100 / viewCount)}%` }}
+            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+          >
+            {items.map((item, idx) => (
+              <div 
+                key={`${item.url}-${idx}`} 
+                style={{ width: `${100 / viewCount}%` }}
+                className="flex-shrink-0 px-1.5 sm:px-2.5 flex justify-center items-center"
+              >
+                <div className="w-full">
+                  {renderLogo(item, idx)}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        {items.length > viewCount && (
+          <>
+            <button 
+              onClick={handlePrevious}
+              className="absolute left-0 sm:left-2 top-1/2 -translate-y-1/2 z-20 p-2 text-white/30 hover:text-brick-copper hover:bg-white/5 transition-all rounded-full cursor-pointer active:scale-90"
+              aria-label="Previous logo"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button 
+              onClick={handleNext}
+              className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 z-20 p-2 text-white/30 hover:text-brick-copper hover:bg-white/5 transition-all rounded-full cursor-pointer active:scale-90"
+              aria-label="Next logo"
+            >
+              <ChevronRight size={20} />
+            </button>
+
+            {/* Pagination Bullet Indicators */}
+            <div className="flex justify-center items-center gap-1.5 mt-6">
+              {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    currentIndex === idx ? "w-5 bg-brick-copper" : "w-1.5 bg-white/15 hover:bg-white/30"
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full py-12 border-y border-white/5 bg-charcoal/20 backdrop-blur-sm relative overflow-hidden">
+      <div className="w-full">
+        {title && (
+          <div className="text-center mb-8 space-y-2.5">
+            <p className="text-[8px] sm:text-[9.5px] uppercase tracking-[0.45em] text-brick-copper font-mono font-bold px-4">{title}</p>
+            <div className="w-10 h-[1px] bg-brick-copper/20 mx-auto" />
+          </div>
+        )}
+        
+        {renderLayoutContent()}
       </div>
     </div>
   );
