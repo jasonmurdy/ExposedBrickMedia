@@ -577,11 +577,27 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
       clearInterval(statusInterval);
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Failed to convert layout");
+        let errMsg = `Server returned status ${response.status}`;
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const errData = await response.json();
+            errMsg = errData.error || errMsg;
+          } else {
+            const textText = await response.text();
+            if (textText) errMsg = `${errMsg}: ${textText.substring(0, 100)}`;
+          }
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
       const rawData = await response.json();
+      
+      // Ensure the returned data matches Puck's structural expectation
+      if (!rawData || typeof rawData !== "object" || !rawData.content || !Array.isArray(rawData.content)) {
+        console.error("Invalid Puck layout structure:", rawData);
+        throw new Error("Invalid design layout structure returned from API.");
+      }
       
       const sanitized = sanitizeLayout(cleanObject(rawData), page?.title || settings.brandName || "Converted Page");
       
