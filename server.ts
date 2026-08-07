@@ -3494,40 +3494,44 @@ Do NOT include any markdown code blocks, comments, or extra text in your output.
   });
 
   // Vite integration
-  // Cloud Run often sets NODE_ENV=production by default, so we check process.argv instead to reliably detect 'tsx server.ts' vs 'node dist/server.cjs'
-  const isDevMode = !process.argv[1]?.endsWith("server.cjs");
-  if (isDevMode) {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+  if (process.env.VERCEL) {
+    // Vercel serverless functions only handle API routing; static assets are served directly by Vercel
   } else {
-    const distPath = path.join(process.cwd(), "dist");
-    
-    // Aggressively cache static assets (JS, CSS, images) for 1 year
-    app.use("/assets", express.static(path.join(distPath, "assets"), {
-      maxAge: "1y",
-      immutable: true
-    }));
+    // Cloud Run often sets NODE_ENV=production by default, so we check process.argv instead to reliably detect 'tsx server.ts' vs 'node dist/server.cjs'
+    const isDevMode = !process.argv[1]?.endsWith("server.cjs");
+    if (isDevMode) {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      
+      // Aggressively cache static assets (JS, CSS, images) for 1 year
+      app.use("/assets", express.static(path.join(distPath, "assets"), {
+        maxAge: "1y",
+        immutable: true
+      }));
 
-    // Standard static serving for the rest
-    app.use(express.static(distPath));
-    
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+      // Standard static serving for the rest
+      app.use(express.static(distPath));
+      
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    // Startup automatic synchronization of INITIAL_PARTNERS deactivated per requested policy. Keep system clean and manual-only.
-    console.log("[Startup Partner Sync] Automatic database importing bypassed. Real-time manual management available via Admin Panel.");
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+      // Startup automatic synchronization of INITIAL_PARTNERS deactivated per requested policy. Keep system clean and manual-only.
+      console.log("[Startup Partner Sync] Automatic database importing bypassed. Real-time manual management available via Admin Panel.");
+    });
+  }
 }
 
-if (!process.env.VERCEL) {
-  startServer().catch((err) => {
-    console.error("Failed to start server:", err);
-  });
-}
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+});

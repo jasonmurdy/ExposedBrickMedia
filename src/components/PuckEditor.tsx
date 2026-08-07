@@ -627,9 +627,24 @@ export const PuckEditor = ({ pageId, onClose }: { pageId?: string; onClose: () =
 
   // Handler to load template to Puck Editor
   const handleLoadTemplate = (templateData: any) => {
-    setEditorData(sanitizeLayout(cleanObject(templateData), page?.title || settings.brandName || "Page"));
-    setPuckVersion(v => v + 1);
-    setIsPickerOpen(false);
+    if (!templateData) {
+      toast.error("The selected template has empty or corrupted layout data.");
+      return;
+    }
+    try {
+      const cleaned = cleanObject(templateData);
+      const sanitized = sanitizeLayout(cleaned, page?.title || settings.brandName || "Page");
+      if (!sanitized) {
+        throw new Error("Sanitization produced empty layout");
+      }
+      setEditorData(sanitized);
+      setPuckVersion(v => v + 1);
+      setIsPickerOpen(false);
+      toast.success("Template layout applied successfully!");
+    } catch (err: any) {
+      console.error("Error applying template:", err);
+      toast.error(`Could not apply template: ${err?.message || 'Invalid layout structure'}`);
+    }
   };
 
   // Handler to delete template from Firestore

@@ -23,6 +23,11 @@ function sanitizePrimaryItem(item: any, path: string, seenIds: Set<string>, idRe
 
   const sanitized = { ...item };
   
+  // Ensure we have a valid component type
+  if (!sanitized.type || typeof sanitized.type !== 'string') {
+    sanitized.type = "TextContent"; // safe default
+  }
+
   // Ensure we have a valid, unique ID
   let cid = sanitized.id !== undefined && sanitized.id !== null ? String(sanitized.id).trim() : "";
   if (!cid && sanitized.props && typeof sanitized.props === 'object' && sanitized.props.id) {
@@ -199,7 +204,13 @@ function syncSlotsToProps(item: any, zones: any) {
 }
 
 export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
-  if (!layout) return null;
+  const getSafeFallback = () => ({
+    content: [],
+    root: { id: "root", type: "root", props: { title: fallbackTitle || "Page" } },
+    zones: {}
+  });
+
+  if (!layout || typeof layout !== 'object') return getSafeFallback();
 
   let parsed: any;
   try {
@@ -225,7 +236,7 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
     parsed = prune(layout);
   }
 
-  if (!parsed || typeof parsed !== 'object') return null;
+  if (!parsed || typeof parsed !== 'object') return getSafeFallback();
 
   // Run dynamic prop migrations
   parsed = migrateSavedLayout(parsed);
