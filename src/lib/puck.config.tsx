@@ -62,6 +62,7 @@ import { Button as ShadcnButton } from "../components/ui/button";
 import { FileUpload } from "../components/FileUpload";
 import { PDFViewer } from "../components/PDFViewer";
 import { DynamicCuratedGallery } from "../components/DynamicCuratedGallery";
+import { useSiteContent } from "./SiteContentContext";
 
 // Reusable Elementor-style Spacing Control
 const SpacingControl = {
@@ -357,6 +358,8 @@ export type PuckConfig = {
       customHeight?: number;
     };
     PropertyHighlight: {
+      selectionMode?: "manual" | "portfolio";
+      portfolioId?: string;
       mediaUrl: string;
       mediaType: "image" | "video";
       autoPlay?: boolean;
@@ -364,6 +367,13 @@ export type PuckConfig = {
       salePrice: string;
       listPrice: string;
       packageUsed: string;
+      title?: string;
+      beds?: string | number;
+      baths?: string | number;
+      sqft?: string | number;
+      linkUrl?: string;
+      linkLabel?: string;
+      status?: string;
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
@@ -445,6 +455,8 @@ export type PuckConfig = {
         portfolioId: string;
         portfolioTitle: string;
         category?: string;
+        status?: string;
+        price?: string;
       }>;
       layout: "masonry" | "grid" | "bento" | "carousel";
       columns: number;
@@ -454,6 +466,11 @@ export type PuckConfig = {
       width: "full" | "half";
       spacing?: any;
       entranceAnimation?: string;
+      selectionMode?: "manual" | "dynamic" | "partners";
+      filterStatus?: "All" | "Active" | "Pending" | "Sold" | "Archived" | "preferred" | "partner";
+      filterCategory?: string;
+      sortBy?: "order_asc" | "order_desc" | "price_asc" | "price_desc" | "title_asc" | "title_desc" | "newest";
+      maxItems?: number;
     };
     ServicePackages: {
       sectionLabel?: string;
@@ -837,6 +854,7 @@ MediaPickerComponent.displayName = "MediaPickerComponent";
 export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], partners: any[] = [], teams: any[] = [], brandResources: any[] = [], popups: any[] = []): Config<PuckConfig> => {
   const pageOptions = pages.map(p => ({ label: p.title || p.slug, value: p.slug }));
   const partnerOptions = partners.map(p => ({ label: p.displayName, value: p.id }));
+  const portfolioOptions = portfolioItems.map(item => ({ label: item.title || "Untitled Listing", value: item.id || "" }));
   const popupOptions = popups.map(p => ({ id: p.id, label: p.title || p.headline || p.id, value: p.id }));
   
   const LinkField = {
@@ -2640,7 +2658,28 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
     },
     PropertyHighlight: {
       fields: {
-        mediaUrl: MediaField("Highlight Media", "video/*", "properties"),
+        selectionMode: {
+          type: "select",
+          options: [
+            { label: "Manually Entered", value: "manual" },
+            { label: "Pull from Portfolio Listing", value: "portfolio" }
+          ]
+        },
+        portfolioId: {
+          type: "select",
+          options: [
+            { label: "Select a Listing...", value: "" },
+            ...portfolioOptions
+          ]
+        },
+        title: { type: "text", label: "Highlight Title" },
+        status: { type: "text", label: "Listing Status (e.g. Active, Pending, Sold)" },
+        beds: { type: "text", label: "Bedrooms" },
+        baths: { type: "text", label: "Bathrooms" },
+        sqft: { type: "text", label: "Square Footage (SQFT)" },
+        linkUrl: { type: "text", label: "Link URL" },
+        linkLabel: { type: "text", label: "Link Button Label" },
+        mediaUrl: MediaField("Highlight Media (Manual)", "video/*", "properties"),
         mediaType: { 
           type: "select", 
           options: [{label: "Image", value: "image"}, {label: "Video", value: "video"}] 
@@ -2655,6 +2694,15 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         entranceAnimation: EntranceAnimationField as any,
       },
       defaultProps: {
+        selectionMode: "manual",
+        portfolioId: "",
+        title: "Project Economics",
+        status: "",
+        beds: "",
+        baths: "",
+        sqft: "",
+        linkUrl: "",
+        linkLabel: "View Showcase",
         mediaUrl: "https://images.unsplash.com/photo-1600607687940-c52fb036999c",
         mediaType: "image",
         autoPlay: true,
@@ -2665,19 +2713,104 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: "full",
         spacing: { pt: "32", pb: "32", mt: "0", mb: "0" },
       },
-      render: ({ mediaUrl, mediaType, autoPlay, daysOnMarket, salePrice, listPrice, packageUsed, width, spacing, entranceAnimation }) => (
-        <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
-          <PropertyHighlight 
-            mediaUrl={mediaUrl} 
-            mediaType={mediaType} 
-            autoPlay={autoPlay}
-            daysOnMarket={daysOnMarket} 
-            salePrice={salePrice} 
-            listPrice={listPrice} 
-            packageUsed={packageUsed} 
-          />
-        </ComponentWrapper>
-      ),
+      render: ({ 
+        selectionMode = "manual",
+        portfolioId,
+        mediaUrl, 
+        mediaType, 
+        autoPlay, 
+        daysOnMarket, 
+        salePrice, 
+        listPrice, 
+        packageUsed, 
+        title,
+        status,
+        beds,
+        baths,
+        sqft,
+        linkUrl,
+        linkLabel,
+        width, 
+        spacing, 
+        entranceAnimation 
+      }) => {
+        const { portfolioItems = [] } = useSiteContent();
+
+        let finalMediaUrl = mediaUrl;
+        let finalMediaType = mediaType;
+        let finalDaysOnMarket = daysOnMarket;
+        let finalSalePrice = salePrice;
+        let finalListPrice = listPrice;
+        let finalPackageUsed = packageUsed;
+        let finalTitle = title || "Project Economics";
+        let finalStatus = status;
+        let finalBeds = beds;
+        let finalBaths = baths;
+        let finalSqft = sqft;
+        let finalLinkUrl = linkUrl;
+        let finalLinkLabel = linkLabel || "View Showcase";
+
+        if (selectionMode === "portfolio" && portfolioId) {
+          const selectedItem = portfolioItems.find(item => item.id === portfolioId);
+          if (selectedItem) {
+            finalMediaUrl = selectedItem.img || mediaUrl;
+            finalMediaType = "image";
+            finalTitle = selectedItem.title || "Featured Residence";
+            finalStatus = selectedItem.status || status || "Active";
+            finalBeds = selectedItem.beds || "";
+            finalBaths = selectedItem.baths || "";
+            finalSqft = selectedItem.sqft || "";
+            finalListPrice = selectedItem.listPrice || "";
+            finalSalePrice = selectedItem.listPrice || "";
+            finalLinkUrl = `/portfolio/${selectedItem.id}`;
+            finalLinkLabel = "View Full Listing";
+            
+            // Calculate days on market dynamically from createdAt
+            if (selectedItem.createdAt) {
+              let t = 0;
+              if (typeof selectedItem.createdAt.toMillis === 'function') {
+                t = selectedItem.createdAt.toMillis();
+              } else if (selectedItem.createdAt.seconds) {
+                t = selectedItem.createdAt.seconds * 1000;
+              } else {
+                t = Date.parse(selectedItem.createdAt);
+              }
+              if (!isNaN(t) && t > 0) {
+                const diffMs = Date.now() - t;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                finalDaysOnMarket = diffDays > 0 ? diffDays : 1;
+              } else {
+                finalDaysOnMarket = daysOnMarket || 14;
+              }
+            } else {
+              finalDaysOnMarket = daysOnMarket || 14;
+            }
+
+            finalPackageUsed = selectedItem.category || "Premium Showcase";
+          }
+        }
+
+        return (
+          <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
+            <PropertyHighlight 
+              mediaUrl={finalMediaUrl} 
+              mediaType={finalMediaType} 
+              autoPlay={autoPlay}
+              daysOnMarket={finalDaysOnMarket} 
+              salePrice={finalSalePrice} 
+              listPrice={finalListPrice} 
+              packageUsed={finalPackageUsed} 
+              title={finalTitle}
+              status={finalStatus}
+              beds={finalBeds}
+              baths={finalBaths}
+              sqft={finalSqft}
+              linkUrl={finalLinkUrl}
+              linkLabel={finalLinkLabel}
+            />
+          </ComponentWrapper>
+        );
+      },
     },
     TourEmbed: {
       fields: {
@@ -2859,7 +2992,45 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       fields: {
         title: { type: "text" },
         subtitle: { type: "text" },
+        selectionMode: {
+          type: "select",
+          options: [
+            { label: "Manual Selection (Media Picker)", value: "manual" },
+            { label: "Dynamic Listings (Auto-Sync Database)", value: "dynamic" },
+            { label: "Dynamic Partner Profiles (Auto-Sync Partners)", value: "partners" }
+          ]
+        },
         images: MediaPickerField as any,
+        filterStatus: {
+          type: "select",
+          options: [
+            { label: "All Properties / Partners", value: "All" },
+            { label: "Active Listings Only", value: "Active" },
+            { label: "Pending Sales Only", value: "Pending" },
+            { label: "Sold Properties Only", value: "Sold" },
+            { label: "Archived Assets Only", value: "Archived" },
+            { label: "Preferred Partners Only (Role)", value: "preferred" },
+            { label: "Standard Realtors Only (Role)", value: "partner" }
+          ]
+        },
+        filterCategory: {
+          type: "text"
+        },
+        sortBy: {
+          type: "select",
+          options: [
+            { label: "Default Order (Ascending)", value: "order_asc" },
+            { label: "Default Order (Descending)", value: "order_desc" },
+            { label: "Price (Low to High)", value: "price_asc" },
+            { label: "Price (High to Low)", value: "price_desc" },
+            { label: "Title (A to Z)", value: "title_asc" },
+            { label: "Title (Z to A)", value: "title_desc" },
+            { label: "Newest First", value: "newest" }
+          ]
+        },
+        maxItems: {
+          type: "number"
+        },
         layout: {
           type: "select",
           options: [
@@ -2904,7 +3075,12 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
       defaultProps: {
         title: "Selected Property Stories",
         subtitle: "High-fidelity captures handpicked from our architectural detail files.",
+        selectionMode: "manual",
         images: [],
+        filterStatus: "All",
+        filterCategory: "",
+        sortBy: "order_asc",
+        maxItems: 0,
         layout: "grid",
         columns: 3,
         aspectRatio: "16/9",
@@ -2913,13 +3089,141 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
         width: "full",
         spacing: { pt: "40", pb: "40", mt: "0", mb: "0" },
       },
-      render: ({ title, subtitle, images, layout, columns, aspectRatio, grayscaleEffect, lightbox, width, spacing, entranceAnimation }) => {
+      render: ({ 
+        title, 
+        subtitle, 
+        images, 
+        layout, 
+        columns, 
+        aspectRatio, 
+        grayscaleEffect, 
+        lightbox, 
+        width, 
+        spacing, 
+        entranceAnimation,
+        selectionMode = "manual",
+        filterStatus = "All",
+        filterCategory = "",
+        sortBy = "order_asc",
+        maxItems = 0
+      }) => {
+        const { portfolioItems = [], partners = [] } = useSiteContent();
+        let renderedImages = images || [];
+
+        if (selectionMode === "dynamic") {
+          const parsePrice = (priceStr: any): number => {
+            if (!priceStr) return 0;
+            if (typeof priceStr === 'number') return priceStr;
+            const cleaned = String(priceStr).replace(/[^0-9.]/g, '');
+            const parsed = parseFloat(cleaned);
+            return isNaN(parsed) ? 0 : parsed;
+          };
+
+          const getTimestamp = (item: any): number => {
+            if (item.createdAt) {
+              if (typeof item.createdAt.toMillis === 'function') {
+                return item.createdAt.toMillis();
+              }
+              if (item.createdAt.seconds) {
+                return item.createdAt.seconds * 1000;
+              }
+              const t = Date.parse(item.createdAt);
+              if (!isNaN(t)) return t;
+            }
+            return 0;
+          };
+
+          let filtered = [...portfolioItems];
+
+          if (filterStatus && filterStatus !== "All") {
+            filtered = filtered.filter(item => item.status === filterStatus);
+          }
+
+          if (filterCategory && filterCategory.trim() !== "") {
+            const catLower = filterCategory.trim().toLowerCase();
+            filtered = filtered.filter(item => 
+              (item.category || "").toLowerCase().includes(catLower)
+            );
+          }
+
+          filtered.sort((a, b) => {
+            switch (sortBy) {
+              case "order_desc":
+                return (Number(b.order) || 0) - (Number(a.order) || 0);
+              case "price_asc":
+                return parsePrice(a.listPrice) - parsePrice(b.listPrice);
+              case "price_desc":
+                return parsePrice(b.listPrice) - parsePrice(a.listPrice);
+              case "title_asc":
+                return (a.title || "").localeCompare(b.title || "");
+              case "title_desc":
+                return (b.title || "").localeCompare(a.title || "");
+              case "newest":
+                return getTimestamp(b) - getTimestamp(a);
+              case "order_asc":
+              default:
+                return (Number(a.order) || 0) - (Number(b.order) || 0);
+            }
+          });
+
+          if (maxItems && maxItems > 0) {
+            filtered = filtered.slice(0, maxItems);
+          }
+
+          renderedImages = filtered.map(item => ({
+            url: item.img || "",
+            portfolioId: item.id || "",
+            portfolioTitle: item.title || "Untitled",
+            category: item.category || "Property",
+            status: item.status || "Active",
+            price: item.listPrice || ""
+          }));
+        } else if (selectionMode === "partners") {
+          let filtered = [...partners];
+
+          if (filterStatus && filterStatus !== "All") {
+            const roleFilter = filterStatus.toLowerCase();
+            filtered = filtered.filter(p => (p.role || "").toLowerCase() === roleFilter);
+          }
+
+          if (filterCategory && filterCategory.trim() !== "") {
+            const catLower = filterCategory.trim().toLowerCase();
+            filtered = filtered.filter(p => 
+              (p.displayName || "").toLowerCase().includes(catLower)
+            );
+          }
+
+          filtered.sort((a, b) => {
+            switch (sortBy) {
+              case "title_desc":
+                return (b.displayName || "").localeCompare(a.displayName || "");
+              case "title_asc":
+              default:
+                return (a.displayName || "").localeCompare(b.displayName || "");
+            }
+          });
+
+          if (maxItems && maxItems > 0) {
+            filtered = filtered.slice(0, maxItems);
+          }
+
+          renderedImages = filtered.map(item => ({
+            url: item.headshotUrl || item.logoUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600",
+            portfolioId: item.id || "",
+            portfolioTitle: item.displayName || "Preferred Partner",
+            category: item.role === "preferred" ? "Preferred Partner" : "Realtor",
+            status: item.phone || "",
+            price: item.email || "",
+            linkUrl: `/partners/${item.id}`
+          }));
+        }
+
         return (
           <ComponentWrapper width={width} spacing={spacing} entranceAnimation={entranceAnimation}>
             <DynamicCuratedGallery
               title={title}
               subtitle={subtitle}
-              images={images}
+              images={renderedImages}
               layout={layout}
               columns={columns}
               aspectRatio={aspectRatio}

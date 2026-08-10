@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight, X, Maximize2, Compass } from "lucide-react";
 
@@ -12,6 +13,9 @@ interface SelectedMedia {
   portfolioId: string;
   portfolioTitle: string;
   category?: string;
+  status?: string;
+  price?: string;
+  linkUrl?: string;
 }
 
 interface DynamicCuratedGalleryProps {
@@ -41,6 +45,30 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
 }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  const getBadgeText = (img: SelectedMedia) => {
+    const parts = [img.category || "Property Asset"];
+    if (img.status) parts.push(img.status);
+    if (img.price) parts.push(img.price);
+    return parts.join(" • ");
+  };
+
+  const handleItemClick = (img: SelectedMedia, index: number) => {
+    if (img.linkUrl) {
+      if (window.location.pathname.includes('/edit') || window.location.pathname.includes('/admin')) {
+        if (lightbox) {
+          setLightboxIndex(index);
+        }
+      } else {
+        navigate(img.linkUrl);
+      }
+    } else {
+      if (lightbox) {
+        setLightboxIndex(index);
+      }
+    }
+  };
 
   // Keyboard navigation for lightbox
   useEffect(() => {
@@ -172,7 +200,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
                 className={`group relative overflow-hidden bg-[#101010] border border-white/5 cursor-pointer ${getAspectClass(aspectRatio)}`}
-                onClick={() => lightbox && setLightboxIndex(index)}
+                onClick={() => handleItemClick(img, index)}
               >
                 <img
                   src={img.url}
@@ -191,7 +219,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                     </div>
                     <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                       <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                        {img.category || "Property Asset"}
+                        {getBadgeText(img)}
                       </span>
                       <span className="font-display text-sm italic text-white line-clamp-1 block">
                         {img.portfolioTitle}
@@ -209,7 +237,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
               <div
                 key={`${img.url}-mobile-${index}`}
                 className="flex-shrink-0 w-[85vw] snap-center aspect-video relative overflow-hidden bg-[#101010] border border-white/5"
-                onClick={() => lightbox && setLightboxIndex(index)}
+                onClick={() => handleItemClick(img, index)}
               >
                 <img
                   src={img.url}
@@ -220,7 +248,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                 {!hideOverlays && (
                   <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
                     <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                      {img.category || "Property Asset"}
+                      {getBadgeText(img)}
                     </span>
                     <span className="font-display text-sm italic text-white line-clamp-1 block">
                       {img.portfolioTitle}
@@ -245,7 +273,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
                 className={`break-inside-avoid w-full block bg-[#101010] border border-white/5 group relative overflow-hidden cursor-pointer ${minimalGap ? "mb-1.5" : "mb-6"}`}
-                onClick={() => lightbox && setLightboxIndex(index)}
+                onClick={() => handleItemClick(img, index)}
               >
                 <img
                   src={img.url}
@@ -264,7 +292,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                     </div>
                     <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                       <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                        {img.category || "Property Asset"}
+                        {getBadgeText(img)}
                       </span>
                       <span className="font-display text-sm italic text-white line-clamp-1 block">
                         {img.portfolioTitle}
@@ -282,7 +310,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
               <div
                 key={`${img.url}-mobile-${index}`}
                 className="flex-shrink-0 w-[85vw] snap-center aspect-video relative overflow-hidden bg-[#101010] border border-white/5"
-                onClick={() => lightbox && setLightboxIndex(index)}
+                onClick={() => handleItemClick(img, index)}
               >
                 <img
                   src={img.url}
@@ -293,7 +321,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                 {!hideOverlays && (
                   <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
                     <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                      {img.category || "Property Asset"}
+                      {getBadgeText(img)}
                     </span>
                     <span className="font-display text-sm italic text-white line-clamp-1 block">
                       {img.portfolioTitle}
@@ -318,7 +346,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
                 className={`${getBentoSpan(index)} group relative overflow-hidden bg-[#101010] border border-white/5 cursor-pointer`}
-                onClick={() => lightbox && setLightboxIndex(index)}
+                onClick={() => handleItemClick(img, index)}
               >
                 <img
                   src={img.url}
@@ -337,7 +365,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                     </div>
                     <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                       <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                        {img.category || "Property Asset"}
+                        {getBadgeText(img)}
                       </span>
                       <span className="font-display text-sm md:text-base italic text-white line-clamp-1 block">
                         {img.portfolioTitle}
@@ -355,7 +383,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
               <div
                 key={`${img.url}-mobile-${index}`}
                 className="flex-shrink-0 w-[85vw] snap-center aspect-video relative overflow-hidden bg-[#101010] border border-white/5"
-                onClick={() => lightbox && setLightboxIndex(index)}
+                onClick={() => handleItemClick(img, index)}
               >
                 <img
                   src={img.url}
@@ -366,7 +394,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                 {!hideOverlays && (
                   <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
                     <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                      {img.category || "Property Asset"}
+                      {getBadgeText(img)}
                     </span>
                     <span className="font-display text-sm italic text-white line-clamp-1 block">
                       {img.portfolioTitle}
@@ -395,7 +423,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 className={`group relative overflow-hidden bg-[#101010] border border-white/5 cursor-pointer ${getAspectClass(aspectRatio)}`}
-                onClick={() => lightbox && setLightboxIndex(index)}
+                onClick={() => handleItemClick(img, index)}
               >
                 <img
                   src={img.url}
@@ -414,7 +442,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
                     </div>
                     <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                       <span className="text-[8px] uppercase tracking-widest text-brick-copper block font-black mb-0.5">
-                        {img.category || "Property Asset"}
+                        {getBadgeText(img)}
                       </span>
                       <span className="font-display text-sm italic text-white line-clamp-1 block">
                         {img.portfolioTitle}
@@ -442,7 +470,7 @@ export const DynamicCuratedGallery: React.FC<DynamicCuratedGalleryProps> = ({
             <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/80 to-transparent z-50">
               <div className="flex flex-col">
                 <span className="text-[10px] text-brick-copper uppercase tracking-[0.3em] font-black">
-                  {images[lightboxIndex].category || "Property Media"}
+                  {getBadgeText(images[lightboxIndex])}
                 </span>
                 <span className="font-display text-lg italic text-white mt-0.5">
                   {images[lightboxIndex].portfolioTitle}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Compass, Home as HomeIcon, Globe, Eye, HelpCircle, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Box, Compass, Home as HomeIcon, Globe, Eye, HelpCircle, ExternalLink, Bed, Bath, Maximize2 } from 'lucide-react';
 
 export const PropertyHighlight = ({ 
   mediaUrl, 
@@ -8,46 +9,180 @@ export const PropertyHighlight = ({
   daysOnMarket, 
   salePrice, 
   listPrice, 
-  packageUsed 
+  packageUsed,
+  title = "Project Economics",
+  beds,
+  baths,
+  sqft,
+  linkUrl,
+  linkLabel = "View Showcase",
+  status
 }: { 
   mediaUrl: string, 
   mediaType: 'image' | 'video', 
   autoPlay?: boolean,
-  daysOnMarket: number, 
-  salePrice: string, 
-  listPrice: string, 
-  packageUsed: string 
+  daysOnMarket?: number, 
+  salePrice?: string, 
+  listPrice?: string, 
+  packageUsed?: string,
+  title?: string,
+  beds?: string | number,
+  baths?: string | number,
+  sqft?: string | number,
+  linkUrl?: string,
+  linkLabel?: string,
+  status?: string
 }) => {
+  const hasListingDetails = beds || baths || sqft || linkUrl;
+
+  const getStatusLabel = () => {
+    if (status) return status.toUpperCase();
+    if (hasListingDetails) return "FEATURED LISTING";
+    return "PROJECT PROFILE";
+  };
+
+  const getStatusColor = () => {
+    switch (status?.toLowerCase()) {
+      case 'sold':
+        return 'bg-red-500/10 text-red-400 border-red-500/20';
+      case 'pending':
+        return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      case 'active':
+      default:
+        return 'bg-brick-copper/10 text-brick-copper border-brick-copper/20';
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/10 group">
-      <div className="relative aspect-square md:aspect-auto md:h-full overflow-hidden bg-white/5">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 border border-white/10 overflow-hidden bg-charcoal group">
+      {/* Media Column (6 cols on lg) */}
+      <div className="relative lg:col-span-6 aspect-video lg:aspect-auto lg:h-full min-h-[380px] overflow-hidden bg-white/5">
         {mediaType === 'video' ? (
-          mediaUrl ? <video src={mediaUrl} autoPlay={autoPlay} loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" /> : null
+          mediaUrl ? (
+            <video 
+              src={mediaUrl} 
+              autoPlay={autoPlay} 
+              loop 
+              muted 
+              playsInline 
+              className="w-full h-full object-cover scale-[1.01] group-hover:scale-105 transition-transform duration-1000" 
+            />
+          ) : null
         ) : (
-          mediaUrl ? <img src={mediaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="Highlight" /> : null
+          mediaUrl ? (
+            <img 
+              src={mediaUrl} 
+              className="w-full h-full object-cover scale-[1.01] group-hover:scale-105 transition-transform duration-1000" 
+              alt="Highlight" 
+              referrerPolicy="no-referrer"
+            />
+          ) : null
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
       </div>
-      <div className="p-8 md:p-16 flex flex-col justify-center bg-charcoal">
-        <h3 className="font-display italic text-3xl mb-12 text-white">Project Economics</h3>
-        <div className="space-y-8">
-          <div className="border-b border-white/10 pb-4">
-            <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Days on Market</span>
-            <span className="font-mono text-2xl text-white">{daysOnMarket}</span>
-          </div>
-          <div className="border-b border-white/10 pb-4">
-            <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Sale vs List Price</span>
-            <div className="flex gap-4 items-baseline">
-              <span className="font-mono text-2xl text-white">{salePrice}</span>
-              <span className="font-mono text-xs text-white/40 line-through">{listPrice}</span>
-            </div>
-          </div>
-          <div className="pt-4">
-            <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Media Package Utilized</span>
-            <span className="text-sm font-semibold uppercase tracking-widest text-white">{packageUsed}</span>
-          </div>
+
+      {/* Info Column (6 cols on lg) */}
+      <div className="lg:col-span-6 p-8 md:p-14 lg:p-16 flex flex-col justify-center relative">
+        <div className="absolute top-8 left-8 md:top-12 md:left-14 lg:top-16 lg:left-16">
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-sm text-[8px] font-mono tracking-[0.2em] uppercase border ${getStatusColor()}`}>
+            {getStatusLabel()}
+          </span>
         </div>
-        <div className="mt-12 text-[10px] text-white/40 italic flex justify-end">
-          Powered by REALTOR.ca
+
+        <div className="mt-8">
+          <h3 className="font-display italic text-3xl sm:text-4xl text-white tracking-tight leading-tight mb-8">
+            {title}
+          </h3>
+          
+          {hasListingDetails ? (
+            <div className="space-y-10">
+              {/* Premium Designed Cards/Grid of Beds/Baths/SQFT */}
+              <div className="grid grid-cols-3 gap-3">
+                {beds && (
+                  <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xs hover:bg-white/[0.04] transition-colors group/item">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Bed size={14} className="text-brick-copper" />
+                      <span className="text-[8px] uppercase tracking-[0.25em] text-white/40 font-mono">Beds</span>
+                    </div>
+                    <span className="font-mono text-lg sm:text-xl text-white font-medium">{beds} BD</span>
+                  </div>
+                )}
+                {baths && (
+                  <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xs hover:bg-white/[0.04] transition-colors group/item">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Bath size={14} className="text-brick-copper" />
+                      <span className="text-[8px] uppercase tracking-[0.25em] text-white/40 font-mono">Baths</span>
+                    </div>
+                    <span className="font-mono text-lg sm:text-xl text-white font-medium">{baths} BA</span>
+                  </div>
+                )}
+                {sqft && (
+                  <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xs hover:bg-white/[0.04] transition-colors group/item">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Maximize2 size={13} className="text-brick-copper" />
+                      <span className="text-[8px] uppercase tracking-[0.25em] text-white/40 font-mono">Sq Ft</span>
+                    </div>
+                    <span className="font-mono text-lg sm:text-xl text-white font-medium">
+                      {typeof sqft === 'number' ? sqft.toLocaleString() : sqft}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Sophisticated Price Row */}
+              {(listPrice || salePrice) && (
+                <div className="pt-2 border-t border-white/10">
+                  <span className="block text-[8px] uppercase tracking-[0.3em] text-brick-copper mb-1.5">Value Assessment</span>
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-2xl sm:text-3xl text-white font-bold tracking-tight">
+                      {listPrice || salePrice}
+                    </span>
+                    {salePrice && listPrice && salePrice !== listPrice && (
+                      <span className="font-mono text-xs sm:text-sm text-white/30 line-through">
+                        {listPrice}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action / CTA Button with premium architectural hover */}
+              {linkUrl && (
+                <div className="pt-4 flex">
+                  <Link 
+                    to={linkUrl} 
+                    className="group/btn inline-flex items-center justify-between gap-6 bg-brick-copper hover:bg-white text-charcoal text-[9px] uppercase font-black tracking-[0.25em] transition-all duration-300 pl-8 pr-6 py-4 rounded-xs animate-pulse hover:animate-none"
+                  >
+                    <span>{linkLabel}</span>
+                    <ExternalLink size={12} className="shrink-0 transform group-hover/btn:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-8">
+              <div className="border-b border-white/10 pb-4">
+                <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Days on Market</span>
+                <span className="font-mono text-2xl text-white font-medium">{daysOnMarket}</span>
+              </div>
+              <div className="border-b border-white/10 pb-4">
+                <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Sale vs List Price</span>
+                <div className="flex gap-4 items-baseline">
+                  <span className="font-mono text-2xl text-white font-medium">{salePrice}</span>
+                  <span className="font-mono text-xs text-white/40 line-through">{listPrice}</span>
+                </div>
+              </div>
+              <div className="pt-4">
+                <span className="block text-[9px] uppercase tracking-[0.3em] text-brick-copper mb-2">Media Package Utilized</span>
+                <span className="text-sm font-semibold uppercase tracking-widest text-white">{packageUsed}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-12 pt-4 border-t border-white/5 text-[9px] text-white/35 italic flex items-center justify-between">
+          <span className="font-mono">MLS® INTEGRATED DATA</span>
+          <span>Powered by REALTOR.ca</span>
         </div>
       </div>
     </div>
