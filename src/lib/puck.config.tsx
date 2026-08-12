@@ -63,6 +63,7 @@ import { FileUpload } from "../components/FileUpload";
 import { PDFViewer } from "../components/PDFViewer";
 import { DynamicCuratedGallery } from "../components/DynamicCuratedGallery";
 import { useSiteContent } from "./SiteContentContext";
+import { parseVideoUrl } from "./utils";
 
 // Reusable Elementor-style Spacing Control
 const SpacingControl = {
@@ -2170,9 +2171,40 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
           <SpacingWrapper spacing={spacing}>
             <div className={`relative w-full flex items-center justify-center overflow-hidden ${height}`}>
               {mediaType === 'video' ? (
-                <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
-                  <source src={mediaUrl} type="video/mp4" />
-                </video>
+                (() => {
+                  const videoInfo = parseVideoUrl(mediaUrl);
+                  if (videoInfo.type === 'youtube') {
+                    const finalSrc = `${videoInfo.embedUrl}?autoplay=1&loop=1&mute=1&controls=0&showinfo=0&rel=0&playlist=${videoInfo.id}&playsinline=1&enablejsapi=1`;
+                    return (
+                      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden select-none">
+                        <iframe
+                          src={finalSrc}
+                          className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 scale-110 pointer-events-none border-0"
+                          allow="autoplay; encrypted-media"
+                          title="Background Video"
+                        />
+                      </div>
+                    );
+                  } else if (videoInfo.type === 'vimeo') {
+                    const finalSrc = `${videoInfo.embedUrl}?background=1&autoplay=1&loop=1&muted=1`;
+                    return (
+                      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden select-none">
+                        <iframe
+                          src={finalSrc}
+                          className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 scale-110 pointer-events-none border-0"
+                          allow="autoplay; encrypted-media"
+                          title="Background Video"
+                        />
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
+                        <source src={mediaUrl} type="video/mp4" />
+                      </video>
+                    );
+                  }
+                })()
               ) : (
                 <img src={mediaUrl} className="absolute inset-0 w-full h-full object-cover" alt="Background" referrerPolicy="no-referrer" />
               )}
@@ -2978,9 +3010,38 @@ export const createConfig = (pages: any[] = [], portfolioItems: any[] = [], part
                 className="overflow-hidden bg-white/5 relative group border border-white/10"
               >
                 {mediaType === 'video' ? (
-                  url ? <video src={url} autoPlay={autoPlay} loop={loop} muted={muted} controls={showControls} playsInline className={`w-full h-full object-${objectFit}`} /> : null
+                  url ? (() => {
+                    const videoInfo = parseVideoUrl(url);
+                    if (videoInfo.type === 'youtube') {
+                      const finalSrc = `${videoInfo.embedUrl}?autoplay=${autoPlay ? 1 : 0}&mute=${muted ? 1 : 0}&loop=${loop ? 1 : 0}&playlist=${videoInfo.id}&controls=${showControls ? 1 : 0}&playsinline=1`;
+                      return (
+                        <iframe
+                          src={finalSrc}
+                          className="w-full h-full border-0 absolute inset-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          title="Embedded Video"
+                        />
+                      );
+                    } else if (videoInfo.type === 'vimeo') {
+                      const finalSrc = `${videoInfo.embedUrl}?autoplay=${autoPlay ? 1 : 0}&muted=${muted ? 1 : 0}&loop=${loop ? 1 : 0}&controls=${showControls ? 1 : 0}`;
+                      return (
+                        <iframe
+                          src={finalSrc}
+                          className="w-full h-full border-0 absolute inset-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          title="Embedded Video"
+                        />
+                      );
+                    } else {
+                      return (
+                        <video src={url} autoPlay={autoPlay} loop={loop} muted={muted} controls={showControls} playsInline className={`w-full h-full object-${objectFit}`} />
+                      );
+                    }
+                  })() : null
                 ) : (
-                  url ? <img src={url} className={`w-full h-full object-${objectFit}`} alt="" /> : null
+                  url ? <img src={url} className={`w-full h-full object-${objectFit}`} alt="" referrerPolicy="no-referrer" /> : null
                 )}
               </div>
             </div>

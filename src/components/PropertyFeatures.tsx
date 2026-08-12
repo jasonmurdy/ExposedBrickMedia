@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Compass, Home as HomeIcon, Globe, Eye, HelpCircle, ExternalLink, Bed, Bath, Maximize2 } from 'lucide-react';
+import { parseVideoUrl } from '../lib/utils';
 
 export const PropertyHighlight = ({ 
   mediaUrl, 
@@ -58,16 +59,41 @@ export const PropertyHighlight = ({
       {/* Media Column (6 cols on lg) */}
       <div className="relative lg:col-span-6 aspect-video lg:aspect-auto lg:h-full min-h-[380px] overflow-hidden bg-white/5">
         {mediaType === 'video' ? (
-          mediaUrl ? (
-            <video 
-              src={mediaUrl} 
-              autoPlay={autoPlay} 
-              loop 
-              muted 
-              playsInline 
-              className="w-full h-full object-cover scale-[1.01] group-hover:scale-105 transition-transform duration-1000" 
-            />
-          ) : null
+          mediaUrl ? (() => {
+            const videoInfo = parseVideoUrl(mediaUrl);
+            if (videoInfo.type === 'youtube') {
+              const finalSrc = `${videoInfo.embedUrl}?autoplay=${autoPlay ? 1 : 0}&mute=1&loop=1&playlist=${videoInfo.id}&controls=0&playsinline=1`;
+              return (
+                <iframe
+                  src={finalSrc}
+                  className="w-full h-full min-h-[380px] object-cover border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              );
+            } else if (videoInfo.type === 'vimeo') {
+              const finalSrc = `${videoInfo.embedUrl}?background=1&autoplay=${autoPlay ? 1 : 0}&muted=1&loop=1`;
+              return (
+                <iframe
+                  src={finalSrc}
+                  className="w-full h-full min-h-[380px] object-cover border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              );
+            } else {
+              return (
+                <video 
+                  src={mediaUrl} 
+                  autoPlay={autoPlay} 
+                  loop 
+                  muted 
+                  playsInline 
+                  className="w-full h-full object-cover scale-[1.01] group-hover:scale-105 transition-transform duration-1000" 
+                />
+              );
+            }
+          })() : null
         ) : (
           mediaUrl ? (
             <img 
