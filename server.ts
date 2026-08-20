@@ -13,6 +13,7 @@ import fs from "fs";
 import { google } from "googleapis";
 import { PassThrough } from "stream";
 import axios from "axios";
+import { mergeBracketImages, HDRProcessingOptions } from "./server/hdrProcessor";
 
 dotenv.config();
 
@@ -138,11 +139,168 @@ const genAI = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_G
 }) : null;
 
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "150mb" }));
+app.use(express.urlencoded({ limit: "150mb", extended: true }));
 
 async function startServer() {
   const PORT = 3000;
+
+  // Automated HDR Bracket Processing Pipeline Endpoints
+  app.get("/api/hdr/presets", (req, res) => {
+    res.json({
+      presets: [
+        {
+          id: 'natural_bright',
+          name: 'Natural Bright',
+          badge: 'Default',
+          description: 'Clean daylight balance, airy interiors, neutral white point with balanced shadow lifting.',
+          idealFor: 'Daytime living rooms, kitchens, standard residential listings',
+          gamma: 1.05,
+          shadowLift: 22,
+          highlightRecovery: 30,
+          windowPull: 35
+        },
+        {
+          id: 'high_contrast_interior',
+          name: 'High Contrast Interior',
+          badge: 'Editorial',
+          description: 'Deep blacks, rich wood tones, dynamic micro-contrast and punchy ambient light accents.',
+          idealFor: 'Luxury modern architecture, dark cabinetry, high-end commercial spaces',
+          gamma: 0.96,
+          shadowLift: 12,
+          highlightRecovery: 25,
+          windowPull: 30
+        },
+        {
+          id: 'window_pull_balanced',
+          name: 'Window Pull Balanced',
+          badge: 'View Retention',
+          description: 'Aggressive highlight compression on window openings with vivid exterior views and bright indoor ambient lift.',
+          idealFor: 'Waterfront properties, mountain views, high-floor penthouses, sunlit sunrooms',
+          gamma: 1.02,
+          shadowLift: 28,
+          highlightRecovery: 45,
+          windowPull: 55
+        },
+        {
+          id: 'luxury_twilight',
+          name: 'Luxury Twilight / Golden Hour',
+          badge: 'Sunset Glow',
+          description: 'Deep velvet evening skies, warm indoor halogen/LED bulb luminance, golden sunset highlights.',
+          idealFor: 'Dusk exteriors, fire pit patios, poolside twilight photography',
+          gamma: 1.12,
+          shadowLift: 18,
+          highlightRecovery: 35,
+          windowPull: 40
+        },
+        {
+          id: 'crisp_architectural',
+          name: 'Crisp Architectural',
+          badge: 'Commercial',
+          description: 'Linear geometric clarity, neutral chromatic balance, ultra-sharp edge definition.',
+          idealFor: 'Commercial real estate, exterior building facades, modern developer brochures',
+          gamma: 1.0,
+          shadowLift: 15,
+          highlightRecovery: 30,
+          windowPull: 35
+        }
+      ]
+    });
+  });
+
+  app.post("/api/process-brackets", async (req, res) => {
+    try {
+      const { 
+        jobId, 
+        images, // Array of base64 strings or image URLs (3 or 5 brackets: -2, 0, +2 EV)
+        profile = 'natural_bright',
+        exposureTimes = [-2, 0, 2],
+        customSettings = {},
+        clientName,
+        propertyAddress,
+        portfolioId
+      } = req.body;
+
+      if (!images || !Array.isArray(images) || images.length < 2) {
+        return res.status(400).json({ 
+          error: "At least 2 bracketed images are required for HDR merging (typically 3 or 5 brackets: -2, 0, +2 EV)." 
+        });
+      }
+
+      console.log(`[HDR Pipeline] Starting merge job for ${images.length} brackets. Profile: ${profile}. Job ID: ${jobId || 'direct'}`);
+
+      // Optional admin DB synchronization (client also synchronizes state directly)
+      if (jobId && adminDb && adminDb.collection) {
+        try {
+          await adminDb.collection('processing_jobs').doc(jobId).set({
+            status: 'processing',
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        } catch {
+          // Fallback: Client SDK manages Firestore persistence
+        }
+      }
+
+      const result = await mergeBracketImages(images, {
+        profile,
+        exposureTimes,
+        customSettings,
+        outputFormat: 'jpeg',
+        outputQuality: 96
+      });
+
+      // Update Firestore job document if jobId is present
+      if (jobId && adminDb && adminDb.collection) {
+        try {
+          await adminDb.collection('processing_jobs').doc(jobId).set({
+            status: 'completed',
+            thumbnailUrl: result.thumbnailBase64,
+            bracketCount: result.bracketCount,
+            toneMappingProfile: profile,
+            metrics: result.metrics,
+            dimensions: result.dimensions,
+            processingTimeMs: result.processingTimeMs,
+            clientName: clientName || '',
+            propertyAddress: propertyAddress || '',
+            portfolioId: portfolioId || '',
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        } catch {
+          // Fallback: Client SDK manages Firestore persistence
+        }
+      }
+
+      res.json({
+        success: true,
+        jobId,
+        outputUrl: result.outputBase64,
+        thumbnailUrl: result.thumbnailBase64,
+        dimensions: result.dimensions,
+        processingTimeMs: result.processingTimeMs,
+        bracketCount: result.bracketCount,
+        profile: result.profile,
+        metrics: result.metrics
+      });
+    } catch (err: any) {
+      console.error("[HDR Pipeline Error]:", err);
+
+      if (req.body.jobId && adminDb && adminDb.collection) {
+        try {
+          await adminDb.collection('processing_jobs').doc(req.body.jobId).set({
+            status: 'error',
+            errorMessage: err.message || 'Failed to process HDR brackets',
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (dbErr) {
+          console.warn("[HDR Pipeline DB Error Status Warn]:", dbErr);
+        }
+      }
+
+      res.status(500).json({ 
+        error: err.message || "Failed to process HDR brackets" 
+      });
+    }
+  });
 
   app.post("/api/ai/generate-layout", async (req, res) => {
     const { prompt } = req.body;

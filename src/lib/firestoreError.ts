@@ -49,14 +49,20 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
   
   const safeStringify = (obj: any) => {
-    const cache = new WeakSet();
-    return JSON.stringify(obj, (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (cache.has(value)) return '[Circular]';
-        cache.add(value);
-      }
-      return value;
-    });
+    try {
+      const cache = new WeakSet();
+      return JSON.stringify(obj, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (typeof HTMLElement !== 'undefined' && value instanceof HTMLElement) return '[DOMElement]';
+          if (value.$$typeof) return '[ReactElement]';
+          if (cache.has(value)) return '[Circular]';
+          cache.add(value);
+        }
+        return value;
+      });
+    } catch {
+      return String(obj?.error || obj?.message || 'Firestore Error');
+    }
   };
   
   console.error('Firestore Error: ', safeStringify(errInfo));

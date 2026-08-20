@@ -213,27 +213,31 @@ export function sanitizeLayout(layout: any, fallbackTitle: string = ''): any {
   if (!layout || typeof layout !== 'object') return getSafeFallback();
 
   let parsed: any;
+  const cache = new WeakSet();
+  const prune = (val: any): any => {
+    if (val === null || typeof val !== 'object') return val;
+    if (typeof HTMLElement !== 'undefined' && val instanceof HTMLElement) return undefined;
+    if (val.$$typeof) return undefined; // React elements
+    if (cache.has(val)) return undefined; // Circular references
+    cache.add(val);
+    if (Array.isArray(val)) {
+      return val.map(prune).filter(item => item !== undefined);
+    }
+    const cleaned: any = {};
+    for (const [k, v] of Object.entries(val)) {
+      if (typeof v === 'function') continue;
+      const prunedVal = prune(v);
+      if (prunedVal !== undefined) {
+        cleaned[k] = prunedVal;
+      }
+    }
+    return cleaned;
+  };
+
   try {
-    parsed = JSON.parse(JSON.stringify(layout));
-  } catch (e) {
-    const cache = new WeakSet();
-    const prune = (val: any): any => {
-      if (val === null || typeof val !== 'object') return val;
-      if (cache.has(val)) return undefined;
-      cache.add(val);
-      if (Array.isArray(val)) {
-        return val.map(prune).filter(item => item !== undefined);
-      }
-      const cleaned: any = {};
-      for (const [k, v] of Object.entries(val)) {
-        const prunedVal = prune(v);
-        if (prunedVal !== undefined) {
-          cleaned[k] = prunedVal;
-        }
-      }
-      return cleaned;
-    };
     parsed = prune(layout);
+  } catch (e) {
+    parsed = getSafeFallback();
   }
 
   if (!parsed || typeof parsed !== 'object') return getSafeFallback();

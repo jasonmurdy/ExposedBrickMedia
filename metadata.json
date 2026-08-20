@@ -1,6 +1,6 @@
 {
   "name": "The Exposed Brick",
-  "description": "A high-end, minimalist architectural media agency website focusing on cinematography and photography.",
+  "description": "A high-end architectural media agency platform with cinematography, portfolio delivery, and automated multi-exposure HDR bracket fusion pipeline.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

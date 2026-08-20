@@ -188,9 +188,39 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "category", "puckData", "createdAt"]
+    },
+    "ProcessingJob": {
+      "title": "HDR Processing Job",
+      "description": "Automated multi-exposure HDR bracket merge and tone mapping job.",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string" },
+        "propertyAddress": { "type": "string" },
+        "portfolioId": { "type": "string" },
+        "status": { "type": "string", "enum": ["queued", "processing", "completed", "error"] },
+        "toneMappingProfile": { "type": "string", "enum": ["natural_bright", "high_contrast_interior", "window_pull_balanced", "luxury_twilight", "crisp_architectural"] },
+        "bracketCount": { "type": "number" },
+        "isRawSource": { "type": "boolean" },
+        "rawFormatLabel": { "type": "string" },
+        "processingTimeMs": { "type": "number" },
+        "rawUrls": { "type": "array", "items": { "type": "string" } },
+        "outputUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "errorMessage": { "type": "string" },
+        "metrics": { "type": "object" },
+        "dimensions": { "type": "object" },
+        "exposureTimes": { "type": "array", "items": { "type": "number" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["status", "toneMappingProfile", "createdAt"]
     }
   },
   "firestore": {
+    "processing_jobs": {
+      "schema": "ProcessingJob",
+      "description": "Queue and history of automated HDR bracket merge jobs."
+    },
     "puck_templates": {
       "schema": "PuckTemplate",
       "description": "Stored templates for loading in Puck Editor."

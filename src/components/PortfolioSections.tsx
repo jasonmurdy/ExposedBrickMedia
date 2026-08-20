@@ -317,15 +317,23 @@ const SortablePortfolioItem = ({
 };
 
 // Clean object for Firestore (remove functions and non-serializable fields)
-const cleanObject = (obj: any): any => {
+const cleanObject = (obj: any, cache = new WeakSet()): any => {
   if (!obj || typeof obj !== 'object') return obj;
+  if (typeof HTMLElement !== 'undefined' && obj instanceof HTMLElement) return undefined;
+  if (obj.$$typeof) return undefined;
+  if (cache.has(obj)) return undefined;
+  cache.add(obj);
+
   const result: any = Array.isArray(obj) ? [] : {};
   for (const key in obj) {
     const value = obj[key];
     if (typeof value === 'function') continue;
     if (value === undefined) continue;
     if (value !== null && typeof value === 'object') {
-      result[key] = cleanObject(value);
+      const cleanedChild = cleanObject(value, cache);
+      if (cleanedChild !== undefined) {
+        result[key] = cleanedChild;
+      }
     } else {
       result[key] = value;
     }

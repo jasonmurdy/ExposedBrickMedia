@@ -214,6 +214,27 @@ service cloud.firestore {
         && data.resolvedAt is string && data.resolvedAt.size() <= 100;
     }
 
+    function isValidProcessingJob(data) {
+      return data.keys().hasAll(['status', 'toneMappingProfile', 'createdAt'])
+        && data.status is string && (data.status == 'queued' || data.status == 'processing' || data.status == 'completed' || data.status == 'error')
+        && data.toneMappingProfile is string && data.toneMappingProfile.size() <= 100
+        && (data.get('rawUrls', null) == null || (data.rawUrls is list && data.rawUrls.size() <= 50))
+        && (data.get('clientName', null) == null || (data.clientName is string && data.clientName.size() <= 500))
+        && (data.get('propertyAddress', null) == null || (data.propertyAddress is string && data.propertyAddress.size() <= 1000))
+        && (data.get('portfolioId', null) == null || (data.portfolioId is string && data.portfolioId.size() <= 200))
+        && (data.get('isRawSource', null) == null || (data.isRawSource is bool))
+        && (data.get('rawFormatLabel', null) == null || (data.rawFormatLabel is string && data.rawFormatLabel.size() <= 500))
+        && (data.get('outputUrl', null) == null || (data.outputUrl is string && data.outputUrl.size() <= 100000))
+        && (data.get('thumbnailUrl', null) == null || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 100000))
+        && (data.get('errorMessage', null) == null || (data.errorMessage is string && data.errorMessage.size() <= 5000))
+        && (data.get('bracketCount', null) == null || (data.bracketCount is number))
+        && (data.get('processingTimeMs', null) == null || (data.processingTimeMs is number))
+        && (data.get('metrics', null) == null || (data.metrics is map))
+        && (data.get('dimensions', null) == null || (data.dimensions is map))
+        && (data.get('exposureTimes', null) == null || (data.exposureTimes is list))
+        && (data.get('updatedAt', null) == null || true);
+    }
+
     // 3. Collection Rules
     match /admins/{adminId} {
       allow read: if isAdmin();
@@ -320,7 +341,7 @@ service cloud.firestore {
     }
 
     match /brand_resources/{resourceId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
@@ -361,6 +382,13 @@ service cloud.firestore {
 
     match /fotello_sync_decisions/{decId} {
       allow read, write: if true;
+    }
+
+    match /processing_jobs/{jobId} {
+      allow read: if true;
+      allow create: if isValidProcessingJob(incoming()) && isValidId(jobId);
+      allow update: if isValidProcessingJob(incoming()) && isValidId(jobId);
+      allow delete: if isAdmin();
     }
   }
 }

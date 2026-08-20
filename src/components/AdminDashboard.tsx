@@ -58,6 +58,7 @@ import { FileUpload } from './FileUpload';
 import { LinkSelector } from './LinkSelector';
 import { ImageSelector } from './ImageSelector';
 import { MultiImageUploader } from './MultiImageUploader';
+import { HDRBracketPipeline } from './HDRBracketPipeline';
 import { PuckEditor } from './PuckEditor';
 import { Portfolio } from './PortfolioSections';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
@@ -380,7 +381,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
   const [teams, setTeams] = useState<any[]>([]);
   const [referrals, setReferrals] = useState<any[]>([]);
   const [brandResources, setBrandResources] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups' | 'fotello' | 'communications' | 'referrals'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'layout' | 'portfolio' | 'hdr_pipeline' | 'services' | 'inquiries' | 'pages' | 'testimonials' | 'admins' | 'portal' | 'partners' | 'teams' | 'brand' | 'popups' | 'fotello' | 'communications' | 'referrals'>('architecture');
 
   // Unified Real-time Notification Hub & Alerts States
   const [hubInquiries, setHubInquiries] = useState<any[]>([]);
@@ -2123,6 +2124,7 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
       category: "Portfolio & Offers",
       items: [
         { id: 'portfolio', label: 'Portfolio', icon: Layout },
+        { id: 'hdr_pipeline', label: 'HDR Bracket Pipeline', icon: GitMerge },
         { id: 'services', label: 'Services', icon: Briefcase },
         { id: 'testimonials', label: 'Social Proof', icon: Users },
         { id: 'popups', label: 'Global Popups', icon: Bell }
@@ -2994,7 +2996,30 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                </div>
             </div>
           </section>
-        )}        {activeTab === 'portfolio' && (
+        )}        {activeTab === 'hdr_pipeline' && (
+          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <HDRBracketPipeline
+              portfolioListings={portfolioItems.map(p => ({ id: p.id, title: p.title, gallery: p.gallery || [] }))}
+              onPushToListing={async (listingId, imageUrl) => {
+                try {
+                  const targetItem = portfolioItems.find(p => p.id === listingId);
+                  if (targetItem) {
+                    const updatedGallery = [...(targetItem.gallery || []), imageUrl];
+                    await updateDoc(doc(db, 'portfolio_items', listingId), {
+                      gallery: updatedGallery,
+                      updatedAt: serverTimestamp()
+                    });
+                    toast.success("Appended HDR Master to Listing Gallery!");
+                  }
+                } catch (e: any) {
+                  toast.error("Failed to update listing: " + e.message);
+                }
+              }}
+            />
+          </section>
+        )}
+
+        {activeTab === 'portfolio' && (
           <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
               <div>
@@ -3038,6 +3063,12 @@ export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
                     </button>
                   )}
                 </div>
+                <button 
+                  onClick={() => setActiveTab('hdr_pipeline')}
+                  className="px-4 py-2 bg-white/5 border border-brick-copper/30 text-brick-copper hover:text-white hover:bg-brick-copper/20 text-[10px] uppercase font-bold tracking-widest transition-all flex items-center gap-2"
+                >
+                  <GitMerge size={14} /> HDR Pipeline
+                </button>
                 <button 
                   onClick={handleCreatePortfolio}
                   className="px-6 py-2 bg-brick-copper text-charcoal font-bold text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
